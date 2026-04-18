@@ -10,7 +10,7 @@ defineProps({
 });
 
 /* ✅ UPDATED emits */
-defineEmits(['clear', 'update-quantity', 'remove-line']);
+defineEmits(['clear', 'update-quantity', 'remove-line', 'show-limit-warning']);
 </script>
 
 <template>
@@ -26,6 +26,7 @@ defineEmits(['clear', 'update-quantity', 'remove-line']);
             :lines="lines"
             @update-quantity="$emit('update-quantity', $event)"
             @remove-line="$emit('remove-line', $event)"
+            @show-limit-warning="$emit('show-limit-warning', $event)"
           />
         </template>
 
@@ -38,6 +39,7 @@ defineEmits(['clear', 'update-quantity', 'remove-line']);
               :line="line"
               @update-quantity="$emit('update-quantity', $event)"
               @remove-line="$emit('remove-line', $event)"
+              @show-limit-warning="$emit('show-limit-warning', $event)"
             />
           </div>
         </template>
@@ -53,6 +55,7 @@ defineEmits(['clear', 'update-quantity', 'remove-line']);
         class="btn btn-ghost clear-btn"
         @click="$emit('clear')"
       >
+        <span class="material-icons">delete_sweep</span>
         Clear cart
       </button>
     </template>
@@ -78,6 +81,13 @@ defineEmits(['clear', 'update-quantity', 'remove-line']);
 .clear-btn {
   margin-top: 0.75rem;
   align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.clear-btn .material-icons {
+  font-size: 18px;
 }
 
 .muted {

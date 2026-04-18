@@ -220,4 +220,88 @@ public class ProviderPortalController {
         orderManagementService.deleteOrder(user, id);
         return Map.of("message", "Order deleted successfully");
     }
+
+    // Rental Booking Detail Endpoint
+    @GetMapping("/orders/rentals/{id}")
+    @Transactional(readOnly = true)
+    public RentalBooking getRentalBookingDetails(
+            @AuthenticationPrincipal MarketUserPrincipal user,
+            @PathVariable("id") Long id) {
+        TenantAccess.requireProviderUser(user);
+        RentalBooking booking = rentalBookingRepository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Rental booking not found"));
+
+        if (!booking.getProvider().getId().equals(user.getProviderId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Access denied");
+        }
+
+        return booking;
+    }
+
+    // Verification Code Endpoints
+    @PostMapping("/verify/order/{code}")
+    @Transactional
+    public Map<String, Object> verifyPurchaseOrder(
+            @AuthenticationPrincipal MarketUserPrincipal user,
+            @PathVariable("code") String code) {
+        TenantAccess.requireProviderUser(user);
+
+        PurchaseOrder order = purchaseOrderRepository.findByVerificationCode(code)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Invalid verification code"));
+
+        if (!order.getProvider().getId().equals(user.getProviderId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "This order belongs to a different provider");
+        }
+
+        if (order.getVerifiedAt() != null) {
+            return Map.of(
+                    "message", "Order already verified",
+                    "verifiedAt", order.getVerifiedAt(),
+                    "order", order);
+        }
+
+        order.setVerifiedAt(java.time.Instant.now());
+        purchaseOrderRepository.save(order);
+
+        return Map.of(
+                "message", "Order verified successfully",
+                "verifiedAt", order.getVerifiedAt(),
+                "order", order);
+    }
+
+    @PostMapping("/verify/booking/{code}")
+    @Transactional
+    public Map<String, Object> verifyRentalBooking(
+            @AuthenticationPrincipal MarketUserPrincipal user,
+            @PathVariable("code") String code) {
+        TenantAccess.requireProviderUser(user);
+
+        RentalBooking booking = rentalBookingRepository.findByVerificationCode(code)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Invalid verification code"));
+
+        if (!booking.getProvider().getId().equals(user.getProviderId())) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "This booking belongs to a different provider");
+        }
+
+        if (booking.getVerifiedAt() != null) {
+            return Map.of(
+                    "message", "Booking already verified",
+                    "verifiedAt", booking.getVerifiedAt(),
+                    "booking", booking);
+        }
+
+        booking.setVerifiedAt(java.time.Instant.now());
+        rentalBookingRepository.save(booking);
+
+        return Map.of(
+                "message", "Booking verified successfully",
+                "verifiedAt", booking.getVerifiedAt(),
+                "booking", booking);
+    }
 }

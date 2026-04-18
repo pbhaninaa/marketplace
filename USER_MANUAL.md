@@ -95,6 +95,18 @@ Headers: X-Session-Id: {your-session-id}
 }
 ```
 
+ Rentakl**Smart Quantity Management:**
+- **SALE items**: If the same item is already in cart, the quantity is incremented instead of creating a duplicate entry
+- **RENT items**: Separate entries are created for different rental dates. Same item with same dates increments quantity
+- Stock validation ensures total quantity doesn't exceed available stock
+
+**Example:**
+```
+Initial cart: [Fertilizer x3]
+Add Fertilizer x2
+Result: [Fertilizer x5]  ← Quantity incremented, not duplicated
+```
+
 #### Viewing Your Cart
 ```
 GET /api/public/cart

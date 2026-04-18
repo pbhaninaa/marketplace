@@ -4,6 +4,7 @@ import com.agrimarket.domain.BookingStatus;
 import com.agrimarket.domain.RentalBooking;
 import java.time.Instant;
 import java.math.BigDecimal;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -16,6 +17,8 @@ public interface RentalBookingRepository extends JpaRepository<RentalBooking, Lo
 
     boolean existsByListing_Id(Long listingId);
 
+    Optional<RentalBooking> findByVerificationCode(String verificationCode);
+
     @Query(
             """
             SELECT COUNT(b) FROM RentalBooking b
@@ -25,6 +28,21 @@ public interface RentalBookingRepository extends JpaRepository<RentalBooking, Lo
             AND b.endAt > :start
             """)
     long countOverlapping(
+            @Param("listingId") Long listingId,
+            @Param("statuses") java.util.Collection<BookingStatus> statuses,
+            @Param("start") Instant start,
+            @Param("end") Instant end);
+
+    @Query(
+            """
+            SELECT b FROM RentalBooking b
+            WHERE b.listing.id = :listingId
+            AND b.status IN (:statuses)
+            AND b.startAt < :end
+            AND b.endAt > :start
+            ORDER BY b.startAt ASC
+            """)
+    java.util.List<RentalBooking> findOverlapping(
             @Param("listingId") Long listingId,
             @Param("statuses") java.util.Collection<BookingStatus> statuses,
             @Param("start") Instant start,

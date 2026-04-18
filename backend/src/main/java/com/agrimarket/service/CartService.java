@@ -16,7 +16,8 @@ import com.agrimarket.repo.ListingRepository;
 import com.agrimarket.repo.RentalBookingRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Instant;
+import java.time.Instant;import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -64,13 +65,18 @@ public class CartService {
             if (req.rentalStart() == null || req.rentalEnd() == null) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "RENTAL_DATES_REQUIRED", "Rental start and end required");
             }
-            long overlaps = rentalBookingRepository.countOverlapping(
+            var conflictingBookings = rentalBookingRepository.findOverlapping(
                     listing.getId(),
                     Set.of(BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED),
                     req.rentalStart(),
                     req.rentalEnd());
-            if (overlaps > 0) {
-                throw new ApiException(HttpStatus.CONFLICT, "RENTAL_CONFLICT", "Selected dates are not available");
+            if (!conflictingBookings.isEmpty()) {
+                var firstConflict = conflictingBookings.get(0);
+                String conflictMessage = String.format(
+                        "This item is already booked from %s to %s. Please select different dates.",
+                        formatDate(firstConflict.getStartAt()),
+                        formatDate(firstConflict.getEndAt()));
+                throw new ApiException(HttpStatus.CONFLICT, "RENTAL_CONFLICT", conflictMessage);
             }
         } else {
             if (listing.getStockQuantity() != null && listing.getStockQuantity() < req.quantity()) {
@@ -82,17 +88,64 @@ public class CartService {
             cart.setProvider(listing.getProvider());
         }
 
-        CartLine line = new CartLine();
-        line.setCartSession(cart);
-        line.setListing(listing);
-        line.setQuantity(req.quantity());
-        line.setRentalStart(req.rentalStart());
-        line.setRentalEnd(req.rentalEnd());
-        cart.getLines().add(line);
+        // Check if item already exists in cart
+        CartLine existingLine = findExistingCartLine(cart, listing, req.rentalStart(), req.rentalEnd());
+
+        if (existingLine != null) {
+            // Item already in cart - increment quantity
+            int newQuantity = existingLine.getQuantity() + req.quantity();
+
+            // Validate new quantity for SALE items
+            if (listing.getListingType() == ListingType.SALE) {
+                if (listing.getStockQuantity() != null && listing.getStockQuantity() < newQuantity) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "INSUFFICIENT_STOCK",
+                            "Cannot add " + req.quantity() + " more. You already have " + existingLine.getQuantity() +
+                            " in cart. Available stock: " + listing.getStockQuantity());
+                }
+            }
+
+            existingLine.setQuantity(newQuantity);
+        } else {
+            // New item - add to cart
+            CartLine line = new CartLine();
+            line.setCartSession(cart);
+            line.setListing(listing);
+            line.setQuantity(req.quantity());
+            line.setRentalStart(req.rentalStart());
+            line.setRentalEnd(req.rentalEnd());
+            cart.getLines().add(line);
+        }
+
         cart.setUpdatedAt(Instant.now());
         cartSessionRepository.save(cart);
 
         return buildResponse(cartSessionRepository.findBySessionKeyWithLines(sessionKey).orElseThrow());
+    }
+
+    /**
+     * Finds an existing cart line for the same listing and rental dates (if applicable)
+     */
+    private CartLine findExistingCartLine(CartSession cart, Listing listing, Instant rentalStart, Instant rentalEnd) {
+        for (CartLine line : cart.getLines()) {
+            if (!line.getListing().getId().equals(listing.getId())) {
+                continue;
+            }
+
+            // For SALE items, just match by listing ID
+            if (listing.getListingType() == ListingType.SALE) {
+                return line;
+            }
+
+            // For RENT items, also match rental dates
+            if (listing.getListingType() == ListingType.RENT) {
+                boolean datesMatch = (line.getRentalStart() != null && line.getRentalStart().equals(rentalStart)) &&
+                                    (line.getRentalEnd() != null && line.getRentalEnd().equals(rentalEnd));
+                if (datesMatch) {
+                    return line;
+                }
+            }
+        }
+        return null;
     }
 
     @Transactional
@@ -241,7 +294,8 @@ public class CartService {
                     line.getQuantity(),
                     lineTotal.setScale(2, RoundingMode.HALF_UP),
                     line.getRentalStart() != null ? line.getRentalStart().toString() : null,
-                    line.getRentalEnd() != null ? line.getRentalEnd().toString() : null));
+                    line.getRentalEnd() != null ? line.getRentalEnd().toString() : null,
+                    l.getStockQuantity()));
         }
         Long pid = cart.getProvider() != null ? cart.getProvider().getId() : null;
         String pname = cart.getProvider() != null ? cart.getProvider().getName() : null;
@@ -270,5 +324,17 @@ public class CartService {
                 accepted,
                 rows,
                 total.setScale(2, RoundingMode.HALF_UP));
+    }
+
+    /**
+     * Formats an Instant date to a user-friendly string
+     */
+    private String formatDate(Instant instant) {
+        if (instant == null) {
+            return "";
+        }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy")
+                .withZone(ZoneId.systemDefault());
+        return formatter.format(instant);
     }
 }

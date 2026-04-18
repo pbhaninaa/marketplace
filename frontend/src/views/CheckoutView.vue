@@ -4,12 +4,14 @@ import { useRouter } from 'vue-router';
 import { api, withSession } from '../api';
 import { useSessionStore } from '../stores/session';
 import { useCartStore } from '../stores/cart';
+import { useDialog } from '../composables/useDialog';
 import FormField from '../components/ui/FormField.vue';
 import CartLinesSection from '../components/cart/CartLinesSection.vue';
 
 const router = useRouter();
 const session = useSessionStore();
 const cart = useCartStore();
+const { confirm, success, error: showError, warning } = useDialog();
 
 const guestName = ref('');
 const guestEmail = ref('');
@@ -48,7 +50,7 @@ async function submitCheckout() {
   message.value = '';
   submitting.value = true;
   try {
-    await api.post(
+    const response = await api.post(
       '/api/public/cart/checkout',
       {
         guestName: guestName.value,
@@ -59,45 +61,92 @@ async function submitCheckout() {
       },
       withSession(session.sessionId),
     );
-    message.value = 'Order placed successfully. Your cart has been cleared.';
+
+    const verificationCodes = response.data.verificationCodes || [];
+
     guestName.value = '';
     guestEmail.value = '';
     guestPhone.value = '';
     deliveryOrPickup.value = '';
     await cart.refresh();
-    setTimeout(() => router.push('/'), 2000);
+
+    // Display verification codes
+    if (verificationCodes.length > 0) {
+      const codesList = verificationCodes.map(code => `• ${code}`).join('\n');
+      await success(
+        `Order placed successfully!\n\nYour verification code(s):\n${codesList}\n\nPlease provide this code to the provider when collecting your order or upon delivery.`,
+        'Order Confirmed'
+      );
+    } else {
+      await success('Order placed successfully. Your cart has been cleared.', 'Order Confirmed');
+    }
+
+    router.push('/');
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    await showError(e.response?.data?.message || e.message, 'Checkout Failed');
   } finally {
     submitting.value = false;
   }
 }
 
 async function clearCart() {
+  const confirmed = await confirm('Are you sure you want to clear your entire cart?', 'Clear Cart');
+  if (!confirmed) return;
+
   await cart.clearCart();
-  message.value = 'Cart cleared.';
+  await success('Cart has been cleared.', 'Cart Cleared');
 }
 
 /* ✅ NEW: update quantity */
 async function handleUpdateQuantity({ id, quantity }) {
-  if (quantity < 1) return;
+  // Find the cart line to check stock limits
+  const cartLine = cart.lines.find(line => line.lineId === id);
+
+  if (!cartLine) return;
+
+  // Check minimum quantity
+  if (quantity < 1) {
+    await warning(
+      'Quantity cannot be less than 1. Use the delete button to remove this item from your cart.',
+      'Minimum Quantity Reached'
+    );
+    return;
+  }
+
+  // Check maximum stock for SALE items
+  if (cartLine.listingType === 'SALE' && cartLine.availableStock !== null) {
+    if (quantity > cartLine.availableStock) {
+      await warning(
+        `Maximum available stock is ${cartLine.availableStock} units. You cannot add more than what's in stock.`,
+        'Maximum Stock Reached'
+      );
+      return;
+    }
+  }
 
   try {
     await cart.updateLineQuantity(id, quantity);
   } catch (e) {
-    error.value = e.response?.data?.message || 'Failed to update quantity';
+    await showError(e.response?.data?.message || 'Failed to update quantity', 'Update Failed');
   }
 }
 
 /* ✅ NEW: remove item */
 async function handleRemoveLine(id) {
-  if (!confirm('Remove this item from cart?')) return;
+  const confirmed = await confirm('Remove this item from your cart?', 'Remove Item');
+  if (!confirmed) return;
 
   try {
     await cart.removeLine(id);
   } catch (e) {
-    error.value = e.response?.data?.message || 'Failed to remove item';
+    await showError(e.response?.data?.message || 'Failed to remove item', 'Remove Failed');
   }
+}
+
+/* ✅ NEW: show limit warning */
+async function handleLimitWarning({ type, message }) {
+  const title = type === 'max' ? 'Maximum Stock Reached' : 'Minimum Quantity Reached';
+  await warning(message, title);
 }
 </script>
 
@@ -125,10 +174,9 @@ async function handleRemoveLine(id) {
           :estimated-total="cart.estimatedTotal"
           empty-message="Your cart is empty. Add listings from the marketplace."
           @clear="clearCart"
-
-          
           @update-quantity="handleUpdateQuantity"
           @remove-line="handleRemoveLine"
+          @show-limit-warning="handleLimitWarning"
         />
       </section>
 
@@ -195,9 +243,6 @@ async function handleRemoveLine(id) {
             </div>
           </dl>
         </div>
-
-        <p v-if="error" class="err-toast">{{ error }}</p>
-        <p v-if="message" class="ok-msg">{{ message }}</p>
 
         <button
           type="button"

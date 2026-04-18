@@ -21,6 +21,9 @@ import com.agrimarket.repo.PurchaseOrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +45,7 @@ public class CheckoutService {
     private final PaymentRecordRepository paymentRecordRepository;
     private final CartSessionRepository cartSessionRepository;
     private final ListingRepository listingRepository;
+    private final VerificationCodeService verificationCodeService;
 
     @Transactional
     public Map<String, Object> guestCheckout(String sessionKey, GuestCheckoutRequest req) {
@@ -90,14 +94,19 @@ public class CheckoutService {
                     .orElseThrow();
 
             if (listing.getListingType() == ListingType.RENT) {
-                long overlaps = rentalBookingRepository.countOverlapping(
+                var conflictingBookings = rentalBookingRepository.findOverlapping(
                         listing.getId(),
                         Set.of(BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED),
                         line.getRentalStart(),
                         line.getRentalEnd());
-                if (overlaps > 0) {
-                    throw new ApiException(HttpStatus.CONFLICT, "RENTAL_CONFLICT",
-                            "'" + listing.getTitle() + "' is no longer available for the selected dates");
+                if (!conflictingBookings.isEmpty()) {
+                    var firstConflict = conflictingBookings.get(0);
+                    String conflictMessage = String.format(
+                            "'%s' is already booked from %s to %s. Please select different dates.",
+                            listing.getTitle(),
+                            formatDate(firstConflict.getStartAt()),
+                            formatDate(firstConflict.getEndAt()));
+                    throw new ApiException(HttpStatus.CONFLICT, "RENTAL_CONFLICT", conflictMessage);
                 }
             } else {
                 // Validate stock for SALE listings
@@ -133,6 +142,7 @@ public class CheckoutService {
 
         List<Long> orderIds = new ArrayList<>();
         List<Long> bookingIds = new ArrayList<>();
+        List<String> verificationCodes = new ArrayList<>();
 
         if (!saleLines.isEmpty()) {
             PurchaseOrder order = new PurchaseOrder();
@@ -144,6 +154,7 @@ public class CheckoutService {
             order.setTotalAmount(saleTotal.setScale(2, RoundingMode.HALF_UP));
             order.setSessionKey(sessionKey);
             order.setStatus(OrderStatus.PAID);
+            order.setVerificationCode(verificationCodeService.generateVerificationCode());
 
             for (CartLine line : saleLines) {
                 Listing l = line.getListing();
@@ -161,6 +172,7 @@ public class CheckoutService {
             }
             purchaseOrderRepository.save(order);
             orderIds.add(order.getId());
+            verificationCodes.add(order.getVerificationCode());
 
             PaymentRecord pay = new PaymentRecord();
             pay.setProvider(cart.getProvider());
@@ -187,8 +199,10 @@ public class CheckoutService {
             b.setTotalAmount(rentTotal.setScale(2, RoundingMode.HALF_UP));
             b.setSessionKey(sessionKey);
             b.setStatus(BookingStatus.CONFIRMED);
+            b.setVerificationCode(verificationCodeService.generateVerificationCode());
             rentalBookingRepository.save(b);
             bookingIds.add(b.getId());
+            verificationCodes.add(b.getVerificationCode());
 
             PaymentRecord pay = new PaymentRecord();
             pay.setProvider(cart.getProvider());
@@ -207,6 +221,19 @@ public class CheckoutService {
         return Map.of(
                 "purchaseOrderIds", orderIds,
                 "bookingIds", bookingIds,
-                "providerId", providerId);
+                "providerId", providerId,
+                "verificationCodes", verificationCodes);
+    }
+
+    /**
+     * Formats an Instant date to a user-friendly string
+     */
+    private String formatDate(Instant instant) {
+        if (instant == null) {
+            return "";
+        }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MMM dd, yyyy")
+                .withZone(ZoneId.systemDefault());
+        return formatter.format(instant);
     }
 }

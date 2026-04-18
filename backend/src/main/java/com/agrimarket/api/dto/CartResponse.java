@@ -27,5 +27,6 @@ public record CartResponse(
             int quantity,
             BigDecimal lineTotal,
             String rentalStart,
-            String rentalEnd) {}
+            String rentalEnd,
+            Integer availableStock) {}
 }

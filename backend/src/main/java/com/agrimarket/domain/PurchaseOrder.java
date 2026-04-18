@@ -61,6 +61,12 @@ public class PurchaseOrder {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name = "verification_code", nullable = false, unique = true, length = 9)
+    private String verificationCode;
+
+    @Column(name = "verified_at")
+    private Instant verifiedAt;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderLine> lines = new ArrayList<>();
 }

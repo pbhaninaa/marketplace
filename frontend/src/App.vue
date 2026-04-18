@@ -5,12 +5,15 @@ import { useSessionStore } from './stores/session';
 import { useSetupStore } from './stores/setup';
 import { useAuthStore } from './stores/auth';
 import { useCartStore } from './stores/cart';
+import { useDialog } from './composables/useDialog';
+import DialogModal from './components/ui/DialogModal.vue';
 
 const route = useRoute();
 const session = useSessionStore();
 const setup = useSetupStore();
 const auth = useAuthStore();
 const cart = useCartStore();
+const { dialogState } = useDialog();
 
 const envBadge = computed(() => import.meta.env.VITE_APP_ENV || '');
 
@@ -124,6 +127,20 @@ onMounted(async () => {
     <main v-else class="main-area" :class="{ 'no-pad': route.name === 'market' }">
       <router-view />
     </main>
+
+    <!-- Global Dialog Modal -->
+    <DialogModal
+      v-if="dialogState.isOpen"
+      :title="dialogState.title"
+      :message="dialogState.message"
+      :type="dialogState.type"
+      :confirm-text="dialogState.confirmText"
+      :cancel-text="dialogState.cancelText"
+      :show-cancel="dialogState.showCancel"
+      @confirm="dialogState.onConfirm"
+      @cancel="dialogState.onCancel"
+      @close="dialogState.onCancel"
+    />
   </div>
 </template>
 

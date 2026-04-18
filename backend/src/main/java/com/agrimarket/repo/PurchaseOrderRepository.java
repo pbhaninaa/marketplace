@@ -3,6 +3,7 @@ package com.agrimarket.repo;
 import com.agrimarket.domain.PurchaseOrder;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,6 +13,8 @@ import org.springframework.data.repository.query.Param;
 public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Long> {
 
     Page<PurchaseOrder> findByProvider_IdOrderByCreatedAtDesc(Long providerId, Pageable pageable);
+
+    Optional<PurchaseOrder> findByVerificationCode(String verificationCode);
 
     @Query(
             """

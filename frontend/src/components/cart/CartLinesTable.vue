@@ -7,11 +7,37 @@ defineProps({
 });
 
 /* events for parent */
-defineEmits(['update-quantity', 'remove-line']);
+const emit = defineEmits(['update-quantity', 'remove-line', 'show-limit-warning']);
 
 function rentalWindow(line) {
   if (!line.rentalStart || !line.rentalEnd) return '—';
   return formatRentalInclusiveRange(line.rentalStart, line.rentalEnd);
+}
+
+function handleDecrement(line) {
+  if (line.quantity <= 1) {
+    emit('show-limit-warning', {
+      type: 'min',
+      message: 'Quantity cannot be less than 1. Use the delete button to remove this item.',
+    });
+    return;
+  }
+  emit('update-quantity', { id: line.lineId, quantity: line.quantity - 1 });
+}
+
+function handleIncrement(line) {
+  const atMaxStock = line.listingType === 'SALE' &&
+                     line.availableStock !== null &&
+                     line.quantity >= line.availableStock;
+
+  if (atMaxStock) {
+    emit('show-limit-warning', {
+      type: 'max',
+      message: `Maximum available stock is ${line.availableStock} units. You cannot add more than what's in stock.`,
+    });
+    return;
+  }
+  emit('update-quantity', { id: line.lineId, quantity: line.quantity + 1 });
 }
 </script>
 
@@ -44,8 +70,9 @@ function rentalWindow(line) {
             <!-- minus -->
             <button
               class="icon-btn"
-              @click="$emit('update-quantity', { id: line.lineId, quantity: line.quantity - 1 })"
-              :disabled="line.quantity <= 1"
+              @click="handleDecrement(line)"
+              :class="{ 'at-limit': line.quantity <= 1 }"
+              title="Decrease quantity"
             >
               <span class="material-icons">remove</span>
             </button>
@@ -56,11 +83,18 @@ function rentalWindow(line) {
             <!-- plus -->
             <button
               class="icon-btn"
-              @click="$emit('update-quantity', { id: line.lineId, quantity: line.quantity + 1 })"
+              @click="handleIncrement(line)"
+              :class="{ 'at-limit': line.listingType === 'SALE' && line.availableStock !== null && line.quantity >= line.availableStock }"
+              :title="line.availableStock !== null && line.quantity >= line.availableStock ? 'Maximum stock reached' : 'Increase quantity'"
             >
               <span class="material-icons">add</span>
             </button>
 
+          </div>
+          <!-- Stock indicator for SALE items -->
+          <div v-if="line.listingType === 'SALE' && line.availableStock !== null" class="stock-hint">
+            <span v-if="line.quantity >= line.availableStock" class="stock-max">Max stock</span>
+            <span v-else class="stock-available">{{ line.availableStock }} available</span>
           </div>
         </td>
 
@@ -133,14 +167,34 @@ function rentalWindow(line) {
   font-size: 20px;
 }
 
-/* disabled state */
-.icon-btn:disabled {
-  opacity: 0.3;
+/* at-limit state */
+.icon-btn.at-limit {
+  opacity: 0.4;
   cursor: not-allowed;
+}
+
+.icon-btn.at-limit:hover {
+  color: var(--color-earth);
 }
 
 /* delete style */
 .icon-btn.danger {
   color: #d32f2f;
+}
+
+/* Stock hint */
+.stock-hint {
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.stock-available {
+  color: var(--color-muted);
+}
+
+.stock-max {
+  color: var(--color-earth);
+  font-weight: 600;
 }
 </style>

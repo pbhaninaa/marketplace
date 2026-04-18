@@ -5,11 +5,12 @@ import { api } from '../api';
 import { useAuthStore } from '../stores/auth';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
+import VerifyCodePanel from '../components/provider/VerifyCodePanel.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
 
-const tab = ref('purchases'); // purchases | rentals
+const tab = ref('purchases'); // purchases | rentals | verify
 const loading = ref(true);
 const error = ref('');
 
@@ -64,9 +65,15 @@ async function load() {
         <button type="button" class="tab" :class="{ active: tab === 'rentals' }" @click="tab = 'rentals'">
           Rentals ({{ rentals.totalElements || 0 }})
         </button>
+        <button type="button" class="tab" :class="{ active: tab === 'verify' }" @click="tab = 'verify'">
+          <span class="material-icons tab-icon">verified_user</span>
+          Verify Code
+        </button>
       </div>
 
-      <ResponsiveRecordShell :desktop-label="tab === 'purchases' ? 'Purchase orders' : 'Rental bookings'">
+      <VerifyCodePanel v-if="tab === 'verify'" />
+
+      <ResponsiveRecordShell v-else :desktop-label="tab === 'purchases' ? 'Purchase orders' : 'Rental bookings'">
         <template #desktop>
           <DataTableShell :caption="tab === 'purchases' ? 'Purchase orders' : 'Rental bookings'">
             <thead>
@@ -146,6 +153,12 @@ async function load() {
 .tab.active {
   background: rgba(61, 122, 102, 0.14);
   color: var(--color-canopy);
+}
+
+.tab-icon {
+  font-size: 18px;
+  vertical-align: middle;
+  margin-right: 4px;
 }
 
 .col-num {
