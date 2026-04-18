@@ -1,4 +1,14 @@
 <script setup>
+// TODO make sure Delivery option is only shown if provider supports it (and hide distance input if not delivery) 
+// then calculate delivery fee on button click and show in total 
+// (also show warning if no delivery price set or distance invalid) 
+//  "lockedProviderDeliveryAvailable": true,
+// "lockedProviderDeliveryPricePerKm": 5.00, 
+// these are what will be used for delivery fee calc and display in checkout
+// Delivery fee will be number of KM * delivery price per KM 
+// (so we need to add a distance input in checkout form that only shows if delivery selected)
+
+
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, withSession } from '../api';
@@ -22,10 +32,12 @@ const guestPhone = ref('');
 const paymentMethod = ref('CASH');
 const deliveryMode = ref(''); // DELIVERY | PICKUP
 const deliveryDistanceKm = ref('');
+
 const submitting = ref(false);
 
-/* DELIVERY CONFIRMATION (NEW) */
+/* ================= DELIVERY CALC CONTROL ================= */
 const deliveryFeeConfirmed = ref(false);
+const calculatedDeliveryFee = ref(0);
 
 /* ================= VALIDATION ================= */
 const canCheckout = computed(() =>
@@ -51,31 +63,35 @@ const deliveryRate = computed(() =>
   Number(cart.lockedProviderDeliveryPricePerKm) || 0
 );
 
-/* ================= DELIVERY FEE =================
-   ONLY CALCULATED AFTER BUTTON CLICK
-================================================== */
-const estimatedDeliveryFee = computed(() => {
-  if (!deliveryFeeConfirmed.value) return 0;
-  if (deliveryMode.value !== 'DELIVERY') return 0;
+/* ================= DELIVERY CALC (ONLY AFTER BUTTON CLICK) ================= */
+function updateDeliveryFee() {
+  if (deliveryMode.value !== 'DELIVERY') {
+    calculatedDeliveryFee.value = 0;
+    deliveryFeeConfirmed.value = false;
+    return;
+  }
 
   const km = Number(deliveryDistanceKm.value);
 
-  if (!deliveryAvailable.value) return 0;
-  if (!km || km <= 0) return 0;
-  if (!deliveryRate.value) return 0;
-alert(km * deliveryRate.value);
-  return km * deliveryRate.value;
-});
+  if (!deliveryAvailable.value || !deliveryRate.value || !km || km <= 0) {
+    calculatedDeliveryFee.value = 0;
+    deliveryFeeConfirmed.value = false;
+    return;
+  }
+
+  calculatedDeliveryFee.value = km * deliveryRate.value;
+  deliveryFeeConfirmed.value = true;
+}
 
 /* ================= TOTAL ================= */
 const estimatedTotalWithDelivery = computed(() => {
   const base = Number(cart.estimatedTotal) || 0;
-  return base + Number(estimatedDeliveryFee.value);
+  return base + Number(calculatedDeliveryFee.value);
 });
 
-/* ================= BANK DETAILS ================= */
+/* ================= EFT BANK DETAILS ================= */
 const showBankDetails = computed(() =>
-  paymentMethod.value === 'EFT' && !!cart.lockedProviderBankName
+  paymentMethod.value === 'EFT' && !!cart.lockedProviderBank
 );
 
 /* ================= INIT ================= */
@@ -97,11 +113,13 @@ async function submitCheckout() {
         guestPhone: guestPhone.value,
         deliveryOrPickup: deliveryMode.value,
         paymentMethod: paymentMethod.value,
-        deliveryDistanceKm: deliveryMode.value === 'DELIVERY'
-          ? Number(deliveryDistanceKm.value)
-          : null,
+        deliveryDistanceKm:
+          deliveryMode.value === 'DELIVERY'
+            ? Number(deliveryDistanceKm.value)
+            : null,
+        deliveryFee: calculatedDeliveryFee.value
       },
-      withSession(session.sessionId),
+      withSession(session.sessionId)
     );
 
     const codes = response.data.verificationCodes || [];
@@ -111,6 +129,7 @@ async function submitCheckout() {
     guestPhone.value = '';
     deliveryMode.value = '';
     deliveryDistanceKm.value = '';
+    calculatedDeliveryFee.value = 0;
     deliveryFeeConfirmed.value = false;
 
     await cart.refresh();
@@ -143,9 +162,7 @@ async function handleUpdateQuantity({ id, quantity }) {
   const line = cart.lines.find(l => l.lineId === id);
   if (!line) return;
 
-  if (quantity < 1) {
-    return warning('Minimum quantity is 1', 'Warning');
-  }
+  if (quantity < 1) return warning('Minimum quantity is 1', 'Warning');
 
   if (line.listingType === 'SALE' && line.availableStock != null) {
     if (quantity > line.availableStock) {
@@ -173,11 +190,6 @@ async function handleRemoveLine(id) {
 
 async function handleLimitWarning({ message, type }) {
   await warning(message, type === 'max' ? 'Max limit' : 'Min limit');
-}
-
-/* ================= DELIVERY BUTTON ================= */
-function calculateDelivery() {
-  deliveryFeeConfirmed.value = true;
 }
 </script>
 
@@ -228,7 +240,7 @@ function calculateDelivery() {
 
             <label class="radio-card">
               <input type="radio" v-model="deliveryMode" value="DELIVERY" />
-              <span>🚚 Delivery <small>Delivered to you</small></span>
+              <span>🚚 Delivery <small>To your location</small></span>
             </label>
 
             <label class="radio-card">
@@ -249,21 +261,19 @@ function calculateDelivery() {
               type="number"
               min="0"
               step="0.1"
-              @input="deliveryFeeConfirmed = false"
             />
           </FormField>
 
           <button
-            type="button"
             class="btn btn-secondary"
-            @click="calculateDelivery"
-            :disabled="!deliveryDistanceKm || deliveryDistanceKm <= 0"
+            type="button"
+            @click="updateDeliveryFee"
           >
-            Calculate Delivery Fee
+            Update Delivery Fee
           </button>
 
           <p v-if="deliveryFeeConfirmed" class="muted">
-            Delivery fee: R{{ estimatedDeliveryFee.toFixed(2) }}
+            Delivery fee: R{{ calculatedDeliveryFee.toFixed(2) }}
           </p>
 
         </div>
@@ -277,10 +287,14 @@ function calculateDelivery() {
           </select>
         </FormField>
 
-        <!-- BANK -->
+        <!-- BANK DETAILS -->
         <div v-if="showBankDetails" class="bank-box">
           <h3>EFT Payment Details</h3>
-          <p>{{ cart.lockedProviderBankName }}</p>
+
+          <p><strong>Bank:</strong> {{ cart.lockedProviderBank?.bankName }}</p>
+          <p><strong>Account:</strong> {{ cart.lockedProviderBank?.accountName }}</p>
+          <p><strong>Number:</strong> {{ cart.lockedProviderBank?.accountNumber }}</p>
+          <p><strong>Branch:</strong> {{ cart.lockedProviderBank?.branchCode }}</p>
         </div>
 
         <!-- TOTAL -->
@@ -288,14 +302,14 @@ function calculateDelivery() {
 
           <div class="row">
             <span>Subtotal</span>
-            <strong>R{{ (Number(cart.estimatedTotal) || 0).toFixed(2) }}</strong>
+            <strong>R{{ Number(cart.estimatedTotal).toFixed(2) }}</strong>
           </div>
-<!-- TODO: Implement delivery fee calculation -->
-          <div class="row" v-if="deliveryMode === 'DELIVERY' && deliveryFeeConfirmed">
+
+          <div class="row" v-if="deliveryMode === 'DELIVERY'">
             <span>Delivery</span>
-            <strong>R{{ estimatedDeliveryFee.toFixed(2) }}</strong>
+            <strong>R{{ calculatedDeliveryFee.toFixed(2) }}</strong>
           </div>
-<!--  TODO: Implement total calculation and add it to total -->
+
           <div class="row total">
             <span>Total</span>
             <strong>R{{ estimatedTotalWithDelivery.toFixed(2) }}</strong>
@@ -324,7 +338,7 @@ function calculateDelivery() {
   gap: 1.5rem;
 }
 
-/* RADIO FIX */
+/* RADIO SMALL FIX */
 .radio-group {
   display: flex;
   flex-direction: column;
@@ -335,7 +349,7 @@ function calculateDelivery() {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.55rem 0.75rem;
+  padding: 0.5rem 0.7rem;
   border: 1px solid #ddd;
   border-radius: 10px;
   cursor: pointer;
@@ -347,7 +361,12 @@ function calculateDelivery() {
   height: 16px;
 }
 
-/* TOTAL */
+.radio-card small {
+  display: block;
+  font-size: 0.75rem;
+  color: #777;
+}
+
 .total-box {
   margin-top: 1rem;
   padding: 0.85rem;
@@ -367,11 +386,10 @@ function calculateDelivery() {
   padding-top: 0.5rem;
 }
 
-/* BANK */
 .bank-box {
   margin-top: 1rem;
   padding: 0.8rem;
-  background: #f5f8ff;
+  background: #f4f7ff;
   border-radius: 12px;
 }
 
