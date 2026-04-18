@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -49,6 +51,25 @@ public class PublicCartController {
     @DeleteMapping
     public void clear(@RequestHeader(value = SESSION_HEADER, required = false) String sessionId) {
         cartService.clear(requireSession(sessionId));
+    }
+
+    @DeleteMapping("/items/{cartLineId}")
+    public CartResponse removeItem(
+            @RequestHeader(value = SESSION_HEADER, required = false) String sessionId,
+            @PathVariable Long cartLineId) {
+        return cartService.removeItem(requireSession(sessionId), cartLineId);
+    }
+
+    @PatchMapping("/items/{cartLineId}/quantity")
+    public CartResponse updateQuantity(
+            @RequestHeader(value = SESSION_HEADER, required = false) String sessionId,
+            @PathVariable Long cartLineId,
+            @RequestBody Map<String, Integer> payload) {
+        Integer quantity = payload.get("quantity");
+        if (quantity == null) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "MISSING_QUANTITY", "Quantity is required");
+        }
+        return cartService.updateQuantity(requireSession(sessionId), cartLineId, quantity);
     }
 
     @PostMapping("/checkout")

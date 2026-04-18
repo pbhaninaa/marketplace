@@ -131,6 +131,62 @@ public class CartService {
                 });
     }
 
+    @Transactional
+    public CartResponse removeItem(String sessionKey, Long cartLineId) {
+        CartSession cart = cartSessionRepository
+                .findBySessionKeyWithLines(sessionKey)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "CART_EMPTY", "Cart is empty"));
+
+        CartLine lineToRemove = cart.getLines().stream()
+                .filter(line -> line.getId().equals(cartLineId))
+                .findFirst()
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ITEM_NOT_FOUND", "Item not found in cart"));
+
+        cart.getLines().remove(lineToRemove);
+
+        // If cart is now empty, clear provider lock
+        if (cart.getLines().isEmpty()) {
+            cart.setProvider(null);
+        }
+
+        cart.setUpdatedAt(Instant.now());
+        cartSessionRepository.save(cart);
+
+        return buildResponse(cartSessionRepository.findBySessionKeyWithLines(sessionKey).orElseThrow());
+    }
+
+    @Transactional
+    public CartResponse updateQuantity(String sessionKey, Long cartLineId, int newQuantity) {
+        if (newQuantity < 1) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_QUANTITY", "Quantity must be at least 1");
+        }
+
+        CartSession cart = cartSessionRepository
+                .findBySessionKeyWithLines(sessionKey)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "CART_EMPTY", "Cart is empty"));
+
+        CartLine line = cart.getLines().stream()
+                .filter(l -> l.getId().equals(cartLineId))
+                .findFirst()
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ITEM_NOT_FOUND", "Item not found in cart"));
+
+        Listing listing = line.getListing();
+
+        // Validate stock for SALE items
+        if (listing.getListingType() == ListingType.SALE) {
+            if (listing.getStockQuantity() != null && listing.getStockQuantity() < newQuantity) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "INSUFFICIENT_STOCK",
+                        "Cannot update quantity. Available: " + listing.getStockQuantity() + ", Requested: " + newQuantity);
+            }
+        }
+
+        line.setQuantity(newQuantity);
+        cart.setUpdatedAt(Instant.now());
+        cartSessionRepository.save(cart);
+
+        return buildResponse(cartSessionRepository.findBySessionKeyWithLines(sessionKey).orElseThrow());
+    }
+
     @Transactional(readOnly = true)
     public CartSession requireCartWithLines(String sessionKey) {
         CartSession cart = cartSessionRepository

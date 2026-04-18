@@ -81,6 +81,85 @@ Welcome to the Agricultural Marketplace platform! This system connects agricultu
    - Use category filters to find specific product types
    - View only active listings from approved providers
 
+s### Managing Your Cart
+
+#### Adding Items to Cart
+```
+POST /api/public/cart/add
+Headers: X-Session-Id: {your-session-id}
+{
+  "listingId": 123,
+  "quantity": 2,
+  "rentalStart": null,  // Only for rentals
+  "rentalEnd": null     // Only for rentals
+}
+```
+
+#### Viewing Your Cart
+```
+GET /api/public/cart
+Headers: X-Session-Id: {your-session-id}
+```
+
+**Response:**
+```json
+{
+  "sessionKey": "abc-123",
+  "providerId": 1,
+  "providerName": "Green Farms",
+  "lines": [
+    {
+      "id": 456,
+      "listingId": 123,
+      "title": "Organic Fertilizer",
+      "quantity": 2,
+      "lineTotal": 90.00
+    }
+  ],
+  "totalAmount": 90.00
+}
+```
+
+#### Updating Item Quantity
+```
+PATCH /api/public/cart/items/{cartLineId}/quantity
+Headers: X-Session-Id: {your-session-id}
+{
+  "quantity": 5
+}
+```
+
+**Use Cases:**
+- Increase quantity: Change from 2 to 5 units
+- Decrease quantity: Change from 5 to 2 units
+- Minimum quantity is 1
+
+**Validation:**
+- System checks available stock before updating
+- Returns error if requested quantity exceeds available stock
+
+#### Removing Items from Cart
+```
+DELETE /api/public/cart/items/{cartLineId}
+Headers: X-Session-Id: {your-session-id}
+```
+
+**Effect:**
+- Item is removed from cart
+- Cart total is recalculated
+- If cart becomes empty, provider lock is released (allows adding items from different provider)
+
+#### Clearing Entire Cart
+```
+DELETE /api/public/cart
+Headers: X-Session-Id: {your-session-id}
+```
+
+**Effect:**
+- All items removed
+- Provider lock released
+- Cart total resets to 0
+
 ### Placing Orders
 
 #### Step 1: Add to Cart
@@ -88,12 +167,17 @@ Welcome to the Agricultural Marketplace platform! This system connects agricultu
 - For rentals: choose start and end dates
 - Items are added to your session cart
 
-#### Step 2: Review Cart
+#### Step 2: Manage Cart Items
+- **Update quantities** - Increase or decrease amounts
+- **Remove items** - Delete unwanted items
+- **Review total** - Check final amount before checkout
+
+#### Step 3: Review Cart
 - Verify quantities and dates
 - Check total amount
 - All items must be from the same provider
 
-#### Step 3: Checkout
+#### Step 4: Checkout
 ```
 POST /api/public/checkout/guest
 {
@@ -446,10 +530,22 @@ DELETE /api/provider/me/orders/purchases/{orderId}
 
 ### Client Endpoints
 
+#### Cart Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/public/cart/session` | Create new session |
+| GET | `/api/public/cart` | Get cart contents |
+| POST | `/api/public/cart/add` | Add item to cart |
+| PATCH | `/api/public/cart/items/{cartLineId}/quantity` | Update item quantity |
+| DELETE | `/api/public/cart/items/{cartLineId}` | Remove item from cart |
+| DELETE | `/api/public/cart` | Clear entire cart |
+
+#### Shopping & Checkout
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/public/listings` | Browse all listings |
-| POST | `/api/public/cart/add` | Add item to cart |
 | POST | `/api/public/checkout/guest` | Complete purchase |
 
 ---
@@ -470,6 +566,10 @@ DELETE /api/provider/me/orders/purchases/{orderId}
 | `INVALID_STATUS_TRANSITION` | Invalid status change | Follow status workflow |
 | `CANNOT_CANCEL` | Order already fulfilled | Cannot modify |
 | `CANNOT_DELETE` | Order status prevents deletion | Only delete cancelled/pending |
+| `INVALID_QUANTITY` | Quantity < 1 | Must be at least 1 |
+| `ITEM_NOT_FOUND` | Cart line doesn't exist | Item already removed or invalid ID |
+| `CART_EMPTY` | No items in cart | Add items before proceeding |
+| `MISSING_QUANTITY` | Quantity not provided | Include quantity in request |
 
 #### Authorization Errors (403)
 
