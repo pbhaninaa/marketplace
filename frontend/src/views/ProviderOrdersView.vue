@@ -208,7 +208,10 @@ async function rejectOrder() {
              - make sure the buttons are only shown if order is in pending state (and hide payment proof if not pending since it can only be uploaded during pending state) 
              - confirm payment button should update status to confirmed and reject button should update status to rejected (and both should trigger email notification to guest about status change)
              - also add error handling and loading states for these actions (disable buttons while loading and show
-            -->
+  error message if action fails)
+  -Code verification should be per order as it verifies that the guest has the code that was generated for their specific rental order, so we will need to add a "Verify Code" button in the order details dialog that opens a new dialog where the provider can enter the code provided by the guest and verify it against the code generated for that order. This verification step should only be available for confirmed rental orders and should update the order status to "Code Verified" if successful (and also trigger an email notification to the guest about successful verification).
+              -->
+             
             <input  type="text" :value="selectedOrder.paymentProofUrl" readonly @click="$event.target.select()" />
            <img  :src="selectedOrder.paymentProofUrl" alt="Payment proof" style="max-width: 100%; margin-top: 0.5rem; border-radius: 4px;" />
 
