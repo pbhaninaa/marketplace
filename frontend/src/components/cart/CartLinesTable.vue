@@ -48,7 +48,7 @@ function handleIncrement(line) {
         <th>Item</th>
         <th>Type</th>
         <th>Qty</th>
-        <th>Rental window</th>
+        <th>Stock Availability</th>
         <th class="col-num">Line total</th>
         <th></th>
       </tr>
@@ -91,11 +91,7 @@ function handleIncrement(line) {
             </button>
 
           </div>
-          <!-- Stock indicator for SALE items -->
-          <div v-if="line.listingType === 'SALE' && line.availableStock !== null" class="stock-hint">
-            <span v-if="line.quantity >= line.availableStock" class="stock-max">Max stock</span>
-            <span v-else class="stock-available">{{ line.availableStock }} available</span>
-          </div>
+         
         </td>
 
         <!-- RENTAL WINDOW -->
@@ -103,7 +99,8 @@ function handleIncrement(line) {
           <span v-if="line.rentalStart" class="muted small">
             {{ rentalWindow(line) }}
           </span>
-          <span v-else class="muted small">—</span>
+          <span v-else class="muted small"> <span v-if="line.quantity >= line.availableStock" class="stock-max">Max stock</span>
+            <span v-else class="stock-available">{{ line.availableStock }} available</span></span>
         </td>
 
         <!-- TOTAL -->
