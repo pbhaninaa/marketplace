@@ -1,0 +1,32 @@
+{
+  "name": "agrimarketplace-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --mode sit",
+    "dev:sit": "vite --mode sit",
+    "dev:uat": "vite --mode uat",
+    "dev:prod": "vite --mode production",
+    "build": "vite build --mode sit",
+    "build:sit": "vite build --mode sit",
+    "build:uat": "vite build --mode uat",
+    "build:prod": "vite build --mode production",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:run": "vitest run"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^14.12.3",
+    "vite": "^5.2.8",
+    "vitest": "^2.1.4"
+  }
+}
