@@ -144,6 +144,16 @@ public class CheckoutService {
         List<Long> bookingIds = new ArrayList<>();
         List<String> verificationCodes = new ArrayList<>();
 
+        // Calculate delivery fee if applicable
+        BigDecimal deliveryFee = BigDecimal.ZERO;
+        if (req.deliveryDistanceKm() != null && req.deliveryDistanceKm().compareTo(BigDecimal.ZERO) > 0) {
+            if (cart.getProvider().isDeliveryAvailable() && cart.getProvider().getDeliveryPricePerKm() != null) {
+                deliveryFee = cart.getProvider().getDeliveryPricePerKm()
+                        .multiply(req.deliveryDistanceKm())
+                        .setScale(2, RoundingMode.HALF_UP);
+            }
+        }
+
         if (!saleLines.isEmpty()) {
             PurchaseOrder order = new PurchaseOrder();
             order.setProvider(cart.getProvider());
@@ -151,7 +161,9 @@ public class CheckoutService {
             order.setGuestEmail(req.guestEmail());
             order.setGuestPhone(req.guestPhone());
             order.setDeliveryOrPickup(req.deliveryOrPickup());
-            order.setTotalAmount(saleTotal.setScale(2, RoundingMode.HALF_UP));
+            order.setDeliveryDistanceKm(req.deliveryDistanceKm());
+            order.setDeliveryFee(deliveryFee);
+            order.setTotalAmount(saleTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
             order.setSessionKey(sessionKey);
             order.setStatus(OrderStatus.PAID);
             order.setVerificationCode(verificationCodeService.generateVerificationCode());
@@ -194,9 +206,11 @@ public class CheckoutService {
             b.setGuestEmail(req.guestEmail());
             b.setGuestPhone(req.guestPhone());
             b.setDeliveryOrPickup(req.deliveryOrPickup());
+            b.setDeliveryDistanceKm(req.deliveryDistanceKm());
+            b.setDeliveryFee(deliveryFee);
             b.setStartAt(line.getRentalStart());
             b.setEndAt(line.getRentalEnd());
-            b.setTotalAmount(rentTotal.setScale(2, RoundingMode.HALF_UP));
+            b.setTotalAmount(rentTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
             b.setSessionKey(sessionKey);
             b.setStatus(BookingStatus.CONFIRMED);
             b.setVerificationCode(verificationCodeService.generateVerificationCode());

@@ -84,7 +84,7 @@ onMounted(async () => {
         <button type="button" class="nav-signout" @click="auth.logout()">Sign out</button>
       </div>
 
-      <span v-if="envBadge" class="env-pill">{{ envBadge }}</span>
+      <!-- <span v-if="envBadge" class="env-pill">{{ envBadge }}</span> -->
     </header>
 
     <!-- Logged in: side navigation -->

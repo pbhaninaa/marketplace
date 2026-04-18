@@ -38,7 +38,9 @@ public class ProviderSettingsService {
                 p.getBankAccountNumber(),
                 p.getBankBranchCode(),
                 p.getBankReference(),
-                accepted);
+                accepted,
+                p.isDeliveryAvailable(),
+                p.getDeliveryPricePerKm());
     }
 
     @Transactional
@@ -53,6 +55,19 @@ public class ProviderSettingsService {
         p.setBankAccountNumber(blankToNull(req.bankAccountNumber()));
         p.setBankBranchCode(blankToNull(req.bankBranchCode()));
         p.setBankReference(blankToNull(req.bankReference()));
+
+        p.setDeliveryAvailable(req.deliveryAvailable());
+        if (req.deliveryAvailable()) {
+            if (req.deliveryPricePerKm() == null || req.deliveryPricePerKm().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "DELIVERY_PRICE_REQUIRED",
+                        "Delivery price per KM is required when delivery is enabled.");
+            }
+            p.setDeliveryPricePerKm(req.deliveryPricePerKm());
+        } else {
+            p.setDeliveryPricePerKm(null);
+        }
 
         if (req.acceptedPaymentMethods() == null || req.acceptedPaymentMethods().isEmpty()) {
             throw new ApiException(

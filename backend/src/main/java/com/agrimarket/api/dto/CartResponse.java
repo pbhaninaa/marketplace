@@ -16,6 +16,8 @@ public record CartResponse(
         String lockedProviderBankBranchCode,
         String lockedProviderBankReference,
         Set<PaymentMethod> lockedProviderAcceptedPaymentMethods,
+        Boolean lockedProviderDeliveryAvailable,
+        BigDecimal lockedProviderDeliveryPricePerKm,
         List<CartLineResponse> lines,
         BigDecimal estimatedTotal) {
 

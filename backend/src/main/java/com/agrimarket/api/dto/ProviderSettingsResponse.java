@@ -1,6 +1,7 @@
 package com.agrimarket.api.dto;
 
 import com.agrimarket.domain.PaymentMethod;
+import java.math.BigDecimal;
 import java.util.Set;
 
 public record ProviderSettingsResponse(
@@ -12,5 +13,7 @@ public record ProviderSettingsResponse(
         String bankAccountNumber,
         String bankBranchCode,
         String bankReference,
-        Set<PaymentMethod> acceptedPaymentMethods) {}
+        Set<PaymentMethod> acceptedPaymentMethods,
+        boolean deliveryAvailable,
+        BigDecimal deliveryPricePerKm) {}
 

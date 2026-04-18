@@ -10,6 +10,7 @@ export const useCartStore = defineStore('cart', () => {
   const lockedProviderLocation = ref(null);
   const lockedProviderBank = ref(null);
   const lockedProviderAcceptedPaymentMethods = ref([]);
+  const lockedProviderDeliverySettings = ref(null);
   const estimatedTotal = ref('0.00');
   const lastError = ref(null);
 
@@ -52,6 +53,12 @@ export const useCartStore = defineStore('cart', () => {
             }
           : null;
       lockedProviderAcceptedPaymentMethods.value = data.lockedProviderAcceptedPaymentMethods || [];
+      lockedProviderDeliverySettings.value = data.lockedProviderDeliveryAvailable !== undefined
+        ? {
+            deliveryAvailable: data.lockedProviderDeliveryAvailable ?? false,
+            deliveryPricePerKm: data.lockedProviderDeliveryPricePerKm ?? null,
+          }
+        : null;
       estimatedTotal.value = data.estimatedTotal ?? '0.00';
     } catch (e) {
       lastError.value = e.response?.data?.message || e.message;
@@ -137,6 +144,7 @@ export const useCartStore = defineStore('cart', () => {
     lockedProviderLocation,
     lockedProviderBank,
     lockedProviderAcceptedPaymentMethods,
+    lockedProviderDeliverySettings,
     estimatedTotal,
     lastError,
     isLocked,

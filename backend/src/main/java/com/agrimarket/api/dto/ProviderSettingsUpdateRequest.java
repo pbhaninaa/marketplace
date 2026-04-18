@@ -1,8 +1,10 @@
 package com.agrimarket.api.dto;
 
 import com.agrimarket.domain.PaymentMethod;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
 import java.util.Set;
 
 public record ProviderSettingsUpdateRequest(
@@ -12,5 +14,7 @@ public record ProviderSettingsUpdateRequest(
         @Size(max = 50) String bankAccountNumber,
         @Size(max = 20) String bankBranchCode,
         @Size(max = 140) String bankReference,
-        Set<PaymentMethod> acceptedPaymentMethods) {}
+        Set<PaymentMethod> acceptedPaymentMethods,
+        boolean deliveryAvailable,
+        @DecimalMin(value = "0.0", inclusive = false) BigDecimal deliveryPricePerKm) {}
 

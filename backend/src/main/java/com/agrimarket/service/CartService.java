@@ -168,6 +168,8 @@ public class CartService {
                         null,
                         null,
                         null,
+                        null,
+                        null,
                         List.of(),
                         BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)));
     }
@@ -311,6 +313,8 @@ public class CartService {
                 && !cart.getProvider().getAcceptedPaymentMethods().isEmpty()) {
             accepted = EnumSet.copyOf(cart.getProvider().getAcceptedPaymentMethods());
         }
+        Boolean deliveryAvailable = cart.getProvider() != null ? cart.getProvider().isDeliveryAvailable() : null;
+        BigDecimal deliveryPricePerKm = cart.getProvider() != null ? cart.getProvider().getDeliveryPricePerKm() : null;
         return new CartResponse(
                 cart.getSessionKey(),
                 pid,
@@ -322,6 +326,8 @@ public class CartService {
                 bankBranch,
                 bankRef,
                 accepted,
+                deliveryAvailable,
+                deliveryPricePerKm,
                 rows,
                 total.setScale(2, RoundingMode.HALF_UP));
     }

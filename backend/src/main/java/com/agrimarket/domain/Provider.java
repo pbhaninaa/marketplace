@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Set;
 import lombok.Getter;
@@ -68,6 +69,12 @@ public class Provider {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ProviderStatus status = ProviderStatus.PENDING;
+
+    @Column(name = "delivery_available", nullable = false)
+    private boolean deliveryAvailable = false;
+
+    @Column(name = "delivery_price_per_km", precision = 10, scale = 2)
+    private BigDecimal deliveryPricePerKm;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();

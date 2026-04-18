@@ -20,6 +20,8 @@ const form = ref({
   bankBranchCode: '',
   bankReference: '',
   acceptedPaymentMethods: ['EFT', 'CASH'],
+  deliveryAvailable: false,
+  deliveryPricePerKm: '',
 });
 
 const allPaymentMethods = ['EFT', 'CASH'];
@@ -49,6 +51,8 @@ async function load() {
       bankBranchCode: data.bankBranchCode || '',
       bankReference: data.bankReference || '',
       acceptedPaymentMethods: data.acceptedPaymentMethods?.length ? data.acceptedPaymentMethods : ['EFT', 'CASH'],
+      deliveryAvailable: data.deliveryAvailable || false,
+      deliveryPricePerKm: data.deliveryPricePerKm || '',
     };
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
@@ -69,6 +73,8 @@ async function save() {
       bankBranchCode: form.value.bankBranchCode || null,
       bankReference: form.value.bankReference || null,
       acceptedPaymentMethods: form.value.acceptedPaymentMethods || [],
+      deliveryAvailable: form.value.deliveryAvailable,
+      deliveryPricePerKm: form.value.deliveryAvailable && form.value.deliveryPricePerKm ? parseFloat(form.value.deliveryPricePerKm) : null,
     });
     message.value = 'Settings saved.';
     // refresh local cart (bank details shown during checkout)
@@ -114,6 +120,19 @@ async function deactivateAccount() {
         <select v-model="form.acceptedPaymentMethods" multiple size="2" :disabled="!canEdit">
           <option v-for="m in allPaymentMethods" :key="m" :value="m">{{ m }}</option>
         </select>
+      </FormField>
+
+      <h2>Delivery</h2>
+      <FormField label="Delivery available">
+        <label style="display: flex; align-items: center; gap: 0.5rem;">
+          <input v-model="form.deliveryAvailable" type="checkbox" :disabled="!canEdit" />
+          <span>I offer delivery services</span>
+        </label>
+      </FormField>
+
+      <FormField v-if="form.deliveryAvailable" label="Delivery price per KM">
+        <input v-model="form.deliveryPricePerKm" type="number" step="0.01" min="0.01" required :disabled="!canEdit" placeholder="e.g. 5.00" />
+        <p class="muted small">This will be used to calculate delivery fees based on distance.</p>
       </FormField>
 
       <h2>Banking details (EFT)</h2>

@@ -18,6 +18,7 @@ const guestEmail = ref('');
 const guestPhone = ref('');
 const deliveryOrPickup = ref('');
 const paymentMethod = ref('EFT');
+const deliveryDistanceKm = ref('');
 const submitting = ref(false);
 const message = ref('');
 const error = ref('');
@@ -36,8 +37,27 @@ const acceptedPaymentMethods = computed(() => {
   return Array.isArray(list) && list.length ? list : ['EFT', 'CASH'];
 });
 
+const providerDeliverySettings = computed(() => {
+  return cart.lockedProviderDeliverySettings || { deliveryAvailable: false, deliveryPricePerKm: null };
+});
+
+const estimatedDeliveryFee = computed(() => {
+  if (!deliveryDistanceKm.value || !providerDeliverySettings.value.deliveryAvailable || !providerDeliverySettings.value.deliveryPricePerKm) {
+    return 0;
+  }
+  const distance = parseFloat(deliveryDistanceKm.value);
+  if (isNaN(distance) || distance <= 0) return 0;
+  return (distance * providerDeliverySettings.value.deliveryPricePerKm).toFixed(2);
+});
+
+const estimatedTotalWithDelivery = computed(() => {
+  const baseTotal = parseFloat(cart.estimatedTotal) || 0;
+  const deliveryFee = parseFloat(estimatedDeliveryFee.value) || 0;
+  return (baseTotal + deliveryFee).toFixed(2);
+});
+
 const showBankDetails = computed(
-  () => paymentMethod.value === 'EFT' && !!cart.lockedProviderBank,
+  () => acceptedPaymentMethods.value.includes('EFT') && !!cart.lockedProviderBank,
 );
 
 onMounted(async () => {
@@ -58,6 +78,7 @@ async function submitCheckout() {
         guestPhone: guestPhone.value,
         deliveryOrPickup: deliveryOrPickup.value,
         paymentMethod: paymentMethod.value,
+        deliveryDistanceKm: deliveryDistanceKm.value ? parseFloat(deliveryDistanceKm.value) : null,
       },
       withSession(session.sessionId),
     );
@@ -68,6 +89,7 @@ async function submitCheckout() {
     guestEmail.value = '';
     guestPhone.value = '';
     deliveryOrPickup.value = '';
+    deliveryDistanceKm.value = '';
     await cart.refresh();
 
     // Display verification codes
@@ -202,6 +224,13 @@ async function handleLimitWarning({ type, message }) {
             rows="4"
             placeholder="Farm address, gate instructions, or pickup window"
           ></textarea>
+        </FormField>
+
+        <FormField v-if="providerDeliverySettings.deliveryAvailable" label="Delivery distance (KM)" capitalize-first>
+          <input v-model="deliveryDistanceKm" type="number" step="0.1" min="0" placeholder="e.g. 15.5" />
+          <p v-if="estimatedDeliveryFee > 0" class="muted small">
+            Estimated delivery fee: R{{ estimatedDeliveryFee }} ({{ deliveryDistanceKm }} KM × R{{ providerDeliverySettings.deliveryPricePerKm }}/KM)
+          </p>
         </FormField>
 
         <FormField label="Payment method">
