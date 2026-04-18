@@ -5,6 +5,7 @@ import { api, withSession } from '../api';
 import { useSessionStore } from '../stores/session';
 import { useCartStore } from '../stores/cart';
 import { useDialog } from '../composables/useDialog';
+
 import FormField from '../components/ui/FormField.vue';
 import CartLinesSection from '../components/cart/CartLinesSection.vue';
 
@@ -13,62 +14,80 @@ const session = useSessionStore();
 const cart = useCartStore();
 const { confirm, success, error: showError, warning } = useDialog();
 
+/* ================= FORM ================= */
 const guestName = ref('');
 const guestEmail = ref('');
 const guestPhone = ref('');
-const deliveryOrPickup = ref('');
-const paymentMethod = ref('EFT');
+
+const paymentMethod = ref('CASH');
+const deliveryMode = ref(''); // DELIVERY | PICKUP
 const deliveryDistanceKm = ref('');
 const submitting = ref(false);
-const message = ref('');
-const error = ref('');
 
-const canCheckout = computed(
-  () =>
-    cart.lines.length > 0 &&
-    guestName.value &&
-    guestEmail.value &&
-    guestPhone.value &&
-    deliveryOrPickup.value,
+/* DELIVERY CONFIRMATION (NEW) */
+const deliveryFeeConfirmed = ref(false);
+
+/* ================= VALIDATION ================= */
+const canCheckout = computed(() =>
+  cart.lines.length > 0 &&
+  guestName.value &&
+  guestEmail.value &&
+  guestPhone.value &&
+  deliveryMode.value
 );
 
+/* ================= PAYMENT METHODS ================= */
 const acceptedPaymentMethods = computed(() => {
   const list = cart.lockedProviderAcceptedPaymentMethods || [];
   return Array.isArray(list) && list.length ? list : ['EFT', 'CASH'];
 });
 
-const providerDeliverySettings = computed(() => {
-  return cart.lockedProviderDeliverySettings || { deliveryAvailable: false, deliveryPricePerKm: null };
-});
-
-const estimatedDeliveryFee = computed(() => {
-  if (!deliveryDistanceKm.value || !providerDeliverySettings.value.deliveryAvailable || !providerDeliverySettings.value.deliveryPricePerKm) {
-    return 0;
-  }
-  const distance = parseFloat(deliveryDistanceKm.value);
-  if (isNaN(distance) || distance <= 0) return 0;
-  return (distance * providerDeliverySettings.value.deliveryPricePerKm).toFixed(2);
-});
-
-const estimatedTotalWithDelivery = computed(() => {
-  const baseTotal = parseFloat(cart.estimatedTotal) || 0;
-  const deliveryFee = parseFloat(estimatedDeliveryFee.value) || 0;
-  return (baseTotal + deliveryFee).toFixed(2);
-});
-
-const showBankDetails = computed(
-  () => acceptedPaymentMethods.value.includes('EFT') && !!cart.lockedProviderBank,
+/* ================= DELIVERY SETTINGS ================= */
+const deliveryAvailable = computed(() =>
+  !!cart.lockedProviderDeliveryAvailable
 );
 
+const deliveryRate = computed(() =>
+  Number(cart.lockedProviderDeliveryPricePerKm) || 0
+);
+
+/* ================= DELIVERY FEE =================
+   ONLY CALCULATED AFTER BUTTON CLICK
+================================================== */
+const estimatedDeliveryFee = computed(() => {
+  if (!deliveryFeeConfirmed.value) return 0;
+  if (deliveryMode.value !== 'DELIVERY') return 0;
+
+  const km = Number(deliveryDistanceKm.value);
+
+  if (!deliveryAvailable.value) return 0;
+  if (!km || km <= 0) return 0;
+  if (!deliveryRate.value) return 0;
+alert(km * deliveryRate.value);
+  return km * deliveryRate.value;
+});
+
+/* ================= TOTAL ================= */
+const estimatedTotalWithDelivery = computed(() => {
+  const base = Number(cart.estimatedTotal) || 0;
+  return base + Number(estimatedDeliveryFee.value);
+});
+
+/* ================= BANK DETAILS ================= */
+const showBankDetails = computed(() =>
+  paymentMethod.value === 'EFT' && !!cart.lockedProviderBankName
+);
+
+/* ================= INIT ================= */
 onMounted(async () => {
   await session.ensureSession();
   await cart.refresh();
 });
 
+/* ================= CHECKOUT ================= */
 async function submitCheckout() {
-  error.value = '';
-  message.value = '';
   submitting.value = true;
+
   try {
     const response = await api.post(
       '/api/public/cart/checkout',
@@ -76,32 +95,32 @@ async function submitCheckout() {
         guestName: guestName.value,
         guestEmail: guestEmail.value,
         guestPhone: guestPhone.value,
-        deliveryOrPickup: deliveryOrPickup.value,
+        deliveryOrPickup: deliveryMode.value,
         paymentMethod: paymentMethod.value,
-        deliveryDistanceKm: deliveryDistanceKm.value ? parseFloat(deliveryDistanceKm.value) : null,
+        deliveryDistanceKm: deliveryMode.value === 'DELIVERY'
+          ? Number(deliveryDistanceKm.value)
+          : null,
       },
       withSession(session.sessionId),
     );
 
-    const verificationCodes = response.data.verificationCodes || [];
+    const codes = response.data.verificationCodes || [];
 
     guestName.value = '';
     guestEmail.value = '';
     guestPhone.value = '';
-    deliveryOrPickup.value = '';
+    deliveryMode.value = '';
     deliveryDistanceKm.value = '';
+    deliveryFeeConfirmed.value = false;
+
     await cart.refresh();
 
-    // Display verification codes
-    if (verificationCodes.length > 0) {
-      const codesList = verificationCodes.map(code => `• ${code}`).join('\n');
-      await success(
-        `Order placed successfully!\n\nYour verification code(s):\n${codesList}\n\nPlease provide this code to the provider when collecting your order or upon delivery.`,
-        'Order Confirmed'
-      );
-    } else {
-      await success('Order placed successfully. Your cart has been cleared.', 'Order Confirmed');
-    }
+    await success(
+      codes.length
+        ? `Order placed!\n\n${codes.map(c => '• ' + c).join('\n')}`
+        : 'Order placed successfully.',
+      'Order Confirmed'
+    );
 
     router.push('/');
   } catch (e) {
@@ -111,90 +130,73 @@ async function submitCheckout() {
   }
 }
 
+/* ================= CART ================= */
 async function clearCart() {
-  const confirmed = await confirm('Are you sure you want to clear your entire cart?', 'Clear Cart');
-  if (!confirmed) return;
+  const ok = await confirm('Clear cart?', 'Confirm');
+  if (!ok) return;
 
   await cart.clearCart();
-  await success('Cart has been cleared.', 'Cart Cleared');
+  await success('Cart cleared');
 }
 
-/* ✅ NEW: update quantity */
 async function handleUpdateQuantity({ id, quantity }) {
-  // Find the cart line to check stock limits
-  const cartLine = cart.lines.find(line => line.lineId === id);
+  const line = cart.lines.find(l => l.lineId === id);
+  if (!line) return;
 
-  if (!cartLine) return;
-
-  // Check minimum quantity
   if (quantity < 1) {
-    await warning(
-      'Quantity cannot be less than 1. Use the delete button to remove this item from your cart.',
-      'Minimum Quantity Reached'
-    );
-    return;
+    return warning('Minimum quantity is 1', 'Warning');
   }
 
-  // Check maximum stock for SALE items
-  if (cartLine.listingType === 'SALE' && cartLine.availableStock !== null) {
-    if (quantity > cartLine.availableStock) {
-      await warning(
-        `Maximum available stock is ${cartLine.availableStock} units. You cannot add more than what's in stock.`,
-        'Maximum Stock Reached'
-      );
-      return;
+  if (line.listingType === 'SALE' && line.availableStock != null) {
+    if (quantity > line.availableStock) {
+      return warning(`Max stock is ${line.availableStock}`, 'Stock limit');
     }
   }
 
   try {
     await cart.updateLineQuantity(id, quantity);
   } catch (e) {
-    await showError(e.response?.data?.message || 'Failed to update quantity', 'Update Failed');
+    await showError(e.message, 'Update failed');
   }
 }
 
-/* ✅ NEW: remove item */
 async function handleRemoveLine(id) {
-  const confirmed = await confirm('Remove this item from your cart?', 'Remove Item');
-  if (!confirmed) return;
+  const ok = await confirm('Remove item?', 'Remove');
+  if (!ok) return;
 
   try {
     await cart.removeLine(id);
   } catch (e) {
-    await showError(e.response?.data?.message || 'Failed to remove item', 'Remove Failed');
+    await showError(e.message, 'Remove failed');
   }
 }
 
-/* ✅ NEW: show limit warning */
-async function handleLimitWarning({ type, message }) {
-  const title = type === 'max' ? 'Maximum Stock Reached' : 'Minimum Quantity Reached';
-  await warning(message, title);
+async function handleLimitWarning({ message, type }) {
+  await warning(message, type === 'max' ? 'Max limit' : 'Min limit');
+}
+
+/* ================= DELIVERY BUTTON ================= */
+function calculateDelivery() {
+  deliveryFeeConfirmed.value = true;
 }
 </script>
 
 <template>
-  <div class="page-document checkout-page">
+  <div class="checkout-page">
+
     <header class="page-hero">
-      <p class="page-hero__eyebrow">Guest checkout</p>
-      <h1 class="page-hero__title">Complete your order</h1>
-      <p class="page-hero__lead">
-        No account needed. Payments are per provider — the same rules as on the marketplace apply here.
-      </p>
+      <h1>Complete your order</h1>
     </header>
 
-    <div v-if="cart.isLocked" class="banner-lock">
-      Checking out with <strong>{{ cart.lockedProviderName }}</strong>
-    </div>
-
     <div class="checkout-grid">
+
       <!-- CART -->
-      <section class="surface-panel checkout-panel">
+      <section class="surface-panel">
         <h2>Your cart</h2>
 
         <CartLinesSection
           :lines="cart.lines"
           :estimated-total="cart.estimatedTotal"
-          empty-message="Your cart is empty. Add listings from the marketplace."
           @clear="clearCart"
           @update-quantity="handleUpdateQuantity"
           @remove-line="handleRemoveLine"
@@ -202,148 +204,178 @@ async function handleLimitWarning({ type, message }) {
         />
       </section>
 
-      <!-- FORM -->
-      <section class="surface-panel checkout-panel">
-        <h2>Contact & delivery</h2>
+      <!-- CHECKOUT -->
+      <section class="surface-panel">
 
-        <FormField label="Full name" capitalize-first>
-          <input v-model="guestName" type="text" autocomplete="name" />
+        <h2>Checkout</h2>
+
+        <FormField label="Name">
+          <input v-model="guestName" />
         </FormField>
 
         <FormField label="Email">
-          <input v-model="guestEmail" type="email" autocomplete="email" />
+          <input v-model="guestEmail" />
         </FormField>
 
         <FormField label="Phone">
-          <input v-model="guestPhone" type="tel" autocomplete="tel" />
+          <input v-model="guestPhone" />
         </FormField>
 
-        <FormField label="Delivery or pickup" capitalize-first>
-          <textarea
-            v-model="deliveryOrPickup"
-            rows="4"
-            placeholder="Farm address, gate instructions, or pickup window"
-          ></textarea>
+        <!-- DELIVERY OPTIONS -->
+        <FormField label="Delivery option">
+
+          <div class="radio-group">
+
+            <label class="radio-card">
+              <input type="radio" v-model="deliveryMode" value="DELIVERY" />
+              <span>🚚 Delivery <small>Delivered to you</small></span>
+            </label>
+
+            <label class="radio-card">
+              <input type="radio" v-model="deliveryMode" value="PICKUP" />
+              <span>🏪 Pickup <small>Collect yourself</small></span>
+            </label>
+
+          </div>
+
         </FormField>
 
-        <FormField v-if="providerDeliverySettings.deliveryAvailable" label="Delivery distance (KM)" capitalize-first>
-          <input v-model="deliveryDistanceKm" type="number" step="0.1" min="0" placeholder="e.g. 15.5" />
-          <p v-if="estimatedDeliveryFee > 0" class="muted small">
-            Estimated delivery fee: R{{ estimatedDeliveryFee }} ({{ deliveryDistanceKm }} KM × R{{ providerDeliverySettings.deliveryPricePerKm }}/KM)
+        <!-- DELIVERY INPUT -->
+        <div v-if="deliveryMode === 'DELIVERY'">
+
+          <FormField label="Distance (KM)">
+            <input
+              v-model="deliveryDistanceKm"
+              type="number"
+              min="0"
+              step="0.1"
+              @input="deliveryFeeConfirmed = false"
+            />
+          </FormField>
+
+          <button
+            type="button"
+            class="btn btn-secondary"
+            @click="calculateDelivery"
+            :disabled="!deliveryDistanceKm || deliveryDistanceKm <= 0"
+          >
+            Calculate Delivery Fee
+          </button>
+
+          <p v-if="deliveryFeeConfirmed" class="muted">
+            Delivery fee: R{{ estimatedDeliveryFee.toFixed(2) }}
           </p>
-        </FormField>
 
+        </div>
+
+        <!-- PAYMENT -->
         <FormField label="Payment method">
           <select v-model="paymentMethod">
             <option v-for="m in acceptedPaymentMethods" :key="m" :value="m">
-              {{ m === 'EFT' ? 'EFT' : 'Cash' }}
+              {{ m }}
             </option>
           </select>
         </FormField>
 
+        <!-- BANK -->
         <div v-if="showBankDetails" class="bank-box">
-          <h3>Pay {{ cart.lockedProviderName }} via EFT</h3>
-          <p class="muted small">
-            Use these banking details to pay the provider. Include the reference so they can match your payment.
-          </p>
+          <h3>EFT Payment Details</h3>
+          <p>{{ cart.lockedProviderBankName }}</p>
+        </div>
 
-          <dl class="bank-grid">
-            <div>
-              <dt>Bank</dt>
-              <dd>{{ cart.lockedProviderBank.bankName || '—' }}</dd>
-            </div>
-            <div>
-              <dt>Account name</dt>
-              <dd>{{ cart.lockedProviderBank.accountName || '—' }}</dd>
-            </div>
-            <div>
-              <dt>Account number</dt>
-              <dd>{{ cart.lockedProviderBank.accountNumber || '—' }}</dd>
-            </div>
-            <div>
-              <dt>Branch code</dt>
-              <dd>{{ cart.lockedProviderBank.branchCode || '—' }}</dd>
-            </div>
-            <div class="bank-ref">
-              <dt>Reference</dt>
-              <dd>
-                <strong>{{ cart.lockedProviderBank.reference || guestEmail || '—' }}</strong>
-              </dd>
-            </div>
-          </dl>
+        <!-- TOTAL -->
+        <div class="total-box">
+
+          <div class="row">
+            <span>Subtotal</span>
+            <strong>R{{ (Number(cart.estimatedTotal) || 0).toFixed(2) }}</strong>
+          </div>
+<!-- TODO: Implement delivery fee calculation -->
+          <div class="row" v-if="deliveryMode === 'DELIVERY' && deliveryFeeConfirmed">
+            <span>Delivery</span>
+            <strong>R{{ estimatedDeliveryFee.toFixed(2) }}</strong>
+          </div>
+<!--  TODO: Implement total calculation and add it to total -->
+          <div class="row total">
+            <span>Total</span>
+            <strong>R{{ estimatedTotalWithDelivery.toFixed(2) }}</strong>
+          </div>
+
         </div>
 
         <button
-          type="button"
-          class="btn btn-primary checkout-submit"
+          class="btn btn-primary"
           :disabled="!canCheckout || submitting"
           @click="submitCheckout"
         >
-          {{ submitting ? 'Submitting…' : 'Confirm & place order' }}
+          {{ submitting ? 'Processing...' : 'Place Order' }}
         </button>
+
       </section>
+
     </div>
   </div>
 </template>
 
 <style scoped>
-.checkout-page {
-  padding-bottom: 2rem;
-}
-
 .checkout-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
-  align-items: start;
 }
 
-.checkout-panel h2 {
-  font-family: var(--font-display);
+/* RADIO FIX */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
-.checkout-submit {
-  margin-top: 0.75rem;
-  width: 100%;
-  padding-top: 0.7rem;
-  padding-bottom: 0.7rem;
+.radio-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
 }
 
+.radio-card input {
+  width: 16px;
+  height: 16px;
+}
+
+/* TOTAL */
+.total-box {
+  margin-top: 1rem;
+  padding: 0.85rem;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+}
+
+.total-box .row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+}
+
+.total-box .total {
+  font-weight: 700;
+  border-top: 1px solid #ddd;
+  padding-top: 0.5rem;
+}
+
+/* BANK */
 .bank-box {
   margin-top: 1rem;
-  padding: 0.85rem 0.95rem;
+  padding: 0.8rem;
+  background: #f5f8ff;
   border-radius: 12px;
-  border: 1px solid rgba(21, 74, 122, 0.16);
-  background: rgba(21, 74, 122, 0.04);
 }
 
-.bank-box h3 {
-  font-family: var(--font-display);
-  margin: 0 0 0.35rem;
-}
-
-.bank-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem 1rem;
-  margin: 0.75rem 0 0;
-}
-
-.bank-grid dt {
-  font-size: 0.78rem;
-  color: var(--color-muted);
-}
-
-.bank-grid dd {
-  margin: 0.15rem 0 0;
-  font-weight: 600;
-}
-
-.bank-ref {
-  grid-column: 1 / -1;
-}
-
-@media (max-width: 880px) {
+@media (max-width: 900px) {
   .checkout-grid {
     grid-template-columns: 1fr;
   }

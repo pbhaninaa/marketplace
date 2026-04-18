@@ -19,6 +19,7 @@ const form = ref({
   bankAccountNumber: '',
   bankBranchCode: '',
   bankReference: '',
+  //TODO BOTH to be added as option an option as one may chose to use them both
   acceptedPaymentMethods: ['EFT', 'CASH'],
   deliveryAvailable: false,
   deliveryPricePerKm: '',
@@ -100,100 +101,310 @@ async function deactivateAccount() {
 
 <template>
   <div class="page-document provider-settings-page">
+
+    <!-- HERO -->
     <header class="page-hero">
-      <p class="page-hero__eyebrow">Provider</p>
-      <h1 class="page-hero__title">Settings</h1>
-      <p class="page-hero__lead">Manage your location, accepted payment methods, and banking details (shown at checkout).</p>
+      <p class="page-hero__eyebrow">Provider settings</p>
+      <h1 class="page-hero__title">Business configuration</h1>
+      <p class="page-hero__lead">
+        Manage your location, payments, delivery, and banking details.
+      </p>
     </header>
 
-    <p v-if="error" class="err-toast">{{ error }}</p>
-    <p v-if="message" class="ok-msg">{{ message }}</p>
-    <p v-if="loading" class="muted loading-line">Loading…</p>
+    <!-- STATUS -->
+    <p v-if="error" class="toast error">{{ error }}</p>
+    <p v-if="message" class="toast success">{{ message }}</p>
+    <p v-if="loading" class="muted loading">Loading settings…</p>
 
-    <section v-else class="surface-panel settings-panel">
-      <h2>Business</h2>
-      <FormField label="Location" capitalize-first>
-        <input v-model="form.location" type="text" required maxlength="500" :disabled="!canEdit" />
-      </FormField>
+    <div v-else class="settings-grid">
 
-      <FormField label="Accepted payment methods">
-        <select v-model="form.acceptedPaymentMethods" multiple size="2" :disabled="!canEdit">
-          <option v-for="m in allPaymentMethods" :key="m" :value="m">{{ m }}</option>
-        </select>
-      </FormField>
+      <!-- MAIN SETTINGS -->
+      <section class="card">
 
-      <h2>Delivery</h2>
-      <FormField label="Delivery available">
-        <label style="display: flex; align-items: center; gap: 0.5rem;">
+        <h2 class="card-title">Business details</h2>
+
+        <FormField label="Location">
+          <input v-model="form.location" type="text" :disabled="!canEdit" />
+        </FormField>
+
+     <FormField label="Accepted payment methods">
+
+  <label class="check-card">
+    <input
+      type="checkbox"
+      value="EFT"
+      v-model="form.acceptedPaymentMethods"
+      :disabled="!canEdit"
+    />
+    <span class="check-label">
+      EFT <small>(Bank transfer)</small>
+    </span>
+  </label>
+
+  <label class="check-card">
+    <input
+      type="checkbox"
+      value="CASH"
+      v-model="form.acceptedPaymentMethods"
+      :disabled="!canEdit"
+    />
+    <span class="check-label">
+      Cash <small>(Pay on delivery)</small>
+    </span>
+  </label>
+
+</FormField>
+
+      </section>
+
+      <!-- DELIVERY -->
+      <section class="card">
+
+        <h2 class="card-title">Delivery</h2>
+
+        <label class="toggle">
           <input v-model="form.deliveryAvailable" type="checkbox" :disabled="!canEdit" />
           <span>I offer delivery services</span>
         </label>
-      </FormField>
 
-      <FormField v-if="form.deliveryAvailable" label="Delivery price per KM">
-        <input v-model="form.deliveryPricePerKm" type="number" step="0.01" min="0.01" required :disabled="!canEdit" placeholder="e.g. 5.00" />
-        <p class="muted small">This will be used to calculate delivery fees based on distance.</p>
-      </FormField>
+        <div v-if="form.deliveryAvailable" class="fade-in">
+          <FormField label="Price per KM (ZAR)">
+            <input
+              v-model="form.deliveryPricePerKm"
+              type="number"
+              step="0.01"
+              min="0.01"
+              :disabled="!canEdit"
+              placeholder="e.g. 5.00"
+            />
+          </FormField>
 
-      <h2>Banking details (EFT)</h2>
-      <p class="muted small">These details are shown to clients when they select EFT at checkout.</p>
-      <FormField label="Bank name" capitalize-first>
-        <input v-model="form.bankName" type="text" maxlength="200" :disabled="!canEdit" />
-      </FormField>
-      <FormField label="Account name" capitalize-first>
-        <input v-model="form.bankAccountName" type="text" maxlength="200" :disabled="!canEdit" />
-      </FormField>
-      <FormField label="Account number">
-        <input v-model="form.bankAccountNumber" type="text" maxlength="50" :disabled="!canEdit" />
-      </FormField>
-      <FormField label="Branch code">
-        <input v-model="form.bankBranchCode" type="text" maxlength="20" :disabled="!canEdit" />
-      </FormField>
-      <FormField label="Payment reference hint (optional)" capitalize-first>
-        <input v-model="form.bankReference" type="text" maxlength="140" :disabled="!canEdit" placeholder="e.g. Use your email as reference" />
-      </FormField>
+          <p class="hint">
+            Delivery fees are calculated based on distance.
+          </p>
+        </div>
 
-      <button type="button" class="btn btn-primary" :disabled="!canEdit" @click="save">Save settings</button>
-      <p v-if="!canEdit" class="muted small">Only the provider owner/admin can edit settings.</p>
-    </section>
+      </section>
 
-    <section v-if="!loading" class="surface-panel settings-panel danger">
-      <h2>Danger zone</h2>
-      <p class="muted small">
-        Deactivating your provider account will suspend your provider, disable all users, and unpublish listings.
-      </p>
-      <button type="button" class="btn btn-ghost danger-btn" :disabled="!canEdit" @click="deactivateAccount">
-        Deactivate provider account
-      </button>
-    </section>
+      <!-- BANKING -->
+      <section class="card">
+
+        <h2 class="card-title">Banking (EFT)</h2>
+        <p class="hint">
+          Shown to customers when they choose EFT at checkout.
+        </p>
+
+        <FormField label="Bank name">
+          <input v-model="form.bankName" type="text" :disabled="!canEdit" />
+        </FormField>
+
+        <FormField label="Account name">
+          <input v-model="form.bankAccountName" type="text" :disabled="!canEdit" />
+        </FormField>
+
+        <FormField label="Account number">
+          <input v-model="form.bankAccountNumber" type="text" :disabled="!canEdit" />
+        </FormField>
+
+        <FormField label="Branch code">
+          <input v-model="form.bankBranchCode" type="text" :disabled="!canEdit" />
+        </FormField>
+
+        <FormField label="Reference hint (optional)">
+          <input v-model="form.bankReference" type="text" :disabled="!canEdit" />
+        </FormField>
+
+      </section>
+
+      <!-- ACTIONS -->
+      <section class="actions-bar">
+        <button class="btn btn-primary" :disabled="!canEdit" @click="save">
+          Save changes
+        </button>
+
+        <p v-if="!canEdit" class="muted small">
+          Only admins can edit settings.
+        </p>
+      </section>
+
+      <!-- DANGER -->
+      <section class="card danger">
+
+        <h2 class="card-title danger-title">Danger zone</h2>
+
+        <p class="hint">
+          Deactivating will suspend your provider account and unpublish listings.
+        </p>
+
+        <button
+          class="btn btn-ghost danger-btn"
+          :disabled="!canEdit"
+          @click="deactivateAccount"
+        >
+          Deactivate account
+        </button>
+
+      </section>
+
+    </div>
   </div>
 </template>
 
 <style scoped>
+
+/* PAGE */
 .provider-settings-page {
-  padding: 0.5rem 0 2rem;
+  padding: 1rem 0 2.5rem;
 }
-.settings-panel {
-  max-width: 520px;
+
+/* GRID */
+.settings-grid {
+  max-width: 720px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 1rem;
 }
-.settings-panel h2 {
+
+/* CARD */
+.card {
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+/* TITLES */
+.card-title {
   font-family: var(--font-display);
-  margin-top: 0.75rem;
+  font-size: 1.05rem;
+  margin: 0;
 }
-.settings-panel .btn {
-  margin-top: 0.8rem;
-  align-self: flex-start;
+
+/* HINT TEXT */
+.hint {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  line-height: 1.4;
+  margin-top: -0.3rem;
 }
+
+/* TOGGLE */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.95rem;
+}
+
+/* BUTTON BAR */
+.actions-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0;
+}
+
+/* DANGER */
 .danger {
-  margin-top: 1rem;
+  border-color: rgba(180, 40, 40, 0.25);
+  background: rgba(255, 245, 245, 0.6);
 }
+
+.danger-title {
+  color: rgba(140, 20, 20, 1);
+}
+
 .danger-btn {
-  border-color: rgba(180, 40, 40, 0.35);
-  color: rgba(140, 20, 20, 0.95);
+  border-color: rgba(180, 40, 40, 0.4);
+  color: rgba(140, 20, 20, 1);
 }
+
+/* TOASTS */
+.toast {
+  max-width: 720px;
+  margin: 0 auto 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.toast.error {
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #9f1239;
+}
+
+.toast.success {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+}
+
+/* LOADING */
+.loading {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+/* ANIMATION */
+.fade-in {
+  animation: fadeIn 0.2s ease-in;
+}
+
+.check-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+
+  cursor: pointer;
+  margin-bottom: 0.6rem;
+
+  transition: all 0.15s ease;
+  background: var(--color-surface);
+}
+
+/* hover state */
+.check-card:hover {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.04);
+}
+
+/* checkbox */
+.check-card input {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+  flex-shrink: 0;
+}
+
+/* label block */
+.check-label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+/* subtitle */
+.check-label small {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  margin-top: 2px;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 </style>
 
