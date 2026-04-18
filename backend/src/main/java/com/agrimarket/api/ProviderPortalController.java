@@ -166,6 +166,8 @@ public class ProviderPortalController {
                 "id", o.getId(),
                 "guestEmail", o.getGuestEmail(),
                 "status", o.getStatus().name(),
+                "guestPhone", o.getGuestPhone(),
+                "guestName", o.getGuestName(),
                 "total", o.getTotalAmount(),
                 "createdAt", o.getCreatedAt().toString());
     }
@@ -175,6 +177,9 @@ public class ProviderPortalController {
                 "id", b.getId(),
                 "listingId", b.getListing().getId(),
                 "guestEmail", b.getGuestEmail(),
+                "createdAt", b.getCreatedAt().toString(),
+                "guestName", b.getGuestName(),
+                "guestPhone", b.getGuestPhone(),
                 "status", b.getStatus().name(),
                 "total", b.getTotalAmount(),
                 "startAt", b.getStartAt().toString(),
