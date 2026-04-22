@@ -10,7 +10,7 @@ vi.mock('../src/stores/session', () => ({
 }));
 
 vi.mock('../src/api', () => ({
-  api: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
+  api: { get: vi.fn(), post: vi.fn(), delete: vi.fn(), patch: vi.fn() },
   withSession: (id) => ({ headers: { 'X-Session-Id': id } }),
 }));
 
@@ -47,5 +47,13 @@ describe('useCartStore', () => {
     const cart = useCartStore();
     cart.lockedProviderId = 5;
     expect(cart.isGreyed({ providerId: 99 })).toBe(true);
+  });
+
+  it('updateLineQuantity rejects quantities < 1 without API call', async () => {
+    const { api } = await import('../src/api');
+    const cart = useCartStore();
+    const res = await cart.updateLineQuantity(123, 0);
+    expect(res.ok).toBe(false);
+    expect(api.patch).not.toHaveBeenCalled();
   });
 });

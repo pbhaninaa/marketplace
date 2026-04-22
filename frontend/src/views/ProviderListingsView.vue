@@ -14,6 +14,7 @@ import {
 import FormField from '../components/ui/FormField.vue';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
+import { isNonEmptyString, isPositiveNumber, isMinInt } from '../utils/validation';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -213,6 +214,14 @@ function closeDialog() {
 async function createListing() {
   if (!canEdit.value) return;
   const categoryName = resolvedCategoryNameForSubmit();
+  if (!isNonEmptyString(form.value.title)) {
+    error.value = 'Please enter a title.';
+    return;
+  }
+  if (!isPositiveNumber(form.value.unitPrice)) {
+    error.value = 'Please enter a unit price greater than zero.';
+    return;
+  }
   if (!form.value.categoryKey) {
     error.value = 'Please select a category.';
     return;
@@ -255,7 +264,13 @@ async function createListing() {
       if (form.value.categoryKey === LARGE_LIVESTOCK_KEY) {
         stockQuantity = 1;
       } else {
-        stockQuantity = Number(form.value.stockQuantity || 0);
+        const raw = String(form.value.stockQuantity || '').trim();
+        const next = raw === '' ? null : Number(raw);
+        if (next != null && !isMinInt(next, 0)) {
+          error.value = 'Stock quantity must be a whole number (0 or more).';
+          return;
+        }
+        stockQuantity = next;
       }
     }
     const body = {

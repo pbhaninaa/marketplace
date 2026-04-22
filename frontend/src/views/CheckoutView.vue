@@ -9,6 +9,7 @@ import { api, withSession } from '../api';
 import { useSessionStore } from '../stores/session';
 import { useCartStore } from '../stores/cart';
 import { useDialog } from '../composables/useDialog';
+import { isNonEmptyString, isValidEmail, isPositiveNumber } from '../utils/validation';
 
 import FormField from '../components/ui/FormField.vue';
 import CartLinesSection from '../components/cart/CartLinesSection.vue';
@@ -128,6 +129,17 @@ onMounted(async () => {
 
 /* ================= CHECKOUT ================= */
 async function submitCheckout() {
+  if (!isNonEmptyString(guestName.value)) return warning('Please enter your name.', 'Missing name');
+  if (!isValidEmail(guestEmail.value)) return warning('Please enter a valid email address.', 'Invalid email');
+  if (!isNonEmptyString(guestPhone.value)) return warning('Please enter your phone number.', 'Missing phone');
+  if (!isNonEmptyString(deliveryMode.value)) return warning('Please choose delivery or pickup.', 'Missing option');
+  if (deliveryMode.value === 'DELIVERY') {
+    if (!deliveryFeeConfirmed.value) return warning('Please update and confirm delivery fee.', 'Delivery not confirmed');
+    if (!isPositiveNumber(deliveryDistanceKm.value)) {
+      return warning('Please enter a valid delivery distance in KM.', 'Invalid distance');
+    }
+  }
+
   submitting.value = true;
 
   try {

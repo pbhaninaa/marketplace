@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { api } from '../api';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
+import { isNonEmptyString, isPositiveNumber } from '../utils/validation';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -64,9 +65,19 @@ async function load() {
 async function save() {
   error.value = '';
   message.value = '';
+  if (!isNonEmptyString(form.value.location)) {
+    error.value = 'Location is required.';
+    return;
+  }
   if (!Array.isArray(form.value.acceptedPaymentMethods) || form.value.acceptedPaymentMethods.length === 0) {
     error.value = 'Please select at least one accepted payment method.';
     return;
+  }
+  if (form.value.deliveryAvailable) {
+    if (!isPositiveNumber(form.value.deliveryPricePerKm)) {
+      error.value = 'Please enter a delivery price per KM greater than zero.';
+      return;
+    }
   }
   try {
     const { data } = await api.patch('/api/provider/me/settings', {

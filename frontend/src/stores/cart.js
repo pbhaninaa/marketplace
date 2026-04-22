@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { api, withSession } from '../api';
 import { useSessionStore } from './session';
+import { isMinInt } from '../utils/validation';
 
 export const useCartStore = defineStore('cart', () => {
   const lines = ref([]);
@@ -98,6 +99,10 @@ export const useCartStore = defineStore('cart', () => {
     const session = useSessionStore();
     await session.ensureSession();
     lastError.value = null;
+    if (!isMinInt(quantity, 1)) {
+      lastError.value = 'Quantity must be at least 1.';
+      return { ok: false, code: 'VALIDATION', message: lastError.value };
+    }
     try {
       await api.patch(
         `/api/public/cart/items/${cartLineId}/quantity`,

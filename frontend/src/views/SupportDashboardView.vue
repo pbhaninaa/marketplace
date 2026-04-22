@@ -5,6 +5,7 @@ import { api } from '../api';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
+import { isNonEmptyString } from '../utils/validation';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -57,6 +58,10 @@ async function searchUsers() {
 async function resendOtp() {
   message.value = '';
   error.value = '';
+  if (!isNonEmptyString(otpTarget.value)) {
+    error.value = 'Please enter a client email or phone.';
+    return;
+  }
   try {
     await api.post('/api/support/client/otp/resend', { target: otpTarget.value.trim() });
     message.value = 'OTP re-issued (check logs in local dev).';
