@@ -19,7 +19,6 @@ const form = ref({
   bankAccountNumber: '',
   bankBranchCode: '',
   bankReference: '',
-  //TODO BOTH to be added as option an option as one may chose to use them both
   acceptedPaymentMethods: ['EFT', 'CASH'],
   deliveryAvailable: false,
   deliveryPricePerKm: '',
@@ -65,6 +64,10 @@ async function load() {
 async function save() {
   error.value = '';
   message.value = '';
+  if (!Array.isArray(form.value.acceptedPaymentMethods) || form.value.acceptedPaymentMethods.length === 0) {
+    error.value = 'Please select at least one accepted payment method.';
+    return;
+  }
   try {
     const { data } = await api.patch('/api/provider/me/settings', {
       location: form.value.location,

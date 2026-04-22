@@ -3,6 +3,7 @@ package com.agrimarket.api;
 import com.agrimarket.api.dto.CartAddRequest;
 import com.agrimarket.api.dto.CartResponse;
 import com.agrimarket.api.dto.GuestCheckoutRequest;
+import com.agrimarket.api.dto.UpdateQuantityRequest;
 import com.agrimarket.api.error.ApiException;
 import com.agrimarket.service.CartService;
 import com.agrimarket.service.CheckoutService;
@@ -64,12 +65,8 @@ public class PublicCartController {
     public CartResponse updateQuantity(
             @RequestHeader(value = SESSION_HEADER, required = false) String sessionId,
             @PathVariable Long cartLineId,
-            @RequestBody Map<String, Integer> payload) {
-        Integer quantity = payload.get("quantity");
-        if (quantity == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "MISSING_QUANTITY", "Quantity is required");
-        }
-        return cartService.updateQuantity(requireSession(sessionId), cartLineId, quantity);
+            @Valid @RequestBody UpdateQuantityRequest payload) {
+        return cartService.updateQuantity(requireSession(sessionId), cartLineId, payload.quantity());
     }
 
     @PostMapping("/checkout")

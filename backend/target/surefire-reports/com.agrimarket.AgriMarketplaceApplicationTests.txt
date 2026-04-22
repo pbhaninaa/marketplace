@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.agrimarket.AgriMarketplaceApplicationTests
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 18.88 s -- in com.agrimarket.AgriMarketplaceApplicationTests

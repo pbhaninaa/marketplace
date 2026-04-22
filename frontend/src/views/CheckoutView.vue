@@ -1,15 +1,9 @@
 <script setup>
-// TODO make sure Delivery option is only shown if provider supports it (and hide distance input if not delivery) 
-// then calculate delivery fee on button click and show in total 
-// (also show warning if no delivery price set or distance invalid) 
-//  "lockedProviderDeliveryAvailable": true,
-// "lockedProviderDeliveryPricePerKm": 5.00, 
-// these are what will be used for delivery fee calc and display in checkout
-// Delivery fee will be number of KM * delivery price per KM 
-// (so we need to add a distance input in checkout form that only shows if delivery selected)
+// Delivery option is only shown if provider supports it.
+// Delivery fee is only calculated/locked-in after the user clicks "Update Delivery Fee".
 
 
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, withSession } from '../api';
 import { useSessionStore } from '../stores/session';
@@ -45,7 +39,8 @@ const canCheckout = computed(() =>
   guestName.value &&
   guestEmail.value &&
   guestPhone.value &&
-  deliveryMode.value
+  deliveryMode.value &&
+  (deliveryMode.value !== 'DELIVERY' || deliveryFeeConfirmed.value)
 );
 
 /* ================= PAYMENT METHODS ================= */
@@ -63,8 +58,24 @@ const deliveryRate = computed(() =>
   Number(cart.lockedProviderDeliveryPricePerKm) || 0
 );
 
+watch(
+  deliveryAvailable,
+  (available) => {
+    if (!available && deliveryMode.value === 'DELIVERY') {
+      deliveryMode.value = 'PICKUP';
+    }
+  },
+  { immediate: true }
+);
+
+watch(deliveryMode, () => {
+  calculatedDeliveryFee.value = 0;
+  deliveryFeeConfirmed.value = false;
+  deliveryDistanceKm.value = '';
+});
+
 /* ================= DELIVERY CALC (ONLY AFTER BUTTON CLICK) ================= */
-function updateDeliveryFee() {
+async function updateDeliveryFee() {
   if (deliveryMode.value !== 'DELIVERY') {
     calculatedDeliveryFee.value = 0;
     deliveryFeeConfirmed.value = false;
@@ -73,7 +84,22 @@ function updateDeliveryFee() {
 
   const km = Number(deliveryDistanceKm.value);
 
-  if (!deliveryAvailable.value || !deliveryRate.value || !km || km <= 0) {
+  if (!deliveryAvailable.value) {
+    await warning('This provider does not offer delivery.', 'Delivery unavailable');
+    calculatedDeliveryFee.value = 0;
+    deliveryFeeConfirmed.value = false;
+    return;
+  }
+
+  if (!deliveryRate.value || deliveryRate.value <= 0) {
+    await warning('Delivery is available but no price per KM is set yet.', 'Delivery price missing');
+    calculatedDeliveryFee.value = 0;
+    deliveryFeeConfirmed.value = false;
+    return;
+  }
+
+  if (!km || km <= 0) {
+    await warning('Please enter a valid delivery distance in KM.', 'Invalid distance');
     calculatedDeliveryFee.value = 0;
     deliveryFeeConfirmed.value = false;
     return;
@@ -238,7 +264,7 @@ async function handleLimitWarning({ message, type }) {
 
           <div class="radio-group">
 
-            <label class="radio-card">
+            <label v-if="deliveryAvailable" class="radio-card">
               <input type="radio" v-model="deliveryMode" value="DELIVERY" />
               <span>🚚 Delivery <small>To your location</small></span>
             </label>
@@ -253,7 +279,7 @@ async function handleLimitWarning({ message, type }) {
         </FormField>
 
         <!-- DELIVERY INPUT -->
-        <div v-if="deliveryMode === 'DELIVERY'">
+        <div v-if="deliveryMode === 'DELIVERY' && deliveryAvailable">
 
           <FormField label="Distance (KM)">
             <input

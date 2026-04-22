@@ -1,6 +1,7 @@
 package com.agrimarket.api;
 
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -69,5 +70,25 @@ class CartMvcIntegrationTest extends AbstractIntegrationTest {
     @Test
     void cartSession_returnsSessionId() throws Exception {
         mockMvc.perform(post("/api/public/cart/session")).andExpect(status().isOk()).andExpect(jsonPath("$.sessionId").exists());
+    }
+
+    @Test
+    void updateQuantity_whenMissingQuantity_returnsBadRequest() throws Exception {
+        mockMvc.perform(patch("/api/public/cart/items/{id}/quantity", 123)
+                        .header("X-Session-Id", sessionId)
+                        .contentType(APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION"));
+    }
+
+    @Test
+    void updateQuantity_whenZeroQuantity_returnsBadRequest() throws Exception {
+        mockMvc.perform(patch("/api/public/cart/items/{id}/quantity", 123)
+                        .header("X-Session-Id", sessionId)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("quantity", 0))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION"));
     }
 }

@@ -74,10 +74,20 @@ const rentalEstimate = computed(() => {
   if (d < 1) return null;
   return estimateRentalAmount(props.listing, d);
 });
+
+const isOutOfStock = computed(() => {
+  if (props.listing.listingType !== 'SALE') return false;
+  const raw = props.listing.stockQuantity;
+  if (raw == null || raw === '') return false;
+  const n = Number(raw);
+  return Number.isFinite(n) && n <= 0;
+});
+
+const isGreyed = computed(() => props.greyed || isOutOfStock.value);
 </script>
 
 <template>
-  <article class="listing-card" :class="{ 'listing-card--greyed': greyed }">
+  <article class="listing-card" :class="{ 'listing-card--greyed': isGreyed }">
     <div class="listing-card__media" :class="{ 'listing-card__media--empty': !firstImageUrl }">
       <img v-if="firstImageUrl" :src="firstImageUrl" :alt="listing.title" loading="lazy" />
       <div v-else class="listing-card__media-fallback" aria-hidden="true">No image</div>
@@ -91,6 +101,8 @@ const rentalEstimate = computed(() => {
     <p class="listing-card__desc">{{ listing.description }}</p>
     <ListingPriceSummary :listing="listing" />
 
+    <p v-if="isOutOfStock" class="stock-pill">Out of stock</p>
+
     <div v-if="showSaleQuantity" class="qty-row">
       <label class="small" :for="'listing-qty-' + listing.id">Quantity</label>
       <input
@@ -100,7 +112,7 @@ const rentalEstimate = computed(() => {
         min="1"
         :max="maxSaleQty"
         class="field qty-input"
-        :disabled="greyed"
+        :disabled="isGreyed"
         @change="clampQty"
       />
       <p v-if="listing.stockQuantity != null" class="muted tiny">Up to {{ maxSaleQty }} in stock</p>
@@ -130,7 +142,7 @@ const rentalEstimate = computed(() => {
       <button type="button" class="linkish" @click="emit('reset-rent-dates')">Reset dates</button>
     </div>
 
-    <button type="button" class="btn btn-primary listing-card__cta" :disabled="greyed" @click="onAddToCart">
+    <button type="button" class="btn btn-primary listing-card__cta" :disabled="isGreyed" @click="onAddToCart">
       Add to cart
     </button>
   </article>
@@ -303,5 +315,17 @@ const rentalEstimate = computed(() => {
 .listing-card__cta {
   width: 100%;
   margin-top: 0.35rem;
+}
+
+.stock-pill {
+  margin: 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(180, 40, 40, 0.25);
+  background: rgba(255, 245, 245, 0.8);
+  color: rgba(140, 20, 20, 1);
+  font-size: 0.78rem;
+  font-weight: 700;
+  width: fit-content;
 }
 </style>
