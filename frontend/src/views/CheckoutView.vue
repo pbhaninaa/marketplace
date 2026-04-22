@@ -248,12 +248,12 @@ async function handleLimitWarning({ message, type }) {
           <input v-model="guestName" />
         </FormField>
 
-        <FormField label="Email">
-          <input v-model="guestEmail" />
+        <FormField label="Email" >
+          <input v-model="guestEmail" type="email"/>
         </FormField>
 
         <FormField label="Phone">
-          <input v-model="guestPhone" />
+          <input v-model="guestPhone" type="tel"/>
         </FormField>
 
         <!-- DELIVERY: only when provider offers it; otherwise pickup-only -->
