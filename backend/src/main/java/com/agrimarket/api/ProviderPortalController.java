@@ -3,9 +3,12 @@ package com.agrimarket.api;
 import com.agrimarket.api.dto.ListingResponse;
 import com.agrimarket.api.dto.ListingUpsertRequest;
 import com.agrimarket.api.dto.ProviderDashboardStatsResponse;
+import com.agrimarket.domain.BookingStatus;
 import com.agrimarket.domain.OrderStatus;
+import com.agrimarket.domain.PaymentStatus;
 import com.agrimarket.domain.PurchaseOrder;
 import com.agrimarket.domain.RentalBooking;
+import com.agrimarket.repo.PaymentRecordRepository;
 import com.agrimarket.repo.PurchaseOrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
 import com.agrimarket.security.MarketUserPrincipal;
@@ -48,6 +51,7 @@ public class ProviderPortalController {
     private final OrderManagementService orderManagementService;
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final RentalBookingRepository rentalBookingRepository;
+    private final PaymentRecordRepository paymentRecordRepository;
 
     @GetMapping("/listings")
     public Page<ListingResponse> listings(
@@ -264,16 +268,16 @@ public class ProviderPortalController {
 
         if (order.getVerifiedAt() != null) {
             return Map.of(
-                    "message", "Order already verified",
+                    "message", "Code already recorded for this order",
                     "verifiedAt", order.getVerifiedAt(),
                     "order", order);
         }
 
-        order.setVerifiedAt(java.time.Instant.now());
+        order.setVerifiedAt(Instant.now());
         purchaseOrderRepository.save(order);
 
         return Map.of(
-                "message", "Order verified successfully",
+                "message", "Guest verified — you can now confirm payment when funds are received.",
                 "verifiedAt", order.getVerifiedAt(),
                 "order", order);
     }
@@ -294,14 +298,23 @@ public class ProviderPortalController {
                     org.springframework.http.HttpStatus.FORBIDDEN, "This booking belongs to a different provider");
         }
 
-        if (booking.getVerifiedAt() != null) {
+        if (booking.getVerifiedAt() != null && booking.getStatus() == BookingStatus.CONFIRMED) {
             return Map.of(
                     "message", "Booking already verified",
                     "verifiedAt", booking.getVerifiedAt(),
                     "booking", booking);
         }
 
-        booking.setVerifiedAt(java.time.Instant.now());
+        if (booking.getVerifiedAt() == null) {
+            booking.setVerifiedAt(Instant.now());
+        }
+        booking.setStatus(BookingStatus.CONFIRMED);
+        paymentRecordRepository
+                .findByRentalBooking_Id(booking.getId())
+                .ifPresent(p -> {
+                    p.setStatus(PaymentStatus.COMPLETED);
+                    paymentRecordRepository.save(p);
+                });
         rentalBookingRepository.save(booking);
 
         return Map.of(

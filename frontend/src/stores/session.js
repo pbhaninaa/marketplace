@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { api } from '../api';
+import { publicSessionApi } from '../services/marketplaceApi';
 
 const STORAGE_KEY = 'agrimarket_session_id';
 
@@ -9,7 +9,7 @@ export const useSessionStore = defineStore('session', () => {
 
   async function ensureSession() {
     if (sessionId.value) return sessionId.value;
-    const { data } = await api.post('/api/public/cart/session');
+    const { data } = await publicSessionApi.createCartSession();
     sessionId.value = data.sessionId;
     localStorage.setItem(STORAGE_KEY, sessionId.value);
     return sessionId.value;

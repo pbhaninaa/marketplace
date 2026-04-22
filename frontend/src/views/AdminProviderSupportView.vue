@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { api } from '../api';
+import { adminProviderDetailApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DataTableShell from '../components/ui/DataTableShell.vue';
 
@@ -34,9 +34,9 @@ async function loadAll() {
   message.value = '';
   try {
     const [p, l, s] = await Promise.all([
-      api.get(`/api/admin/providers/${providerId}`),
-      api.get(`/api/admin/providers/${providerId}/listings`),
-      api.get(`/api/admin/providers/${providerId}/staff`),
+      adminProviderDetailApi.getProvider(providerId),
+      adminProviderDetailApi.getListings(providerId),
+      adminProviderDetailApi.getStaff(providerId),
     ]);
     provider.value = p.data;
     listings.value = l.data || [];
@@ -52,7 +52,7 @@ async function deleteListing(listingId) {
   error.value = '';
   message.value = '';
   try {
-    await api.delete(`/api/admin/providers/${providerId}/listings/${listingId}`);
+    await adminProviderDetailApi.deleteListing(providerId, listingId);
     message.value = 'Listing removed.';
     await loadAll();
   } catch (e) {
@@ -64,7 +64,7 @@ async function disableStaff(userId) {
   error.value = '';
   message.value = '';
   try {
-    await api.patch(`/api/admin/providers/${providerId}/staff/${userId}/disable`);
+    await adminProviderDetailApi.disableStaff(providerId, userId);
     message.value = 'Staff user disabled.';
     await loadAll();
   } catch (e) {

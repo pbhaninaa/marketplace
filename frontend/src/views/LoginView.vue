@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { api } from '../api';
+import { authApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import { useSetupStore } from '../stores/setup';
 import FormField from '../components/ui/FormField.vue';
@@ -80,7 +80,7 @@ async function submit() {
   info.value = '';
 
   try {
-    const { data } = await api.post('/api/auth/login', {
+    const { data } = await authApi.login({
       email: email.value,
       password: password.value,
     });

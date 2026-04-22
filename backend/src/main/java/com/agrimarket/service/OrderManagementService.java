@@ -2,7 +2,9 @@ package com.agrimarket.service;
 
 import com.agrimarket.api.error.ApiException;
 import com.agrimarket.domain.OrderStatus;
+import com.agrimarket.domain.PaymentStatus;
 import com.agrimarket.domain.PurchaseOrder;
+import com.agrimarket.repo.PaymentRecordRepository;
 import com.agrimarket.repo.PurchaseOrderRepository;
 import com.agrimarket.security.MarketUserPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class OrderManagementService {
 
     private final PurchaseOrderRepository purchaseOrderRepository;
+    private final PurchaseInventoryService purchaseInventoryService;
+    private final PaymentRecordRepository paymentRecordRepository;
 
     @Transactional(readOnly = true)
     public Page<PurchaseOrder> getProviderOrders(Long providerId, Pageable pageable) {
@@ -43,7 +47,22 @@ public class OrderManagementService {
         PurchaseOrder order = getOrderById(providerId, orderId);
 
         // Validate status transitions
-        validateStatusTransition(order.getStatus(), newStatus);
+        OrderStatus current = order.getStatus();
+        validateStatusTransition(current, newStatus);
+
+        if (current == OrderStatus.PENDING_PAYMENT && newStatus == OrderStatus.PAID) {
+            if (order.getVerifiedAt() == null) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "VERIFY_CODE_REQUIRED",
+                        "Verify the guest's meetup code before confirming payment.");
+            }
+            purchaseInventoryService.finalizePaidPurchase(order);
+            markPurchasePaymentCompleted(order);
+        } else if (current == OrderStatus.PENDING_PAYMENT && newStatus == OrderStatus.CANCELLED) {
+            purchaseInventoryService.releasePendingReservation(order);
+            markPurchasePaymentFailed(order);
+        }
 
         order.setStatus(newStatus);
         return purchaseOrderRepository.save(order);
@@ -61,6 +80,11 @@ public class OrderManagementService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "ALREADY_CANCELLED", "Order is already cancelled");
         }
 
+        if (order.getStatus() == OrderStatus.PENDING_PAYMENT) {
+            purchaseInventoryService.releasePendingReservation(order);
+            markPurchasePaymentFailed(order);
+        }
+
         order.setStatus(OrderStatus.CANCELLED);
         purchaseOrderRepository.save(order);
     }
@@ -75,7 +99,29 @@ public class OrderManagementService {
                     "Can only delete cancelled or pending payment orders");
         }
 
+        if (order.getStatus() == OrderStatus.PENDING_PAYMENT && !order.isInventoryFinalized()) {
+            purchaseInventoryService.releasePendingReservation(order);
+        }
+
         purchaseOrderRepository.delete(order);
+    }
+
+    private void markPurchasePaymentCompleted(PurchaseOrder order) {
+        paymentRecordRepository
+                .findByPurchaseOrder_Id(order.getId())
+                .ifPresent(p -> {
+                    p.setStatus(PaymentStatus.COMPLETED);
+                    paymentRecordRepository.save(p);
+                });
+    }
+
+    private void markPurchasePaymentFailed(PurchaseOrder order) {
+        paymentRecordRepository
+                .findByPurchaseOrder_Id(order.getId())
+                .ifPresent(p -> {
+                    p.setStatus(PaymentStatus.FAILED);
+                    paymentRecordRepository.save(p);
+                });
     }
 
     private void validateStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {

@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import { api } from '../api';
+import { publicSetupApi } from '../services/marketplaceApi';
 
 export const useSetupStore = defineStore('setup', () => {
   const needsFirstAdmin = ref(null);
 
   async function fetchStatus() {
-    const { data } = await api.get('/api/public/setup-status');
+    const { data } = await publicSetupApi.getSetupStatus();
     needsFirstAdmin.value = data.needsFirstAdmin;
     return data.needsFirstAdmin;
   }

@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { providerDashboardApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DateRangeFilter from '../components/ui/DateRangeFilter.vue';
 
@@ -59,7 +59,7 @@ async function loadStats() {
   try {
     const q = computeQuery();
     const params = q ? { params: q } : undefined;
-    const { data } = await api.get('/api/provider/me/dashboard/stats', params);
+    const { data } = await providerDashboardApi.stats(params);
     stats.value = data;
   } catch (e) {
     error.value = e.response?.data?.message || e.message;

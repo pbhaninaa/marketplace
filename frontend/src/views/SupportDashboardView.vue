@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { supportApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
@@ -32,9 +32,9 @@ async function refreshAll() {
   error.value = '';
   try {
     const [o, t, u] = await Promise.all([
-      api.get('/api/support/overview'),
-      api.get('/api/support/tickets'),
-      api.get('/api/support/users'),
+      supportApi.getOverview(),
+      supportApi.getTickets(),
+      supportApi.getUsers(),
     ]);
     overview.value = o.data;
     tickets.value = t.data;
@@ -48,7 +48,7 @@ async function searchUsers() {
   message.value = '';
   error.value = '';
   try {
-    const { data } = await api.get('/api/support/users', { params: { q: q.value } });
+    const { data } = await supportApi.searchUsers({ q: q.value });
     users.value = data;
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
@@ -63,7 +63,7 @@ async function resendOtp() {
     return;
   }
   try {
-    await api.post('/api/support/client/otp/resend', { target: otpTarget.value.trim() });
+    await supportApi.resendClientOtp({ target: otpTarget.value.trim() });
     message.value = 'OTP re-issued (check logs in local dev).';
   } catch (e) {
     error.value = e.response?.data?.message || e.message;

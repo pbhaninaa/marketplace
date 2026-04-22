@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { authApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 
@@ -26,7 +26,7 @@ async function save() {
   error.value = '';
   message.value = '';
   try {
-    await api.post('/api/auth/change-password', {
+    await authApi.changePassword({
       currentPassword: form.value.currentPassword,
       newPassword: form.value.newPassword,
     });

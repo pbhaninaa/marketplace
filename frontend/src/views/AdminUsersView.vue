@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { adminUsersApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DataTableShell from '../components/ui/DataTableShell.vue';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
@@ -29,7 +29,7 @@ async function load() {
   error.value = '';
   message.value = '';
   try {
-    const { data } = await api.get('/api/admin/users', { params: { page: page.value, size: 50 } });
+    const { data } = await adminUsersApi.list({ page: page.value, size: 50 });
     rows.value = data;
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
@@ -42,7 +42,7 @@ async function remove(u) {
   error.value = '';
   message.value = '';
   try {
-    await api.delete(`/api/admin/users/${u.id}`);
+    await adminUsersApi.remove(u.id);
     message.value = 'User deleted (disabled).';
     await load();
   } catch (e) {
@@ -54,7 +54,7 @@ async function removeAll() {
   error.value = '';
   message.value = '';
   try {
-    const { data } = await api.delete('/api/admin/users');
+    const { data } = await adminUsersApi.removeAll();
     const n = data?.disabled ?? 0;
     message.value = `Disabled ${n} users (kept only your admin enabled).`;
     page.value = 0;

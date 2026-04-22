@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { api } from '../api';
+import { publicAccountApi } from '../services/marketplaceApi';
 import FormField from '../components/ui/FormField.vue';
 
 const email = ref('');
@@ -11,7 +11,7 @@ async function submit() {
   error.value = '';
   done.value = false;
   try {
-    await api.post('/api/public/forgot-password', { email: email.value.trim() });
+    await publicAccountApi.forgotPassword({ email: email.value.trim() });
     done.value = true;
   } catch (e) {
     error.value = e.response?.data?.message || e.message;

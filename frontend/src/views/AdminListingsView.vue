@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { adminListingsApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DataTableShell from '../components/ui/DataTableShell.vue';
 import FormField from '../components/ui/FormField.vue';
@@ -31,7 +31,7 @@ async function load() {
   error.value = '';
   message.value = '';
   try {
-    const { data } = await api.get('/api/admin/listings', { params: { page: page.value, size: 50 } });
+    const { data } = await adminListingsApi.list({ page: page.value, size: 50 });
     rows.value = data;
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
@@ -44,7 +44,7 @@ async function setActive(l, active) {
   error.value = '';
   message.value = '';
   try {
-    await api.patch(`/api/admin/listings/${l.id}/active`, { active });
+    await adminListingsApi.setActive(l.id, active);
     message.value = active ? 'Listing published.' : 'Listing unpublished.';
     await load();
   } catch (e) {
@@ -56,7 +56,7 @@ async function remove(l) {
   error.value = '';
   message.value = '';
   try {
-    await api.delete(`/api/admin/listings/${l.id}`);
+    await adminListingsApi.remove(l.id);
     message.value = 'Listing deleted.';
     await load();
   } catch (e) {
@@ -68,7 +68,7 @@ async function removeAll() {
   error.value = '';
   message.value = '';
   try {
-    const { data } = await api.delete('/api/admin/listings');
+    const { data } = await adminListingsApi.removeAll();
     const n = data?.deleted ?? 0;
     message.value = `Deleted ${n} listings. Any listing used in orders/bookings was unpublished instead.`;
     page.value = 0;

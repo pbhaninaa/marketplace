@@ -79,7 +79,8 @@ public class CartService {
                 throw new ApiException(HttpStatus.CONFLICT, "RENTAL_CONFLICT", conflictMessage);
             }
         } else {
-            if (listing.getStockQuantity() != null && listing.getStockQuantity() < req.quantity()) {
+            int avail = ListingStock.availableForSale(listing);
+            if (avail != Integer.MAX_VALUE && avail < req.quantity()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "INSUFFICIENT_STOCK", "Not enough stock");
             }
         }
@@ -97,10 +98,11 @@ public class CartService {
 
             // Validate new quantity for SALE items
             if (listing.getListingType() == ListingType.SALE) {
-                if (listing.getStockQuantity() != null && listing.getStockQuantity() < newQuantity) {
+                int avail = ListingStock.availableForSale(listing);
+                if (avail != Integer.MAX_VALUE && avail < newQuantity) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "INSUFFICIENT_STOCK",
                             "Cannot add " + req.quantity() + " more. You already have " + existingLine.getQuantity() +
-                            " in cart. Available stock: " + listing.getStockQuantity());
+                            " in cart. Available stock: " + avail);
                 }
             }
 
@@ -229,9 +231,10 @@ public class CartService {
 
         // Validate stock for SALE items
         if (listing.getListingType() == ListingType.SALE) {
-            if (listing.getStockQuantity() != null && listing.getStockQuantity() < newQuantity) {
+            int avail = ListingStock.availableForSale(listing);
+            if (avail != Integer.MAX_VALUE && avail < newQuantity) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "INSUFFICIENT_STOCK",
-                        "Cannot update quantity. Available: " + listing.getStockQuantity() + ", Requested: " + newQuantity);
+                        "Cannot update quantity. Available: " + avail + ", Requested: " + newQuantity);
             }
         }
 
@@ -297,7 +300,9 @@ public class CartService {
                     lineTotal.setScale(2, RoundingMode.HALF_UP),
                     line.getRentalStart() != null ? line.getRentalStart().toString() : null,
                     line.getRentalEnd() != null ? line.getRentalEnd().toString() : null,
-                    l.getStockQuantity()));
+                    l.getListingType() == ListingType.SALE && l.getStockQuantity() != null
+                            ? ListingStock.availableForSale(l)
+                            : l.getStockQuantity()));
         }
         Long pid = cart.getProvider() != null ? cart.getProvider().getId() : null;
         String pname = cart.getProvider() != null ? cart.getProvider().getName() : null;

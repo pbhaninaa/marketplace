@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { adminSupportUsersApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
@@ -30,7 +30,7 @@ async function load() {
   error.value = '';
   message.value = '';
   try {
-    const { data } = await api.get('/api/admin/support-users');
+    const { data } = await adminSupportUsersApi.list();
     users.value = data || [];
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
@@ -43,7 +43,7 @@ async function create() {
   error.value = '';
   message.value = '';
   try {
-    await api.post('/api/admin/create-support-user', {
+    await adminSupportUsersApi.create({
       email: form.value.email,
       password: form.value.password,
     });

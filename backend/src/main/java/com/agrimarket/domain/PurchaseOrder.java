@@ -73,6 +73,9 @@ public class PurchaseOrder {
     @Column(name = "verified_at")
     private Instant verifiedAt;
 
+    @Column(name = "inventory_finalized", nullable = false)
+    private boolean inventoryFinalized;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderLine> lines = new ArrayList<>();
 }

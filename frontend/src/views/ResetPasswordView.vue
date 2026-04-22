@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { api } from '../api';
+import { publicAccountApi } from '../services/marketplaceApi';
 import FormField from '../components/ui/FormField.vue';
 
 const route = useRoute();
@@ -32,7 +32,7 @@ async function submit() {
     return;
   }
   try {
-    await api.post('/api/public/reset-password', {
+    await publicAccountApi.resetPassword({
       token: token.value.trim(),
       newPassword: newPassword.value,
     });

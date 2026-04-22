@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { api, withSession } from '../api';
+import { publicCartApi } from '../services/marketplaceApi';
 import { useSessionStore } from './session';
 import { isMinInt } from '../utils/validation';
 
@@ -27,7 +27,7 @@ export const useCartStore = defineStore('cart', () => {
     await session.ensureSession();
     lastError.value = null;
     try {
-      const { data } = await api.get('/api/public/cart', withSession(session.sessionId));
+      const { data } = await publicCartApi.getCart(session.sessionId);
       // Map backend response to frontend format
       lines.value = (data.lines || []).map(line => ({
         lineId: line.lineId,
@@ -77,7 +77,7 @@ export const useCartStore = defineStore('cart', () => {
       rentalEnd: opts.rentalEnd || null,
     };
     try {
-      await api.post('/api/public/cart/add', body, withSession(session.sessionId));
+      await publicCartApi.addLine(session.sessionId, body);
       await refresh();
       return { ok: true };
     } catch (e) {
@@ -91,7 +91,7 @@ export const useCartStore = defineStore('cart', () => {
   async function clearCart() {
     const session = useSessionStore();
     if (!session.sessionId) return;
-    await api.delete('/api/public/cart', withSession(session.sessionId));
+    await publicCartApi.clear(session.sessionId);
     await refresh();
   }
 
@@ -104,11 +104,7 @@ export const useCartStore = defineStore('cart', () => {
       return { ok: false, code: 'VALIDATION', message: lastError.value };
     }
     try {
-      await api.patch(
-        `/api/public/cart/items/${cartLineId}/quantity`,
-        { quantity },
-        withSession(session.sessionId),
-      );
+      await publicCartApi.updateLineQuantity(session.sessionId, cartLineId, quantity);
       await refresh();
       return { ok: true };
     } catch (e) {
@@ -124,10 +120,7 @@ export const useCartStore = defineStore('cart', () => {
     await session.ensureSession();
     lastError.value = null;
     try {
-      await api.delete(
-        `/api/public/cart/items/${cartLineId}`,
-        withSession(session.sessionId),
-      );
+      await publicCartApi.removeLine(session.sessionId, cartLineId);
       await refresh();
       return { ok: true };
     } catch (e) {

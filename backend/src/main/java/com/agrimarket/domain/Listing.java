@@ -55,6 +55,10 @@ public class Listing {
     @Column(name = "stock_quantity")
     private Integer stockQuantity;
 
+    /** Units held for unpaid purchase orders; on-hand remains in {@link #stockQuantity}. */
+    @Column(name = "reserved_stock")
+    private Integer reservedStock;
+
     @Column(name = "rent_price_hourly", precision = 14, scale = 2)
     private BigDecimal rentPriceHourly;
 

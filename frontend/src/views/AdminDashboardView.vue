@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { adminSupportUsersApi, authApi, adminMaintenanceApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 
@@ -34,7 +34,7 @@ async function createSupport() {
   message.value = '';
   error.value = '';
   try {
-    await api.post('/api/admin/create-support-user', {
+    await adminSupportUsersApi.create({
       email: supportEmail.value,
       password: supportPassword.value,
     });
@@ -54,7 +54,7 @@ async function changeOwnPassword() {
     return;
   }
   try {
-    await api.post('/api/auth/change-password', {
+    await authApi.changePassword({
       currentPassword: currentPassword.value,
       newPassword: newPassword.value,
     });
@@ -72,7 +72,7 @@ async function cleanDb() {
   cleanMessage.value = '';
   cleanError.value = '';
   try {
-    const { data } = await api.post('/api/admin/maintenance/clean-db');
+    const { data } = await adminMaintenanceApi.cleanDb();
     const deletedUsers = data?.users ?? 0;
     cleanMessage.value = `Database cleaned. Deleted ${deletedUsers} users (kept only your admin).`;
   } catch (e) {

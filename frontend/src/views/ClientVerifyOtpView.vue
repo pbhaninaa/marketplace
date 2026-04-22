@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { api } from '../api';
+import { publicClientOtpApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 
@@ -26,7 +26,10 @@ async function submit() {
   error.value = '';
   done.value = false;
   try {
-    const { data } = await api.post('/api/public/client/otp/verify', { target: target.value.trim(), code: code.value.trim() });
+    const { data } = await publicClientOtpApi.verify({
+      target: target.value.trim(),
+      code: code.value.trim(),
+    });
     auth.setSession({
       token: data.token,
       role: data.role,

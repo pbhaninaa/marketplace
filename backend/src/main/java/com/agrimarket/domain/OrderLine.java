@@ -29,9 +29,15 @@ public class OrderLine {
     @JoinColumn(name = "order_id", nullable = false)
     private PurchaseOrder order;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "listing_id", nullable = false)
+    /**
+     * Nullable after the listing row is removed (e.g. sold out). Title is kept on {@link #listingTitleSnapshot}.
+     */
+    @ManyToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "listing_id")
     private Listing listing;
+
+    @Column(name = "listing_title_snapshot", length = 500)
+    private String listingTitleSnapshot;
 
     @Column(nullable = false)
     private int quantity;

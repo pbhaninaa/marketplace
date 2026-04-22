@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { providerSettingsApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import { isNonEmptyString, isPositiveNumber } from '../utils/validation';
@@ -43,7 +43,7 @@ async function load() {
   error.value = '';
   message.value = '';
   try {
-    const { data } = await api.get('/api/provider/me/settings');
+    const { data } = await providerSettingsApi.get();
     form.value = {
       location: data.location || '',
       bankName: data.bankName || '',
@@ -80,7 +80,7 @@ async function save() {
     }
   }
   try {
-    const { data } = await api.patch('/api/provider/me/settings', {
+    const { data } = await providerSettingsApi.patch({
       location: form.value.location,
       bankName: form.value.bankName || null,
       bankAccountName: form.value.bankAccountName || null,
@@ -104,7 +104,7 @@ async function deactivateAccount() {
   error.value = '';
   message.value = '';
   try {
-    await api.delete('/api/provider/me/account');
+    await providerSettingsApi.deleteAccount();
     auth.logout();
     router.replace({ path: '/login' });
   } catch (e) {

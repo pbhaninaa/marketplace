@@ -1,11 +1,10 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { providerOrdersApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
-import VerifyCodePanel from '../components/provider/VerifyCodePanel.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -38,26 +37,42 @@ const rows = computed(() =>
 );
 
 const isPendingPayment = computed(() => String(selectedOrder.value?.status || '').toUpperCase() === 'PENDING_PAYMENT');
-const canVerifyFromDetails = computed(() => tab.value === 'rentals' && !!selectedOrder.value);
 const isRental = computed(() => tab.value === 'rentals');
 const isPurchase = computed(() => tab.value === 'purchases');
 const showPurchaseActions = computed(() => isPurchase.value && !!selectedOrder.value);
-const canRunActions = computed(() => {
+/** Reject frees reserved stock; does not require meetup code verification. */
+const canRejectOrder = computed(() => {
   if (!selectedOrder.value) return false;
   const want = String(selectedOrder.value.id ?? '').trim();
-  return isPendingPayment.value && confirmIdInput.value.trim() === want;
+  return isPurchase.value && isPendingPayment.value && confirmIdInput.value.trim() === want;
+});
+/** Confirm payment deducts stock (and may remove listing when sold out); requires verified meetup code first. */
+const canConfirmPayment = computed(() => {
+  if (!canRejectOrder.value) return false;
+  return !!selectedOrder.value?.verifiedAt;
 });
 
 const orderItems = computed(() => {
   const o = selectedOrder.value;
   if (!o) return [];
   const list = o.items || o.lines || o.orderLines || o.lineItems || [];
-  return Array.isArray(list) ? list : [];
+  if (!Array.isArray(list)) return [];
+  return list.map((it) => ({
+    ...it,
+    title:
+      it.title ||
+      it.listingTitle ||
+      it.name ||
+      it.listingTitleSnapshot ||
+      it.listing?.title ||
+      'Item',
+  }));
 });
 
 const paymentProofUrl = computed(() => String(selectedOrder.value?.paymentProofUrl || '').trim());
 const isPaymentProofPdf = computed(() => paymentProofUrl.value.toLowerCase().endsWith('.pdf'));
-const canVerifyCodePerOrder = computed(() => isRental.value && !!selectedOrder.value);
+/** Guest receives this code at checkout; at pickup/delivery they show it so the provider can confirm the right person paid. */
+const canVerifyCodePerOrder = computed(() => !!selectedOrder.value);
 
 /* ================= INIT ================= */
 onMounted(async () => {
@@ -76,8 +91,8 @@ async function load() {
 
   try {
     const [p, r] = await Promise.all([
-      api.get('/api/provider/me/orders/purchases', { params: { page: 0, size: 50 } }),
-      api.get('/api/provider/me/orders/rentals', { params: { page: 0, size: 50 } }),
+      providerOrdersApi.listPurchases({ page: 0, size: 50 }),
+      providerOrdersApi.listRentals({ page: 0, size: 50 }),
     ]);
 
     purchases.value = p.data;
@@ -103,11 +118,10 @@ async function openDetails(order) {
   // Try to hydrate full order details (items, proof, etc).
   detailsLoading.value = true;
   try {
-    const detailUrl =
+    const { data } =
       tab.value === 'rentals'
-        ? `/api/provider/me/orders/rentals/${order.id}`
-        : `/api/provider/me/orders/purchases/${order.id}`;
-    const { data } = await api.get(detailUrl);
+        ? await providerOrdersApi.getRental(order.id)
+        : await providerOrdersApi.getPurchase(order.id);
     selectedOrder.value = data || order;
   } catch (e) {
     // Keep fallback row data if endpoint is unavailable.
@@ -155,17 +169,31 @@ async function verifyCodeForThisOrder() {
 
   orderVerifying.value = true;
   try {
-    const { data } = await api.post(`/api/provider/me/verify/booking/${code}`);
-    const booking = data?.booking || data?.order || data;
-    const verifiedId = booking?.id;
+    const isPurchaseTab = tab.value === 'purchases';
+    const { data } = isPurchaseTab
+      ? await providerOrdersApi.verifyPurchaseCode(code)
+      : await providerOrdersApi.verifyBookingCode(code);
+    const entity = isPurchaseTab ? data?.order : data?.booking;
+    const verifiedId = entity?.id;
 
     if (String(verifiedId) !== String(selectedOrder.value.id)) {
-      orderVerifyError.value = `That code belongs to a different booking (#${verifiedId}).`;
+      const kind = isPurchaseTab ? 'order' : 'booking';
+      orderVerifyError.value = `That code belongs to a different ${kind} (#${verifiedId}).`;
       return;
     }
 
-    orderVerifySuccess.value = data?.message || 'Code verified for this booking.';
+    orderVerifySuccess.value =
+      data?.message ||
+      (isPurchaseTab ? 'Code verified for this purchase order.' : 'Code verified for this rental booking.');
     await load();
+    try {
+      const detail = isPurchaseTab
+        ? await providerOrdersApi.getPurchase(selectedOrder.value.id)
+        : await providerOrdersApi.getRental(selectedOrder.value.id);
+      selectedOrder.value = detail.data || selectedOrder.value;
+    } catch {
+      /* list refresh is enough if detail fails */
+    }
   } catch (e) {
     orderVerifyError.value = e.response?.data?.message || e.message;
   } finally {
@@ -181,9 +209,7 @@ async function confirmOrder() {
     if (tab.value !== 'purchases') {
       throw new Error('Confirm is currently supported for purchases only.');
     }
-    await api.put(`/api/provider/me/orders/purchases/${selectedOrder.value.id}/status`, null, {
-      params: { status: 'PAID' },
-    });
+    await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'PAID');
     await load();
     closeDialog();
   } catch (e) {
@@ -201,9 +227,7 @@ async function rejectOrder() {
     if (tab.value !== 'purchases') {
       throw new Error('Reject is currently supported for purchases only.');
     }
-    await api.put(`/api/provider/me/orders/purchases/${selectedOrder.value.id}/status`, null, {
-      params: { status: 'CANCELLED' },
-    });
+    await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'CANCELLED');
     await load();
     closeDialog();
   } catch (e) {
@@ -240,17 +264,10 @@ async function rejectOrder() {
         <button class="tab" :class="{ active: tab === 'rentals' }" @click="tab = 'rentals'">
           Rentals ({{ rentals.totalElements || 0 }})
         </button>
-
-        <button class="tab" :class="{ active: tab === 'verify' }" @click="tab = 'verify'">
-          <span class="material-icons tab-icon">verified_user</span>
-          Verify Code
-        </button>
       </div>
 
-      <VerifyCodePanel v-if="tab === 'verify'" />
-
       <!-- TABLE -->
-      <ResponsiveRecordShell v-else :desktop-label="tab === 'purchases' ? 'Purchase orders' : 'Rental bookings'">
+      <ResponsiveRecordShell :desktop-label="tab === 'purchases' ? 'Purchase orders' : 'Rental bookings'">
 
         <template #desktop>
           <DataTableShell :caption="tab === 'purchases' ? 'Purchase orders' : 'Rental bookings'">
@@ -378,9 +395,15 @@ async function rejectOrder() {
             </div>
 
             <div v-if="canVerifyCodePerOrder" style="margin-top: 0.9rem;">
-              <strong>Verify code (this booking only)</strong>
+              <strong>Meetup verification (this record only)</strong>
               <p class="muted small" style="margin: 0.25rem 0 0.4rem;">
-                Enter the code provided by the guest for booking <strong>#{{ selectedOrder.id }}</strong>.
+                When you meet the guest (pickup or delivery), they should show the code from their order confirmation.
+                Enter it here to record that this is the correct
+                {{ tab === 'purchases' ? 'purchase' : 'rental' }}
+                <strong>#{{ selectedOrder.id }}</strong>.
+                <template v-if="tab === 'purchases' && isPendingPayment">
+                  After verification, use <strong>Confirm Payment</strong> when payment is received — that step updates stock.
+                </template>
               </p>
               <input
                 type="text"
@@ -406,12 +429,13 @@ async function rejectOrder() {
             <p v-if="actionError" class="err-toast" style="margin-top: 0.75rem;">
               {{ actionError }}
             </p>
-
-            <div v-if="canVerifyFromDetails" style="margin-top: 1rem;">
-              <button class="btn btn--ghost" type="button" @click="tab = 'verify'; closeDialog()">
-                Verify Code…
-              </button>
-            </div>
+            <p
+              v-if="isPurchase && isPendingPayment && canRejectOrder && !canConfirmPayment"
+              class="muted small"
+              style="margin-top: 0.5rem;"
+            >
+              Verify the guest's meetup code above, then confirm payment to update inventory.
+            </p>
 
           </div>
 
@@ -421,7 +445,7 @@ async function rejectOrder() {
             <button
               class="btn btn--danger"
               @click="rejectOrder"
-              :disabled="actionLoading || !canRunActions"
+              :disabled="actionLoading || !canRejectOrder"
             >
               {{ actionLoading ? 'Working…' : 'Reject Order' }}
             </button>
@@ -429,7 +453,7 @@ async function rejectOrder() {
             <button
               class="btn btn--primary"
               @click="confirmOrder"
-              :disabled="actionLoading || !canRunActions"
+              :disabled="actionLoading || !canConfirmPayment"
             >
               {{ actionLoading ? 'Working…' : 'Confirm Payment' }}
             </button>

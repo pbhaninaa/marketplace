@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { publicSetupApi } from '../services/marketplaceApi';
 import { useSetupStore } from '../stores/setup';
 import FormField from '../components/ui/FormField.vue';
 
@@ -23,7 +23,7 @@ onMounted(async () => {
 async function submit() {
   error.value = '';
   try {
-    await api.post('/api/public/first-admin', { email: email.value, password: password.value });
+    await publicSetupApi.createFirstAdmin({ email: email.value, password: password.value });
     done.value = true;
     await setup.fetchStatus();
     setTimeout(() => router.push('/login'), 1500);

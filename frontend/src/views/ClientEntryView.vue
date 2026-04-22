@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { publicClientOtpApi } from '../services/marketplaceApi';
 import FormField from '../components/ui/FormField.vue';
 
 const router = useRouter();
@@ -13,7 +13,7 @@ async function submit() {
   error.value = '';
   done.value = false;
   try {
-    await api.post('/api/public/client/otp/request', { target: target.value.trim() });
+    await publicClientOtpApi.request({ target: target.value.trim() });
     done.value = true;
     router.push({ path: '/client/verify', query: { target: target.value.trim() } });
   } catch (e) {

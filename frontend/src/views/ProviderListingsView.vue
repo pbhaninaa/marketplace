@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { api, postMultipart, putMultipart } from '../api';
+import { providerListingsApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import {
   SALE_CATEGORY_OPTIONS,
@@ -117,7 +117,7 @@ async function loadAll() {
   loading.value = true;
   error.value = '';
   try {
-    const { data } = await api.get('/api/provider/me/listings');
+    const { data } = await providerListingsApi.list();
     listings.value = data?.content || [];
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
@@ -304,14 +304,14 @@ async function createListing() {
         fd.append('files', f);
       }
       if (editing.value?.id) {
-        await putMultipart(`/api/provider/me/listings/${editing.value.id}/with-images`, fd);
+        await providerListingsApi.updateWithImages(editing.value.id, fd);
       } else {
-        await postMultipart('/api/provider/me/listing-with-images', fd);
+        await providerListingsApi.createWithImages(fd);
       }
     } else if (editing.value?.id) {
-      await api.put(`/api/provider/me/listings/${editing.value.id}`, body);
+      await providerListingsApi.update(editing.value.id, body);
     } else {
-      await api.post('/api/provider/me/listings', body);
+      await providerListingsApi.create(body);
     }
     closeDialog();
     resetForm();
@@ -327,7 +327,7 @@ async function deleteListing(id) {
   if (!canEdit.value) return;
   error.value = '';
   try {
-    await api.delete(`/api/provider/me/listings/${id}`);
+    await providerListingsApi.remove(id);
     await loadAll();
   } catch (e) {
     error.value = e.response?.data?.message || e.message;

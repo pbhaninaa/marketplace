@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { providerTeamApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
@@ -42,7 +42,10 @@ async function load() {
   error.value = '';
   message.value = '';
   try {
-    const [t, p] = await Promise.all([api.get('/api/provider/me/staff'), api.get('/api/provider/me/payroll-entries')]);
+    const [t, p] = await Promise.all([
+      providerTeamApi.listStaff(),
+      providerTeamApi.listPayrollEntries(),
+    ]);
     team.value = t.data || [];
     payroll.value = p.data || [];
     // initialize units to 0 for non-owner staff
@@ -67,7 +70,7 @@ async function recordPayroll() {
   error.value = '';
   message.value = '';
   try {
-    await api.post(`/api/provider/me/staff/${payrollForm.value.staffUserId}/payroll`, {
+    await providerTeamApi.addPayroll(payrollForm.value.staffUserId, {
       unitsWorked: Number(payrollForm.value.unitsWorked),
       notes: payrollForm.value.notes || null,
     });

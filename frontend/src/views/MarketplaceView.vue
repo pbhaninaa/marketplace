@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { api } from '../api';
+import { publicCatalogApi } from '../services/marketplaceApi';
 import { useCartStore } from '../stores/cart';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
 import MarketplaceFilterSidebar from '../components/filters/MarketplaceFilterSidebar.vue';
@@ -65,8 +65,8 @@ const totalPages = computed(() =>
 async function loadFiltersData() {
   const lt = entryListingType.value || 'SALE';
   const [catRes, provRes] = await Promise.all([
-    api.get('/api/public/category-options', { params: { listingType: lt } }),
-    api.get('/api/public/provider-options', { params: { listingType: lt } }),
+    publicCatalogApi.categoryOptions({ listingType: lt }),
+    publicCatalogApi.providerOptions({ listingType: lt }),
   ]);
   categories.value = catRes.data || [];
   providers.value = provRes.data || [];
@@ -87,7 +87,7 @@ async function loadListings() {
     if (filters.value.location) params.location = filters.value.location;
     if (filters.value.search) params.search = filters.value.search;
 
-    const { data } = await api.get('/api/public/listings', { params });
+    const { data } = await publicCatalogApi.listings(params);
     listings.value = data;
     for (const item of data.content || []) {
       if (item.listingType === 'RENT') {

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { providerTeamApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
@@ -58,7 +58,7 @@ onMounted(async () => {
 
 async function loadContext() {
   try {
-    const { data } = await api.get('/api/provider/me/context');
+    const { data } = await providerTeamApi.getContext();
     context.value = data;
   } catch (e) {
     // Context is used for UX only; server still enforces permissions.
@@ -71,8 +71,8 @@ async function loadAll() {
   error.value = '';
   try {
     const [t, p] = await Promise.all([
-      api.get('/api/provider/me/staff'),
-      api.get('/api/provider/me/payroll-entries'),
+      providerTeamApi.listStaff(),
+      providerTeamApi.listPayrollEntries(),
     ]);
     team.value = t.data;
     payroll.value = p.data;
@@ -140,7 +140,7 @@ async function saveEdit() {
   if (!editing.value) return;
   error.value = '';
   try {
-    await api.patch(`/api/provider/me/staff/${editing.value.id}`, {
+    await providerTeamApi.updateStaff(editing.value.id, {
       role: editForm.value.role,
       rateUnit: editForm.value.rateUnit,
       rateAmount: Number(editForm.value.rateAmount),
@@ -159,7 +159,7 @@ async function deleteStaff(id) {
   if (!id) return;
   error.value = '';
   try {
-    await api.delete(`/api/provider/me/staff/${id}`);
+    await providerTeamApi.removeStaff(id);
     if (editing.value?.id === id) closeEdit();
     await loadContext();
     await loadAll();
@@ -171,7 +171,7 @@ async function deleteStaff(id) {
 async function createStaff() {
   error.value = '';
   try {
-    await api.post('/api/provider/me/staff', {
+    await providerTeamApi.inviteStaff({
       email: newStaff.value.email,
       password: newStaff.value.password,
       role: newStaff.value.role,
@@ -189,7 +189,7 @@ async function createStaff() {
 async function recordPayroll() {
   error.value = '';
   try {
-    await api.post(`/api/provider/me/staff/${payrollForm.value.staffUserId}/payroll`, {
+    await providerTeamApi.addPayroll(payrollForm.value.staffUserId, {
       unitsWorked: Number(payrollForm.value.unitsWorked),
       notes: payrollForm.value.notes || null,
     });

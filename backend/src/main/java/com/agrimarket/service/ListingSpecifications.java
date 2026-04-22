@@ -60,6 +60,17 @@ public final class ListingSpecifications {
                         cb.like(cb.lower(root.get("description")), like)));
             }
 
+            // Sale listings with tracked stock: hide when nothing left to buy (after reservations).
+            Predicate salePurchasable = cb.or(
+                    cb.notEqual(root.get("listingType"), ListingType.SALE),
+                    cb.isNull(root.get("stockQuantity")),
+                    cb.greaterThan(
+                            cb.diff(
+                                    root.get("stockQuantity"),
+                                    cb.coalesce(root.get("reservedStock"), cb.literal(0))),
+                            0));
+            p.add(salePurchasable);
+
             query.distinct(true);
             return cb.and(p.toArray(Predicate[]::new));
         };

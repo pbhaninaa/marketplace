@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { adminProvidersApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DataTableShell from '../components/ui/DataTableShell.vue';
 import FormField from '../components/ui/FormField.vue';
@@ -32,7 +32,7 @@ async function load() {
   error.value = '';
   message.value = '';
   try {
-    const { data } = await api.get('/api/admin/providers', { params: { page: page.value, size: 50 } });
+    const { data } = await adminProvidersApi.list({ page: page.value, size: 50 });
     providers.value = data;
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
@@ -45,7 +45,7 @@ async function updateStatus(p, status) {
   message.value = '';
   error.value = '';
   try {
-    await api.patch(`/api/admin/providers/${p.id}/status`, { status });
+    await adminProvidersApi.setStatus(p.id, status);
     message.value = `Updated ${p.name} → ${status}.`;
     await load();
   } catch (e) {

@@ -1,11 +1,10 @@
 <script setup>
-// Delivery option is only shown if provider supports it.
-// Delivery fee is only calculated/locked-in after the user clicks "Update Delivery Fee".
-
+// Delivery vs pickup is shown only when the locked provider offers delivery; otherwise checkout is pickup-only.
+// Delivery fee = distance (km) × provider rate, included in the total (matches server calculation).
 
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { api, withSession } from '../api';
+import { publicCartApi } from '../services/marketplaceApi';
 import { useSessionStore } from '../stores/session';
 import { useCartStore } from '../stores/cart';
 import { useDialog } from '../composables/useDialog';
@@ -30,19 +29,9 @@ const deliveryDistanceKm = ref('');
 
 const submitting = ref(false);
 
-/* ================= DELIVERY CALC CONTROL ================= */
-const deliveryFeeConfirmed = ref(false);
-const calculatedDeliveryFee = ref(0);
-
-/* ================= VALIDATION ================= */
-const canCheckout = computed(() =>
-  cart.lines.length > 0 &&
-  guestName.value &&
-  guestEmail.value &&
-  guestPhone.value &&
-  deliveryMode.value &&
-  (deliveryMode.value !== 'DELIVERY' || deliveryFeeConfirmed.value)
-);
+function roundMoney(n) {
+  return Math.round(Number(n) * 100) / 100;
+}
 
 /* ================= PAYMENT METHODS ================= */
 const acceptedPaymentMethods = computed(() => {
@@ -52,68 +41,62 @@ const acceptedPaymentMethods = computed(() => {
 
 /* ================= DELIVERY SETTINGS ================= */
 const deliveryAvailable = computed(() =>
-  !!cart.lockedProviderDeliveryAvailable
+  !!cart.lockedProviderDeliverySettings?.deliveryAvailable
 );
 
 const deliveryRate = computed(() =>
-  Number(cart.lockedProviderDeliveryPricePerKm) || 0
+  Number(cart.lockedProviderDeliverySettings?.deliveryPricePerKm) || 0
 );
 
 watch(
   deliveryAvailable,
   (available) => {
-    if (!available && deliveryMode.value === 'DELIVERY') {
+    if (!available) {
       deliveryMode.value = 'PICKUP';
+      deliveryDistanceKm.value = '';
     }
   },
   { immediate: true }
 );
 
-watch(deliveryMode, () => {
-  calculatedDeliveryFee.value = 0;
-  deliveryFeeConfirmed.value = false;
-  deliveryDistanceKm.value = '';
+watch(deliveryMode, (mode) => {
+  if (mode !== 'DELIVERY') {
+    deliveryDistanceKm.value = '';
+  }
 });
 
-/* ================= DELIVERY CALC (ONLY AFTER BUTTON CLICK) ================= */
-async function updateDeliveryFee() {
-  if (deliveryMode.value !== 'DELIVERY') {
-    calculatedDeliveryFee.value = 0;
-    deliveryFeeConfirmed.value = false;
-    return;
-  }
-
+const calculatedDeliveryFee = computed(() => {
+  if (deliveryMode.value !== 'DELIVERY' || !deliveryAvailable.value) return 0;
   const km = Number(deliveryDistanceKm.value);
+  if (!Number.isFinite(km) || km <= 0) return 0;
+  const rate = deliveryRate.value;
+  if (!rate || rate <= 0) return 0;
+  return roundMoney(km * rate);
+});
 
+/* ================= VALIDATION ================= */
+const isDeliveryChoiceComplete = computed(() => {
   if (!deliveryAvailable.value) {
-    await warning('This provider does not offer delivery.', 'Delivery unavailable');
-    calculatedDeliveryFee.value = 0;
-    deliveryFeeConfirmed.value = false;
-    return;
+    return deliveryMode.value === 'PICKUP';
   }
+  if (!deliveryMode.value) return false;
+  if (deliveryMode.value === 'PICKUP') return true;
+  if (!deliveryRate.value || deliveryRate.value <= 0) return false;
+  return isPositiveNumber(deliveryDistanceKm.value) && calculatedDeliveryFee.value > 0;
+});
 
-  if (!deliveryRate.value || deliveryRate.value <= 0) {
-    await warning('Delivery is available but no price per KM is set yet.', 'Delivery price missing');
-    calculatedDeliveryFee.value = 0;
-    deliveryFeeConfirmed.value = false;
-    return;
-  }
-
-  if (!km || km <= 0) {
-    await warning('Please enter a valid delivery distance in KM.', 'Invalid distance');
-    calculatedDeliveryFee.value = 0;
-    deliveryFeeConfirmed.value = false;
-    return;
-  }
-
-  calculatedDeliveryFee.value = km * deliveryRate.value;
-  deliveryFeeConfirmed.value = true;
-}
+const canCheckout = computed(() =>
+  cart.lines.length > 0 &&
+  guestName.value &&
+  guestEmail.value &&
+  guestPhone.value &&
+  isDeliveryChoiceComplete.value
+);
 
 /* ================= TOTAL ================= */
 const estimatedTotalWithDelivery = computed(() => {
   const base = Number(cart.estimatedTotal) || 0;
-  return base + Number(calculatedDeliveryFee.value);
+  return roundMoney(base + calculatedDeliveryFee.value);
 });
 
 /* ================= EFT BANK DETAILS ================= */
@@ -132,33 +115,37 @@ async function submitCheckout() {
   if (!isNonEmptyString(guestName.value)) return warning('Please enter your name.', 'Missing name');
   if (!isValidEmail(guestEmail.value)) return warning('Please enter a valid email address.', 'Invalid email');
   if (!isNonEmptyString(guestPhone.value)) return warning('Please enter your phone number.', 'Missing phone');
-  if (!isNonEmptyString(deliveryMode.value)) return warning('Please choose delivery or pickup.', 'Missing option');
+  if (!deliveryAvailable.value) {
+    /* pickup-only */
+  } else if (!isNonEmptyString(deliveryMode.value)) {
+    return warning('Please choose delivery or pickup.', 'Missing option');
+  }
   if (deliveryMode.value === 'DELIVERY') {
-    if (!deliveryFeeConfirmed.value) return warning('Please update and confirm delivery fee.', 'Delivery not confirmed');
+    if (!deliveryRate.value || deliveryRate.value <= 0) {
+      return warning('This provider has not set a delivery price per km yet.', 'Delivery unavailable');
+    }
     if (!isPositiveNumber(deliveryDistanceKm.value)) {
-      return warning('Please enter a valid delivery distance in KM.', 'Invalid distance');
+      return warning('Please enter how far delivery is in km (greater than zero).', 'Invalid distance');
+    }
+    if (calculatedDeliveryFee.value <= 0) {
+      return warning('Please enter a valid delivery distance to calculate the fee.', 'Invalid distance');
     }
   }
 
   submitting.value = true;
 
   try {
-    const response = await api.post(
-      '/api/public/cart/checkout',
-      {
-        guestName: guestName.value,
-        guestEmail: guestEmail.value,
-        guestPhone: guestPhone.value,
-        deliveryOrPickup: deliveryMode.value,
-        paymentMethod: paymentMethod.value,
-        deliveryDistanceKm:
-          deliveryMode.value === 'DELIVERY'
-            ? Number(deliveryDistanceKm.value)
-            : null,
-        deliveryFee: calculatedDeliveryFee.value
-      },
-      withSession(session.sessionId)
-    );
+    const response = await publicCartApi.checkout(session.sessionId, {
+      guestName: guestName.value,
+      guestEmail: guestEmail.value,
+      guestPhone: guestPhone.value,
+      deliveryOrPickup: deliveryMode.value,
+      paymentMethod: paymentMethod.value,
+      deliveryDistanceKm:
+        deliveryMode.value === 'DELIVERY'
+          ? Number(deliveryDistanceKm.value)
+          : null,
+    });
 
     const codes = response.data.verificationCodes || [];
 
@@ -167,14 +154,12 @@ async function submitCheckout() {
     guestPhone.value = '';
     deliveryMode.value = '';
     deliveryDistanceKm.value = '';
-    calculatedDeliveryFee.value = 0;
-    deliveryFeeConfirmed.value = false;
 
     await cart.refresh();
 
     await success(
       codes.length
-        ? `Order placed!\n\n${codes.map(c => '• ' + c).join('\n')}`
+        ? `Order placed!\n\nKeep your verification code(s). When you collect or receive delivery, show this code to the provider after you pay so they can confirm it matches this order:\n\n${codes.map((c) => '• ' + c).join('\n')}`
         : 'Order placed successfully.',
       'Order Confirmed'
     );
@@ -271,50 +256,43 @@ async function handleLimitWarning({ message, type }) {
           <input v-model="guestPhone" />
         </FormField>
 
-        <!-- DELIVERY OPTIONS -->
-        <FormField label="Delivery option">
-
-          <div class="radio-group">
-
-            <label v-if="deliveryAvailable" class="radio-card">
-              <input type="radio" v-model="deliveryMode" value="DELIVERY" />
-              <span>🚚 Delivery <small>To your location</small></span>
-            </label>
-
-            <label class="radio-card">
-              <input type="radio" v-model="deliveryMode" value="PICKUP" />
-              <span>🏪 Pickup <small>Collect yourself</small></span>
-            </label>
-
-          </div>
-
-        </FormField>
-
-        <!-- DELIVERY INPUT -->
-        <div v-if="deliveryMode === 'DELIVERY' && deliveryAvailable">
-
-          <FormField label="Distance (KM)">
-            <input
-              v-model="deliveryDistanceKm"
-              type="number"
-              min="0"
-              step="0.1"
-            />
+        <!-- DELIVERY: only when provider offers it; otherwise pickup-only -->
+        <template v-if="deliveryAvailable">
+          <FormField label="How do you want to receive your order?">
+            <div class="radio-group">
+              <label class="radio-card">
+                <input type="radio" v-model="deliveryMode" value="DELIVERY" />
+                <span>🚚 Delivery <small>To your address — fee = distance × R{{ deliveryRate.toFixed(2) }}/km</small></span>
+              </label>
+              <label class="radio-card">
+                <input type="radio" v-model="deliveryMode" value="PICKUP" />
+                <span>🏪 Pickup <small>Collect from the provider</small></span>
+              </label>
+            </div>
           </FormField>
 
-          <button
-            class="btn btn-secondary"
-            type="button"
-            @click="updateDeliveryFee"
-          >
-            Update Delivery Fee
-          </button>
-
-          <p v-if="deliveryFeeConfirmed" class="muted">
-            Delivery fee: R{{ calculatedDeliveryFee.toFixed(2) }}
-          </p>
-
-        </div>
+          <div v-if="deliveryMode === 'DELIVERY'">
+            <FormField label="Delivery distance (km)">
+              <input
+                v-model="deliveryDistanceKm"
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="e.g. 12.5"
+              />
+            </FormField>
+            <p v-if="deliveryRate > 0 && calculatedDeliveryFee > 0" class="muted" style="margin-top: -0.35rem;">
+              Delivery fee: <strong>R{{ calculatedDeliveryFee.toFixed(2) }}</strong>
+              ({{ Number(deliveryDistanceKm) || 0 }} km × R{{ deliveryRate.toFixed(2) }}/km)
+            </p>
+            <p v-else-if="deliveryMode === 'DELIVERY' && deliveryRate <= 0" class="muted small">
+              This provider has delivery enabled but no per-km rate — contact them or choose pickup.
+            </p>
+          </div>
+        </template>
+        <p v-else class="muted" style="margin: 0.5rem 0 1rem;">
+          This provider offers <strong>pickup only</strong>. You will collect your order from them.
+        </p>
 
         <!-- PAYMENT -->
         <FormField label="Payment method">
@@ -343,7 +321,7 @@ async function handleLimitWarning({ message, type }) {
             <strong>R{{ Number(cart.estimatedTotal).toFixed(2) }}</strong>
           </div>
 
-          <div class="row" v-if="deliveryMode === 'DELIVERY'">
+          <div class="row" v-if="deliveryAvailable && deliveryMode === 'DELIVERY' && calculatedDeliveryFee > 0">
             <span>Delivery</span>
             <strong>R{{ calculatedDeliveryFee.toFixed(2) }}</strong>
           </div>

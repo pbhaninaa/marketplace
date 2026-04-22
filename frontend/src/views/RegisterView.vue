@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { api } from '../api';
+import { publicAccountApi } from '../services/marketplaceApi';
 import { useSetupStore } from '../stores/setup';
 import FormField from '../components/ui/FormField.vue';
 
@@ -24,7 +24,7 @@ onMounted(() => {
 async function submit() {
   error.value = '';
   try {
-    await api.post('/api/public/provider/register', {
+    await publicAccountApi.registerProvider({
       businessName: businessName.value.trim(),
       description: description.value.trim(),
       location: location.value.trim(),

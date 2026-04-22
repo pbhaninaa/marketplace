@@ -109,17 +109,18 @@ public class CheckoutService {
                     throw new ApiException(HttpStatus.CONFLICT, "RENTAL_CONFLICT", conflictMessage);
                 }
             } else {
-                // Validate stock for SALE listings
+                // Validate stock for SALE listings (on-hand minus reservations)
                 if (listing.getStockQuantity() == null) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "STOCK_NOT_TRACKED",
                             "'" + listing.getTitle() + "' does not have stock tracking enabled");
                 }
-                if (listing.getStockQuantity() < line.getQuantity()) {
+                int available = ListingStock.availableForSale(listing);
+                if (available < line.getQuantity()) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "INSUFFICIENT_STOCK",
-                            "Insufficient stock for '" + listing.getTitle() + "'. Available: " + listing.getStockQuantity() +
+                            "Insufficient stock for '" + listing.getTitle() + "'. Available: " + available +
                             ", Requested: " + line.getQuantity());
                 }
-                if (listing.getStockQuantity() == 0) {
+                if (available == 0) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "OUT_OF_STOCK",
                             "'" + listing.getTitle() + "' is sold out");
                 }
@@ -144,14 +145,31 @@ public class CheckoutService {
         List<Long> bookingIds = new ArrayList<>();
         List<String> verificationCodes = new ArrayList<>();
 
-        // Calculate delivery fee if applicable
-        BigDecimal deliveryFee = BigDecimal.ZERO;
-        if (req.deliveryDistanceKm() != null && req.deliveryDistanceKm().compareTo(BigDecimal.ZERO) > 0) {
-            if (cart.getProvider().isDeliveryAvailable() && cart.getProvider().getDeliveryPricePerKm() != null) {
-                deliveryFee = cart.getProvider().getDeliveryPricePerKm()
-                        .multiply(req.deliveryDistanceKm())
-                        .setScale(2, RoundingMode.HALF_UP);
+        boolean distanceProvided = req.deliveryDistanceKm() != null
+                && req.deliveryDistanceKm().compareTo(BigDecimal.ZERO) > 0;
+        if (distanceProvided) {
+            if (!cart.getProvider().isDeliveryAvailable()) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "DELIVERY_UNAVAILABLE",
+                        "This provider does not offer delivery.");
             }
+            if (cart.getProvider().getDeliveryPricePerKm() == null
+                    || cart.getProvider().getDeliveryPricePerKm().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "DELIVERY_MISCONFIGURED",
+                        "Delivery pricing is not configured for this provider.");
+            }
+        }
+
+        // Calculate delivery fee if applicable (server is source of truth)
+        BigDecimal deliveryFee = BigDecimal.ZERO;
+        if (distanceProvided) {
+            deliveryFee = cart.getProvider()
+                    .getDeliveryPricePerKm()
+                    .multiply(req.deliveryDistanceKm())
+                    .setScale(2, RoundingMode.HALF_UP);
         }
 
         if (!saleLines.isEmpty()) {
@@ -165,7 +183,7 @@ public class CheckoutService {
             order.setDeliveryFee(deliveryFee);
             order.setTotalAmount(saleTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
             order.setSessionKey(sessionKey);
-            order.setStatus(OrderStatus.PAID);
+            order.setStatus(OrderStatus.PENDING_PAYMENT);
             order.setVerificationCode(verificationCodeService.generateVerificationCode());
 
             for (CartLine line : saleLines) {
@@ -173,14 +191,13 @@ public class CheckoutService {
                 OrderLine ol = new OrderLine();
                 ol.setOrder(order);
                 ol.setListing(l);
+                ol.setListingTitleSnapshot(l.getTitle());
                 ol.setQuantity(line.getQuantity());
                 ol.setUnitPrice(l.getUnitPrice());
                 order.getLines().add(ol);
 
-                if (l.getStockQuantity() != null) {
-                    l.setStockQuantity(l.getStockQuantity() - line.getQuantity());
-                    listingRepository.save(l);
-                }
+                ListingStock.addReservation(l, line.getQuantity());
+                listingRepository.save(l);
             }
             purchaseOrderRepository.save(order);
             orderIds.add(order.getId());
@@ -191,7 +208,7 @@ public class CheckoutService {
             pay.setPurchaseOrder(order);
             pay.setMethod(req.paymentMethod());
             pay.setAmount(order.getTotalAmount());
-            pay.setStatus(PaymentStatus.COMPLETED);
+            pay.setStatus(PaymentStatus.PENDING);
             paymentRecordRepository.save(pay);
         }
 
@@ -212,7 +229,7 @@ public class CheckoutService {
             b.setEndAt(line.getRentalEnd());
             b.setTotalAmount(rentTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
             b.setSessionKey(sessionKey);
-            b.setStatus(BookingStatus.CONFIRMED);
+            b.setStatus(BookingStatus.PENDING_PAYMENT);
             b.setVerificationCode(verificationCodeService.generateVerificationCode());
             rentalBookingRepository.save(b);
             bookingIds.add(b.getId());
@@ -223,7 +240,7 @@ public class CheckoutService {
             pay.setRentalBooking(b);
             pay.setMethod(req.paymentMethod());
             pay.setAmount(b.getTotalAmount());
-            pay.setStatus(PaymentStatus.COMPLETED);
+            pay.setStatus(PaymentStatus.PENDING);
             paymentRecordRepository.save(pay);
         }
 

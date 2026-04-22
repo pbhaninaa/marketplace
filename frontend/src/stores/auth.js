@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import { api, setAuthToken } from '../api';
+import { setAuthToken } from '../api';
 
 const TOKEN_KEY = 'agri_token';
 const ROLE_KEY = 'agri_role';
