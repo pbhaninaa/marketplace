@@ -137,11 +137,25 @@ export const providerOrdersApi = {
       params: { status },
     });
   },
+  deletePurchase(id) {
+    return api.delete(`/api/provider/me/orders/purchases/${id}`);
+  },
+  deletePurchases(ids) {
+    return api.delete('/api/provider/me/orders/purchases', {
+      params: { ids },
+    });
+  },
   verifyPurchaseCode(code) {
     return api.post(`/api/provider/me/verify/order/${encodeURIComponent(code)}`);
   },
   verifyBookingCode(code) {
     return api.post(`/api/provider/me/verify/booking/${encodeURIComponent(code)}`);
+  },
+  deleteAllPurchases() {
+    return api.delete('/api/provider/me/orders/purchases');
+  },
+  deleteAllRentals() {
+    return api.delete('/api/provider/me/orders/rentals');
   },
 };
 

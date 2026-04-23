@@ -8,7 +8,7 @@ import { publicCartApi } from '../services/marketplaceApi';
 import { useSessionStore } from '../stores/session';
 import { useCartStore } from '../stores/cart';
 import { useDialog } from '../composables/useDialog';
-import { isNonEmptyString, isValidEmail, isPositiveNumber } from '../utils/validation';
+import { isNonEmptyString, isValidEmail, isPositiveNumber, isValidSAPhoneNumber, getFieldErrorMessage } from '../utils/validation';
 
 import FormField from '../components/ui/FormField.vue';
 import CartLinesSection from '../components/cart/CartLinesSection.vue';
@@ -22,6 +22,25 @@ const { confirm, success, error: showError, warning } = useDialog();
 const guestName = ref('');
 const guestEmail = ref('');
 const guestPhone = ref('');
+
+/* ================= TOUCHED STATE ================= */
+const touched = ref({
+  guestName: false,
+  guestEmail: false,
+  guestPhone: false,
+});
+
+function markFieldTouched(fieldName) {
+  touched.value[fieldName] = true;
+}
+
+function resetTouched() {
+  touched.value = {
+    guestName: false,
+    guestEmail: false,
+    guestPhone: false,
+  };
+}
 
 const paymentMethod = ref('CASH');
 const deliveryMode = ref(''); // DELIVERY | PICKUP
@@ -75,6 +94,27 @@ const calculatedDeliveryFee = computed(() => {
 });
 
 /* ================= VALIDATION ================= */
+const guestNameError = computed(() => {
+  if (!touched.value.guestName) return '';
+  return !isNonEmptyString(guestName.value) ? 'Name is required' : '';
+});
+
+const guestEmailError = computed(() => {
+  if (!touched.value.guestEmail) return '';
+  if (!guestEmail.value) return 'Email is required';
+  return !isValidEmail(guestEmail.value) ? 'Please enter a valid email address (e.g., name@example.com)' : '';
+});
+
+const guestPhoneError = computed(() => {
+  if (!touched.value.guestPhone) return '';
+  if (!guestPhone.value) return 'Phone number is required';
+  return !isValidSAPhoneNumber(guestPhone.value) ? 'Please enter a valid South African phone number (e.g., 0721234567 or +27721234567)' : '';
+});
+
+const isNameValid = computed(() => isNonEmptyString(guestName.value));
+const isEmailValid = computed(() => isValidEmail(guestEmail.value));
+const isPhoneValid = computed(() => isValidSAPhoneNumber(guestPhone.value));
+
 const isDeliveryChoiceComplete = computed(() => {
   if (!deliveryAvailable.value) {
     return deliveryMode.value === 'PICKUP';
@@ -87,9 +127,9 @@ const isDeliveryChoiceComplete = computed(() => {
 
 const canCheckout = computed(() =>
   cart.lines.length > 0 &&
-  guestName.value &&
-  guestEmail.value &&
-  guestPhone.value &&
+  isNameValid.value &&
+  isEmailValid.value &&
+  isPhoneValid.value &&
   isDeliveryChoiceComplete.value
 );
 
@@ -112,9 +152,15 @@ onMounted(async () => {
 
 /* ================= CHECKOUT ================= */
 async function submitCheckout() {
-  if (!isNonEmptyString(guestName.value)) return warning('Please enter your name.', 'Missing name');
-  if (!isValidEmail(guestEmail.value)) return warning('Please enter a valid email address.', 'Invalid email');
-  if (!isNonEmptyString(guestPhone.value)) return warning('Please enter your phone number.', 'Missing phone');
+  // Mark all fields as touched
+  markFieldTouched('guestName');
+  markFieldTouched('guestEmail');
+  markFieldTouched('guestPhone');
+
+  // Validate required fields
+  if (!isNameValid.value) return warning('Please enter your name.', 'Invalid Input');
+  if (!isEmailValid.value) return warning('Please enter a valid email address.', 'Invalid Input');
+  if (!isPhoneValid.value) return warning('Please enter a valid phone number.', 'Invalid Input');
   if (!deliveryAvailable.value) {
     /* pickup-only */
   } else if (!isNonEmptyString(deliveryMode.value)) {
@@ -154,6 +200,7 @@ async function submitCheckout() {
     guestPhone.value = '';
     deliveryMode.value = '';
     deliveryDistanceKm.value = '';
+    resetTouched();
 
     await cart.refresh();
 
@@ -244,16 +291,30 @@ async function handleLimitWarning({ message, type }) {
 
         <h2>Checkout</h2>
 
-        <FormField label="Name">
-          <input v-model="guestName" />
+        <FormField label="Name" :error="guestNameError">
+          <input 
+            v-model="guestName"
+            @blur="markFieldTouched('guestName')"
+            placeholder="Your full name"
+          />
         </FormField>
 
-        <FormField label="Email" >
-          <input v-model="guestEmail" type="email"/>
+        <FormField label="Email" :error="guestEmailError">
+          <input 
+            v-model="guestEmail"
+            @blur="markFieldTouched('guestEmail')"
+            type="email"
+            placeholder="your.email@example.com"
+          />
         </FormField>
 
-        <FormField label="Phone">
-          <input v-model="guestPhone" type="tel"/>
+        <FormField label="Phone" :error="guestPhoneError">
+          <input 
+            v-model="guestPhone"
+            @blur="markFieldTouched('guestPhone')"
+            type="tel"
+            placeholder="0721234567 or +27721234567"
+          />
         </FormField>
 
         <!-- DELIVERY: only when provider offers it; otherwise pickup-only -->

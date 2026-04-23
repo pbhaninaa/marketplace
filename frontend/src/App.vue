@@ -95,8 +95,8 @@ onMounted(async () => {
           <router-link to="/provider" class="side-link">Dashboard</router-link>
           <router-link to="/provider/settings" class="side-link">Settings</router-link>
           <router-link to="/provider/orders" class="side-link">Orders</router-link>
-          <router-link v-if="auth.canManageStaff" to="/provider/team" class="side-link">Team & payroll</router-link>
-          <router-link v-if="auth.canManageStaff" to="/provider/staff-payments" class="side-link">Staff payments</router-link>
+          <!-- <router-link v-if="auth.canManageStaff" to="/provider/team" class="side-link">Team & payroll</router-link> -->
+          <!-- <router-link v-if="auth.canManageStaff" to="/provider/staff-payments" class="side-link">Staff payments</router-link> -->
           <!-- Listings UI will live at /provider/listings -->
           <router-link to="/provider/listings" class="side-link">Listings</router-link>
         </div>

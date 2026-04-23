@@ -4,6 +4,7 @@ import { ref, onMounted, onUpdated, onUnmounted, nextTick, watch } from 'vue';
 const props = defineProps({
   label: { type: String, default: '' },
   forId: { type: String, default: '' },
+  error: { type: String, default: '' },
   /** When true, first character of text / textarea is uppercased while typing (not for email, password, file, etc.). */
   capitalizeFirst: { type: Boolean, default: false },
 });
@@ -102,11 +103,12 @@ onUnmounted(() => detach?.());
 </script>
 
 <template>
-  <div class="form-field">
+  <div class="form-field" :class="{ 'form-field--has-error': error }">
     <label v-if="label" :for="forId || undefined" class="form-field__label">{{ label }}</label>
     <div ref="controlRef" class="form-field__control">
       <slot />
     </div>
+    <p v-if="error" class="form-field__error">{{ error }}</p>
   </div>
 </template>
 
@@ -158,5 +160,27 @@ onUnmounted(() => detach?.());
 .form-field__control :deep(textarea) {
   resize: vertical;
   min-height: 5rem;
+}
+
+/* Error state */
+.form-field--has-error .form-field__control :deep(input),
+.form-field--has-error .form-field__control :deep(select),
+.form-field--has-error .form-field__control :deep(textarea) {
+  border-color: var(--color-danger, #dc2626);
+  background: rgba(220, 38, 38, 0.05);
+}
+
+.form-field--has-error .form-field__control :deep(input:focus),
+.form-field--has-error .form-field__control :deep(select:focus),
+.form-field--has-error .form-field__control :deep(textarea:focus) {
+  border-color: var(--color-danger, #dc2626);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.form-field__error {
+  font-size: 0.80rem;
+  color: var(--color-danger, #dc2626);
+  font-weight: 500;
+  margin: 0;
 }
 </style>
