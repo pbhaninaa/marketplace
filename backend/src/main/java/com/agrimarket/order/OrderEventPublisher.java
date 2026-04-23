@@ -2,6 +2,17 @@ package com.agrimarket.order;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+//TODO: In a real implementation We need to be able to manage the Orders and their payment statuses,
+//for each order a provider needs to see the list of items in that orders so that he will give the right 
+//amount of items to the guest and also to be able to manage the orders by changing their status to 
+//(verified, fulfilled, cancelled) and also to be able to see the history of the orders 
+//and their details and also to be able to see the analytics of the orders and their statuses
+
+//TODO: The provider needs to be able to crud the order when Declining, rejecting an that needs to be done only if the order is not yet paid for 
+// when that is done the items in the order need to be released back to the inventory and the guest needs to be notified about that 
+// and also the provider needs to be able to see the history of the orders and their details and also to be able to see the analytics 
+// of the orders and their statuses
+
 
 /**
  * ORDER EVENT PUBLISHER
