@@ -34,7 +34,7 @@ public class PaymentRecord {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "purchase_order_id")
-    private PurchaseOrder purchaseOrder;
+    private Order Order;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rental_booking_id")
@@ -54,3 +54,4 @@ public class PaymentRecord {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 }
+

@@ -10,8 +10,9 @@ public record AdminDashboardStatsResponse(
         long providersCreated,
         long listingsCreated,
         long activeListings,
-        long purchaseOrdersCount,
-        BigDecimal purchaseOrdersTotal,
+        long OrdersCount,
+        BigDecimal OrdersTotal,
         long rentalBookingsCount,
         BigDecimal rentalBookingsTotal) {}
+
 

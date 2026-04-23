@@ -4,10 +4,10 @@ import com.agrimarket.api.error.ApiException;
 import com.agrimarket.domain.BookingStatus;
 import com.agrimarket.domain.OrderStatus;
 import com.agrimarket.domain.PaymentStatus;
-import com.agrimarket.domain.PurchaseOrder;
+import com.agrimarket.domain.Order;
 import com.agrimarket.domain.RentalBooking;
 import com.agrimarket.repo.PaymentRecordRepository;
-import com.agrimarket.repo.PurchaseOrderRepository;
+import com.agrimarket.repo.OrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
 import com.agrimarket.security.MarketUserPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -26,19 +26,19 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OrderManagementService {
 
-    private final PurchaseOrderRepository purchaseOrderRepository;
+    private final OrderRepository OrderRepository;
     private final PurchaseInventoryService purchaseInventoryService;
     private final PaymentRecordRepository paymentRecordRepository;
     private final RentalBookingRepository rentalBookingRepository;
 
     @Transactional(readOnly = true)
-    public Page<PurchaseOrder> getProviderOrders(Long providerId, Pageable pageable) {
-        return purchaseOrderRepository.findByProvider_IdOrderByCreatedAtDesc(providerId, pageable);
+    public Page<Order> getProviderOrders(Long providerId, Pageable pageable) {
+        return OrderRepository.findByProvider_IdOrderByCreatedAtDesc(providerId, pageable);
     }
 
     @Transactional(readOnly = true)
-    public PurchaseOrder getOrderById(Long providerId, Long orderId) {
-        PurchaseOrder order = purchaseOrderRepository.findById(orderId)
+    public Order getOrderById(Long providerId, Long orderId) {
+        Order order = OrderRepository.findById(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "Order not found"));
 
         if (!order.getProvider().getId().equals(providerId)) {
@@ -49,8 +49,8 @@ public class OrderManagementService {
     }
 
     @Transactional
-    public PurchaseOrder updateOrderStatus(Long providerId, Long orderId, OrderStatus newStatus) {
-        PurchaseOrder order = getOrderById(providerId, orderId);
+    public Order updateOrderStatus(Long providerId, Long orderId, OrderStatus newStatus) {
+        Order order = getOrderById(providerId, orderId);
 
         // Validate status transitions
         OrderStatus current = order.getStatus();
@@ -75,12 +75,12 @@ public class OrderManagementService {
         }
 
         order.setStatus(newStatus);
-        return purchaseOrderRepository.save(order);
+        return OrderRepository.save(order);
     }
 
     @Transactional
     public void cancelOrder(Long providerId, Long orderId) {
-        PurchaseOrder order = getOrderById(providerId, orderId);
+        Order order = getOrderById(providerId, orderId);
 
         if (order.getStatus() == OrderStatus.FULFILLED) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "CANNOT_CANCEL", "Cannot cancel fulfilled orders");
@@ -96,13 +96,13 @@ public class OrderManagementService {
         }
 
         order.setStatus(OrderStatus.CANCELLED);
-        purchaseOrderRepository.save(order);
+        OrderRepository.save(order);
     }
 
     @Transactional
     public void deleteOrder(MarketUserPrincipal user, Long orderId) {
         // Only allow deletion of cancelled orders or pending payment
-        PurchaseOrder order = getOrderById(user.getProviderId(), orderId);
+        Order order = getOrderById(user.getProviderId(), orderId);
 
         if (order.getStatus() != OrderStatus.CANCELLED && order.getStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "CANNOT_DELETE",
@@ -115,27 +115,27 @@ public class OrderManagementService {
 
         // Delete related payment records first to avoid foreign key constraint
         // violations
-        paymentRecordRepository.deleteByPurchaseOrder_Id(orderId);
-        purchaseOrderRepository.delete(order);
+        paymentRecordRepository.deleteByOrder_Id(orderId);
+        OrderRepository.delete(order);
     }
 
     @Transactional
     public int deleteAllProviderPurchases(Long providerId) {
         // Only delete cancelled or pending payment orders
-        List<PurchaseOrder> ordersToDelete = purchaseOrderRepository
+        List<Order> ordersToDelete = OrderRepository
                 .findByProvider_IdAndStatusIn(providerId,
                         List.of(OrderStatus.CANCELLED, OrderStatus.PENDING_PAYMENT));
 
-        for (PurchaseOrder order : ordersToDelete) {
+        for (Order order : ordersToDelete) {
             if (order.getStatus() == OrderStatus.PENDING_PAYMENT && !order.isInventoryFinalized()) {
                 purchaseInventoryService.releasePendingReservation(order);
             }
             // Delete related payment records first to avoid foreign key constraint
             // violations
-            paymentRecordRepository.deleteByPurchaseOrder_Id(order.getId());
+            paymentRecordRepository.deleteByOrder_Id(order.getId());
         }
 
-        purchaseOrderRepository.deleteAll(ordersToDelete);
+        OrderRepository.deleteAll(ordersToDelete);
         return ordersToDelete.size();
     }
 
@@ -147,7 +147,7 @@ public class OrderManagementService {
 
         int deletedCount = 0;
         for (Long orderId : ids) {
-            PurchaseOrder order = purchaseOrderRepository.findById(orderId)
+            Order order = OrderRepository.findById(orderId)
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "Order not found"));
 
             if (!order.getProvider().getId().equals(providerId)) {
@@ -165,8 +165,8 @@ public class OrderManagementService {
 
             // Delete related payment records first to avoid foreign key constraint
             // violations
-            paymentRecordRepository.deleteByPurchaseOrder_Id(orderId);
-            purchaseOrderRepository.delete(order);
+            paymentRecordRepository.deleteByOrder_Id(orderId);
+            OrderRepository.delete(order);
             deletedCount++;
         }
 
@@ -184,18 +184,18 @@ public class OrderManagementService {
         return bookingsToDelete.size();
     }
 
-    private void markPurchasePaymentCompleted(PurchaseOrder order) {
+    private void markPurchasePaymentCompleted(Order order) {
         paymentRecordRepository
-                .findByPurchaseOrder_Id(order.getId())
+                .findByOrder_Id(order.getId())
                 .ifPresent(p -> {
                     p.setStatus(PaymentStatus.COMPLETED);
                     paymentRecordRepository.save(p);
                 });
     }
 
-    private void markPurchasePaymentFailed(PurchaseOrder order) {
+    private void markPurchasePaymentFailed(Order order) {
         paymentRecordRepository
-                .findByPurchaseOrder_Id(order.getId())
+                .findByOrder_Id(order.getId())
                 .ifPresent(p -> {
                     p.setStatus(PaymentStatus.FAILED);
                     paymentRecordRepository.save(p);
@@ -217,3 +217,4 @@ public class OrderManagementService {
         }
     }
 }
+

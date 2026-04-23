@@ -1,6 +1,6 @@
 package com.agrimarket.api.dto;
 
-import com.agrimarket.domain.PurchaseOrder;
+import com.agrimarket.domain.Order;
 import java.time.Instant;
 
 /**
@@ -15,7 +15,7 @@ public record OrderVerificationResponse(
         String guestPhone,
         String guestEmail,
         String status) {
-    public static OrderVerificationResponse from(PurchaseOrder order, String message) {
+    public static OrderVerificationResponse from(Order order, String message) {
         return new OrderVerificationResponse(
                 message,
                 order.getVerifiedAt(),

@@ -8,16 +8,16 @@ import com.agrimarket.domain.CartLine;
 import com.agrimarket.domain.CartSession;
 import com.agrimarket.domain.Listing;
 import com.agrimarket.domain.ListingType;
-import com.agrimarket.domain.OrderLine;
+import com.agrimarket.domain.CartLine;
 import com.agrimarket.domain.OrderStatus;
 import com.agrimarket.domain.PaymentRecord;
 import com.agrimarket.domain.PaymentStatus;
-import com.agrimarket.domain.PurchaseOrder;
+import com.agrimarket.domain.Order;
 import com.agrimarket.domain.RentalBooking;
 import com.agrimarket.repo.CartSessionRepository;
 import com.agrimarket.repo.ListingRepository;
 import com.agrimarket.repo.PaymentRecordRepository;
-import com.agrimarket.repo.PurchaseOrderRepository;
+import com.agrimarket.repo.OrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -41,7 +41,7 @@ public class CheckoutService {
     private final SubscriptionService subscriptionService;
     private final RentalPricingService rentalPricingService;
     private final RentalBookingRepository rentalBookingRepository;
-    private final PurchaseOrderRepository purchaseOrderRepository;
+    private final OrderRepository OrderRepository;
     private final PaymentRecordRepository paymentRecordRepository;
     private final CartSessionRepository cartSessionRepository;
     private final ListingRepository listingRepository;
@@ -173,7 +173,7 @@ public class CheckoutService {
         }
 
         if (!saleLines.isEmpty()) {
-            PurchaseOrder order = new PurchaseOrder();
+            Order order = new Order();
             order.setProvider(cart.getProvider());
             order.setGuestName(req.guestName());
             order.setGuestEmail(req.guestEmail());
@@ -188,24 +188,22 @@ public class CheckoutService {
 
             for (CartLine line : saleLines) {
                 Listing l = line.getListing();
-                OrderLine ol = new OrderLine();
+                CartLine ol = new CartLine();
                 ol.setOrder(order);
                 ol.setListing(l);
-                ol.setListingTitleSnapshot(l.getTitle());
                 ol.setQuantity(line.getQuantity());
-                ol.setUnitPrice(l.getUnitPrice());
                 order.getLines().add(ol);
 
                 ListingStock.addReservation(l, line.getQuantity());
                 listingRepository.save(l);
             }
-            purchaseOrderRepository.save(order);
+            OrderRepository.save(order);
             orderIds.add(order.getId());
             verificationCodes.add(order.getVerificationCode());
 
             PaymentRecord pay = new PaymentRecord();
             pay.setProvider(cart.getProvider());
-            pay.setPurchaseOrder(order);
+            pay.setOrder(order);
             pay.setMethod(req.paymentMethod());
             pay.setAmount(order.getTotalAmount());
             pay.setStatus(PaymentStatus.PENDING);
@@ -250,7 +248,7 @@ public class CheckoutService {
         cartSessionRepository.save(cart);
 
         return Map.of(
-                "purchaseOrderIds", orderIds,
+                "OrderIds", orderIds,
                 "bookingIds", bookingIds,
                 "providerId", providerId,
                 "verificationCodes", verificationCodes);
@@ -268,3 +266,4 @@ public class CheckoutService {
         return formatter.format(instant);
     }
 }
+

@@ -1,6 +1,6 @@
 package com.agrimarket.repo;
 
-import com.agrimarket.domain.PurchaseOrder;
+import com.agrimarket.domain.Order;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
@@ -10,15 +10,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Long> {
+public interface OrderRepository extends JpaRepository<Order, Long> {
 
-    Page<PurchaseOrder> findByProvider_IdOrderByCreatedAtDesc(Long providerId, Pageable pageable);
+    Page<Order> findByProvider_IdOrderByCreatedAtDesc(Long providerId, Pageable pageable);
 
-    Optional<PurchaseOrder> findByVerificationCode(String verificationCode);
+    Optional<Order> findByVerificationCode(String verificationCode);
 
     @Query(
             """
-            SELECT COUNT(o) FROM PurchaseOrder o
+            SELECT COUNT(o) FROM Order o
             WHERE o.provider.id = :providerId
             AND o.createdAt >= :from
             AND o.createdAt < :to
@@ -28,7 +28,7 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
 
     @Query(
             """
-            SELECT COALESCE(SUM(o.totalAmount), 0) FROM PurchaseOrder o
+            SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o
             WHERE o.provider.id = :providerId
             AND o.createdAt >= :from
             AND o.createdAt < :to
@@ -38,7 +38,7 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
 
     @Query(
             """
-            SELECT COUNT(o) FROM PurchaseOrder o
+            SELECT COUNT(o) FROM Order o
             WHERE o.createdAt >= :from
             AND o.createdAt < :to
             """)
@@ -46,9 +46,10 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
 
     @Query(
             """
-            SELECT COALESCE(SUM(o.totalAmount), 0) FROM PurchaseOrder o
+            SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o
             WHERE o.createdAt >= :from
             AND o.createdAt < :to
             """)
     BigDecimal sumTotalBetween(@Param("from") Instant from, @Param("to") Instant to);
 }
+

@@ -1,4 +1,4 @@
-package com.agrimarket.order;
+package com.agrimarket.service;
 
 import java.util.UUID;
 

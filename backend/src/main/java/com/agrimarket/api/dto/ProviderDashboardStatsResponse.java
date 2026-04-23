@@ -6,8 +6,9 @@ import java.time.LocalDate;
 public record ProviderDashboardStatsResponse(
         LocalDate from,
         LocalDate to,
-        long purchaseOrdersCount,
-        BigDecimal purchaseOrdersTotal,
+        long OrdersCount,
+        BigDecimal OrdersTotal,
         long rentalBookingsCount,
         BigDecimal rentalBookingsTotal) {}
+
 

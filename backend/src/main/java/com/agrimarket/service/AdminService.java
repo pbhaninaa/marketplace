@@ -14,7 +14,6 @@ import com.agrimarket.domain.UserRole;
 import com.agrimarket.repo.PasswordResetTokenRepository;
 import com.agrimarket.repo.ListingRepository;
 import com.agrimarket.repo.CartLineRepository;
-import com.agrimarket.repo.OrderLineRepository;
 import com.agrimarket.repo.RentalBookingRepository;
 import com.agrimarket.repo.ProviderStaffPermissionRepository;
 import com.agrimarket.repo.ProviderRepository;
@@ -37,7 +36,6 @@ public class AdminService {
     private final ProviderRepository providerRepository;
     private final ListingRepository listingRepository;
     private final CartLineRepository cartLineRepository;
-    private final OrderLineRepository orderLineRepository;
     private final RentalBookingRepository rentalBookingRepository;
     private final ProviderStaffPermissionRepository providerStaffPermissionRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
@@ -123,17 +121,14 @@ public class AdminService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "LISTING", "Listing not found"));
 
         // If listing is already used in an order or booking, we must keep it for history.
-        if (orderLineRepository.existsByListing_Id(listingId) || rentalBookingRepository.existsByListing_Id(listingId)) {
+        if (cartLineRepository.existsByListing_Id(listingId) || rentalBookingRepository.existsByListing_Id(listingId)) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "LISTING_IN_USE",
                     "Listing is already used in an order/booking. Unpublish it instead of deleting.");
         }
 
-        // Safe to delete: clear carts that still reference it.
-        if (cartLineRepository.existsByListing_Id(listingId)) {
-            cartLineRepository.deleteByListing_Id(listingId);
-        }
+        // Safe to delete
         listingRepository.delete(l);
     }
 
@@ -142,13 +137,10 @@ public class AdminService {
         int deleted = 0;
         for (var l : listingRepository.findAll()) {
             Long id = l.getId();
-            if (orderLineRepository.existsByListing_Id(id) || rentalBookingRepository.existsByListing_Id(id)) {
+            if (cartLineRepository.existsByListing_Id(id) || rentalBookingRepository.existsByListing_Id(id)) {
                 l.setActive(false);
                 listingRepository.save(l);
                 continue;
-            }
-            if (cartLineRepository.existsByListing_Id(id)) {
-                cartLineRepository.deleteByListing_Id(id);
             }
             listingRepository.delete(l);
             deleted++;

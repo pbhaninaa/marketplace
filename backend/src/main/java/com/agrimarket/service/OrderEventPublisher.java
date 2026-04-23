@@ -1,4 +1,4 @@
-package com.agrimarket.order;
+package com.agrimarket.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

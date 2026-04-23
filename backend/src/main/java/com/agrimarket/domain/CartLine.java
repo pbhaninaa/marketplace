@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "cart_lines")
+@Table(name = "order_items")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -26,8 +26,8 @@ public class CartLine {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "cart_session_id", nullable = false)
-    private CartSession cartSession;
+    @JoinColumn(name = "order_id", nullable = false)
+    private Order order;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "listing_id", nullable = false)

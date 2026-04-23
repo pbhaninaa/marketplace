@@ -1,4 +1,4 @@
-package com.agrimarket.order;
+package com.agrimarket.api;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;

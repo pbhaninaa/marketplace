@@ -22,11 +22,11 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "purchase_orders")
+@Table(name = "orders")
 @Getter
 @Setter
 @NoArgsConstructor
-public class PurchaseOrder {
+public class Order {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -51,6 +51,10 @@ public class PurchaseOrder {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private OrderStatus status = OrderStatus.PENDING_PAYMENT;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", nullable = false)
+    private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
     @Column(name = "total_amount", nullable = false, precision = 14, scale = 2)
     private BigDecimal totalAmount;
@@ -77,5 +81,5 @@ public class PurchaseOrder {
     private boolean inventoryFinalized;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<OrderLine> lines = new ArrayList<>();
+    private List<CartLine> lines = new ArrayList<>();
 }
