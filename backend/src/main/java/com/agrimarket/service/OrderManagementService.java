@@ -42,6 +42,11 @@ public class OrderManagementService {
     }
 
     @Transactional(readOnly = true)
+    public Page<RentalBooking> getProviderRentals(Long providerId, Pageable pageable) {
+        return rentalBookingRepository.findByProvider_IdOrderByCreatedAtDesc(providerId, pageable);
+    }
+
+    @Transactional(readOnly = true)
     public Order getOrderById(Long providerId, Long orderId) {
         Order order = OrderRepository.findById(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "Order not found"));
@@ -51,6 +56,18 @@ public class OrderManagementService {
         }
 
         return order;
+    }
+
+    @Transactional(readOnly = true)
+    public RentalBooking getRentalById(Long providerId, Long rentalId) {
+        RentalBooking rental = rentalBookingRepository.findById(rentalId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "RENTAL_NOT_FOUND", "Rental booking not found"));
+
+        if (!rental.getProvider().getId().equals(providerId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You don't have access to this rental");
+        }
+
+        return rental;
     }
 
     @Transactional(readOnly = true)
@@ -86,13 +103,22 @@ public class OrderManagementService {
             // }
             purchaseInventoryService.finalizePaidPurchase(order);
             markPurchasePaymentCompleted(order);
+
+            // Sync related rental with same verification code
+            syncRelatedRentalStatus(order.getVerificationCode(), BookingStatus.CONFIRMED);
         } else if (current == OrderStatus.PENDING_PAYMENT && newStatus == OrderStatus.CANCELLED) {
             purchaseInventoryService.releasePendingReservation(order);
             markPurchasePaymentFailed(order);
+
+            // Sync related rental with same verification code
+            syncRelatedRentalStatus(order.getVerificationCode(), BookingStatus.CANCELLED);
         } else if (current == OrderStatus.PAID && newStatus == OrderStatus.CANCELLED) {
             // Restore inventory when cancelling a PAID order
             purchaseInventoryService.restoreDeductedInventory(order);
             markPurchasePaymentFailed(order);
+
+            // Sync related rental with same verification code
+            syncRelatedRentalStatus(order.getVerificationCode(), BookingStatus.CANCELLED);
         }
 
         order.setStatus(newStatus);
@@ -239,6 +265,66 @@ public class OrderManagementService {
                     p.setStatus(PaymentStatus.PENDING);
                     paymentRecordRepository.save(p);
                 });
+    }
+
+    private void markPurchasePaymentFailed(Order order) {
+        paymentRecordRepository
+                .findByOrder_Id(order.getId())
+                .ifPresent(p -> {
+                    p.setStatus(PaymentStatus.FAILED);
+                    paymentRecordRepository.save(p);
+                });
+    }
+
+    /**
+     * Syncs the status of any related rental booking that shares the same verification code.
+     * This is used when purchase and rental are done together in the same checkout session.
+     */
+    private void syncRelatedRentalStatus(String verificationCode, BookingStatus newStatus) {
+        rentalBookingRepository.findByVerificationCode(verificationCode)
+                .ifPresent(rental -> {
+                    rental.setStatus(newStatus);
+                    rentalBookingRepository.save(rental);
+                });
+    }
+
+    /**
+     * Syncs the status of any related purchase order that shares the same verification code.
+     * This is used when purchase and rental are done together in the same checkout session.
+     */
+    private void syncRelatedPurchaseStatus(String verificationCode, OrderStatus newStatus) {
+        OrderRepository.findByVerificationCode(verificationCode)
+                .ifPresent(order -> {
+                    order.setStatus(newStatus);
+                    OrderRepository.save(order);
+                });
+    }
+
+    /**
+     * Updates rental booking status and syncs related purchase if they share verification code.
+     */
+    @Transactional
+    public RentalBooking updateRentalStatus(Long providerId, Long rentalId, BookingStatus newStatus) {
+        // Find rental and verify provider ownership
+        RentalBooking rental = rentalBookingRepository.findById(rentalId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "RENTAL_NOT_FOUND", "Rental booking not found"));
+
+        if (!rental.getProvider().getId().equals(providerId)) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You don't have access to this rental");
+        }
+
+        // Update rental status
+        rental.setStatus(newStatus);
+        rentalBookingRepository.save(rental);
+
+        // Sync related purchase order if it exists
+        if (newStatus == BookingStatus.CONFIRMED) {
+            syncRelatedPurchaseStatus(rental.getVerificationCode(), OrderStatus.PAID);
+        } else if (newStatus == BookingStatus.CANCELLED) {
+            syncRelatedPurchaseStatus(rental.getVerificationCode(), OrderStatus.CANCELLED);
+        }
+
+        return rental;
     }
 
     private void validateStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {

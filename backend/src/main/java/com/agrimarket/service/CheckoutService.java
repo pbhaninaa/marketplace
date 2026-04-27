@@ -147,6 +147,9 @@ public class CheckoutService {
         List<Long> bookingIds = new ArrayList<>();
         List<String> verificationCodes = new ArrayList<>();
 
+        // Generate a single verification code for both purchase and rental if done together
+        String sharedVerificationCode = verificationCodeService.generateVerificationCode();
+
         boolean distanceProvided = req.deliveryDistanceKm() != null
                 && req.deliveryDistanceKm().compareTo(BigDecimal.ZERO) > 0;
         if (distanceProvided) {
@@ -186,7 +189,7 @@ public class CheckoutService {
             order.setTotalAmount(saleTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
             order.setSessionKey(sessionKey);
             order.setStatus(OrderStatus.PENDING_PAYMENT);
-            order.setVerificationCode(verificationCodeService.generateVerificationCode());
+            order.setVerificationCode(sharedVerificationCode);
 
             for (CartLine line : saleLines) {
                 Listing l = line.getListing();
@@ -229,7 +232,7 @@ public class CheckoutService {
             b.setTotalAmount(rentTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
             b.setSessionKey(sessionKey);
             b.setStatus(BookingStatus.PENDING_PAYMENT);
-            b.setVerificationCode(verificationCodeService.generateVerificationCode());
+            b.setVerificationCode(sharedVerificationCode);
             rentalBookingRepository.save(b);
             bookingIds.add(b.getId());
             verificationCodes.add(b.getVerificationCode());

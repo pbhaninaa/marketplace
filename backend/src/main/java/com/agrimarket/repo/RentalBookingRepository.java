@@ -83,4 +83,8 @@ public interface RentalBookingRepository extends JpaRepository<RentalBooking, Lo
             AND b.createdAt < :to
             """)
     BigDecimal sumTotalBetween(@Param("from") Instant from, @Param("to") Instant to);
+
+    java.util.List<RentalBooking> findByProvider_IdAndStatusIn(
+            Long providerId,
+            java.util.Collection<BookingStatus> statuses);
 }

@@ -51,5 +51,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             AND o.createdAt < :to
             """)
     BigDecimal sumTotalBetween(@Param("from") Instant from, @Param("to") Instant to);
+
+    java.util.List<Order> findByProvider_IdAndStatusIn(
+            Long providerId,
+            java.util.Collection<com.agrimarket.domain.OrderStatus> statuses);
 }
 

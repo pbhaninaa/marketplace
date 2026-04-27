@@ -111,7 +111,6 @@ async function openDetails(order) {
         : await providerOrdersApi.getPurchase(order.id);
     selectedOrder.value = data || order;
   } catch (e) {
-    // Keep fallback row data if endpoint is unavailable.
     detailsError.value = e.response?.data?.message || '';
   } finally {
     detailsLoading.value = false;
@@ -126,13 +125,13 @@ function closeDialog() {
   detailsLoading.value = false;
   detailsError.value = '';
 }
+
 async function confirmOrder() {
   if (!selectedOrder.value) return;
 
   const code = customerCode.value?.trim();
   const expected = selectedOrder.value.verificationCode;
 
-  // ❌ invalid code → show dialog
   if (!code || code !== expected) {
     codeErrorMessage.value = 'Invalid customer verification code. Please try again.';
     showCodeError.value = true;

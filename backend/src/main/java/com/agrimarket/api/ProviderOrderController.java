@@ -1,9 +1,11 @@
 package com.agrimarket.api;
 
 import com.agrimarket.api.dto.OrderResponse;
+import com.agrimarket.domain.BookingStatus;
 import com.agrimarket.domain.Listing;
 import com.agrimarket.domain.Order;
 import com.agrimarket.domain.OrderStatus;
+import com.agrimarket.domain.RentalBooking;
 import com.agrimarket.security.MarketUserPrincipal;
 import com.agrimarket.service.OrderManagementService;
 import lombok.RequiredArgsConstructor;
@@ -166,6 +168,123 @@ public class ProviderOrderController {
                 "message", "Orders deleted successfully",
                 "deletedCount", deletedCount));
     }
+
+    // ============================================================================
+    // RENTAL ENDPOINTS
+    // ============================================================================
+
+    /**
+     * GET /api/provider/me/orders/rentals
+     * Get all rental bookings for the authenticated provider (paginated)
+     */
+    @GetMapping("/me/orders/rentals")
+    public ResponseEntity<Page<RentalBooking>> getProviderRentals(
+            @AuthenticationPrincipal MarketUserPrincipal user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        log.info("Provider {} fetching rentals - page: {}, size: {}", user.getProviderId(), page, size);
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<RentalBooking> rentals = orderManagementService.getProviderRentals(user.getProviderId(), pageable);
+
+        return ResponseEntity.ok(rentals);
+    }
+
+    /**
+     * GET /api/provider/me/orders/rentals/{rentalId}
+     * Get a specific rental booking by ID
+     */
+    @GetMapping("/me/orders/rentals/{rentalId}")
+    public ResponseEntity<RentalBooking> getRentalById(
+            @AuthenticationPrincipal MarketUserPrincipal user,
+            @PathVariable Long rentalId) {
+
+        log.info("Provider {} fetching rental {}", user.getProviderId(), rentalId);
+
+        RentalBooking rental = orderManagementService.getRentalById(user.getProviderId(), rentalId);
+
+        return ResponseEntity.ok(rental);
+    }
+
+    /**
+     * PUT /api/provider/me/orders/rentals/{rentalId}/status
+     * Update rental booking status
+     */
+    @PutMapping("/me/orders/rentals/{rentalId}/status")
+    public ResponseEntity<RentalBooking> updateRentalStatus(
+            @AuthenticationPrincipal MarketUserPrincipal user,
+            @PathVariable Long rentalId,
+            @RequestParam BookingStatus status) {
+
+        log.info("Provider {} updating rental {} to status {}",
+                user.getProviderId(), rentalId, status);
+
+        RentalBooking rental = orderManagementService.updateRentalStatus(
+                user.getProviderId(), rentalId, status);
+
+        return ResponseEntity.ok(rental);
+    }
+
+    /**
+     * GET /api/provider/me/orders/purchases
+     * Get all purchase orders for the authenticated provider (paginated)
+     */
+    @GetMapping("/me/orders/purchases")
+    public ResponseEntity<Page<OrderResponse>> getProviderPurchases(
+            @AuthenticationPrincipal MarketUserPrincipal user,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        log.info("Provider {} fetching purchases - page: {}, size: {}", user.getProviderId(), page, size);
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Order> orders = orderManagementService.getProviderOrders(user.getProviderId(), pageable);
+        Page<OrderResponse> response = orders.map(OrderResponse::from);
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * GET /api/provider/me/orders/purchases/{orderId}
+     * Get a specific purchase order by ID
+     */
+    @GetMapping("/me/orders/purchases/{orderId}")
+    public ResponseEntity<OrderResponse> getPurchaseById(
+            @AuthenticationPrincipal MarketUserPrincipal user,
+            @PathVariable Long orderId) {
+
+        log.info("Provider {} fetching purchase {}", user.getProviderId(), orderId);
+
+        Order order = orderManagementService.getOrderById(user.getProviderId(), orderId);
+        OrderResponse response = OrderResponse.from(order);
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * PUT /api/provider/me/orders/purchases/{orderId}/status
+     * Update purchase order status
+     */
+    @PutMapping("/me/orders/purchases/{orderId}/status")
+    public ResponseEntity<OrderResponse> updatePurchaseStatus(
+            @AuthenticationPrincipal MarketUserPrincipal user,
+            @PathVariable Long orderId,
+            @RequestParam OrderStatus status) {
+
+        log.info("Provider {} updating purchase {} to status {}",
+                user.getProviderId(), orderId, status);
+
+        Order order = orderManagementService.updateOrderStatus(
+                user.getProviderId(), orderId, status);
+        OrderResponse response = OrderResponse.from(order);
+
+        return ResponseEntity.ok(response);
+    }
+
+    // ============================================================================
+    // REQUEST DTOS
+    // ============================================================================
 
     /**
      * Request DTO for updating order status
