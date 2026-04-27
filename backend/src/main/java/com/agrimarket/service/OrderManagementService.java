@@ -2,10 +2,13 @@ package com.agrimarket.service;
 
 import com.agrimarket.api.error.ApiException;
 import com.agrimarket.domain.BookingStatus;
+import com.agrimarket.domain.CartLine;
+import com.agrimarket.domain.Listing;
 import com.agrimarket.domain.OrderStatus;
 import com.agrimarket.domain.PaymentStatus;
 import com.agrimarket.domain.Order;
 import com.agrimarket.domain.RentalBooking;
+import com.agrimarket.repo.CartLineRepository;
 import com.agrimarket.repo.PaymentRecordRepository;
 import com.agrimarket.repo.OrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
@@ -18,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Service for provider order management operations (CRUD)
@@ -30,6 +34,7 @@ public class OrderManagementService {
     private final PurchaseInventoryService purchaseInventoryService;
     private final PaymentRecordRepository paymentRecordRepository;
     private final RentalBookingRepository rentalBookingRepository;
+    private final CartLineRepository cartLineRepository;
 
     @Transactional(readOnly = true)
     public Page<Order> getProviderOrders(Long providerId, Pageable pageable) {
@@ -46,6 +51,18 @@ public class OrderManagementService {
         }
 
         return order;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Listing> getListingsFromOrder(Long providerId, Long orderId) {
+        // Verify provider has access to this order
+        getOrderById(providerId, orderId);
+
+        return cartLineRepository.findByOrderId(orderId)
+                .stream()
+                .map(CartLine::getListing)
+                .filter(Objects::nonNull)
+                .toList();
     }
 
     @Transactional
@@ -72,6 +89,10 @@ public class OrderManagementService {
         } else if (current == OrderStatus.PENDING_PAYMENT && newStatus == OrderStatus.CANCELLED) {
             purchaseInventoryService.releasePendingReservation(order);
             markPurchasePaymentFailed(order);
+        } else if (current == OrderStatus.PAID && newStatus == OrderStatus.CANCELLED) {
+            // Restore inventory when cancelling a PAID order
+            purchaseInventoryService.restoreDeductedInventory(order);
+            markPurchasePaymentFailed(order);
         }
 
         order.setStatus(newStatus);
@@ -90,9 +111,14 @@ public class OrderManagementService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "ALREADY_CANCELLED", "Order is already cancelled");
         }
 
+        // Handle inventory restoration based on order status
         if (order.getStatus() == OrderStatus.PENDING_PAYMENT) {
             purchaseInventoryService.releasePendingReservation(order);
-            markPurchasePaymentFailed(order);
+            markPurchasePaymentCancelled(order);
+        } else if (order.getStatus() == OrderStatus.PAID) {
+            // Restore deducted inventory for PAID orders
+            purchaseInventoryService.restoreDeductedInventory(order);
+            markPurchasePaymentCancelled(order);
         }
 
         order.setStatus(OrderStatus.CANCELLED);
@@ -101,8 +127,13 @@ public class OrderManagementService {
 
     @Transactional
     public void deleteOrder(MarketUserPrincipal user, Long orderId) {
-        // Only allow deletion of cancelled orders or pending payment
         Order order = getOrderById(user.getProviderId(), orderId);
+
+        // Only allow deletion if payment is PENDING
+        if (order.getPaymentStatus() != PaymentStatus.PENDING) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CANNOT_DELETE_PAID",
+                    "Can only delete orders with PENDING payment status");
+        }
 
         if (order.getStatus() != OrderStatus.CANCELLED && order.getStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "CANNOT_DELETE",
@@ -113,25 +144,28 @@ public class OrderManagementService {
             purchaseInventoryService.releasePendingReservation(order);
         }
 
-        // Delete related payment records first to avoid foreign key constraint
-        // violations
+        // Delete related payment records first to avoid foreign key constraint violations
         paymentRecordRepository.deleteByOrder_Id(orderId);
         OrderRepository.delete(order);
     }
 
     @Transactional
     public int deleteAllProviderPurchases(Long providerId) {
-        // Only delete cancelled or pending payment orders
+        // Only delete orders with PENDING payment status
         List<Order> ordersToDelete = OrderRepository
                 .findByProvider_IdAndStatusIn(providerId,
                         List.of(OrderStatus.CANCELLED, OrderStatus.PENDING_PAYMENT));
+
+        // Filter to only include PENDING payment
+        ordersToDelete = ordersToDelete.stream()
+                .filter(order -> order.getPaymentStatus() == PaymentStatus.PENDING)
+                .toList();
 
         for (Order order : ordersToDelete) {
             if (order.getStatus() == OrderStatus.PENDING_PAYMENT && !order.isInventoryFinalized()) {
                 purchaseInventoryService.releasePendingReservation(order);
             }
-            // Delete related payment records first to avoid foreign key constraint
-            // violations
+            // Delete related payment records first to avoid foreign key constraint violations
             paymentRecordRepository.deleteByOrder_Id(order.getId());
         }
 
@@ -154,6 +188,12 @@ public class OrderManagementService {
                 throw new ApiException(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You don't have access to this order");
             }
 
+            // Only allow deletion if payment is PENDING
+            if (order.getPaymentStatus() != PaymentStatus.PENDING) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "CANNOT_DELETE_PAID",
+                        "Can only delete orders with PENDING payment status");
+            }
+
             if (order.getStatus() != OrderStatus.CANCELLED && order.getStatus() != OrderStatus.PENDING_PAYMENT) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "CANNOT_DELETE",
                         "Can only delete cancelled or pending payment orders");
@@ -163,8 +203,7 @@ public class OrderManagementService {
                 purchaseInventoryService.releasePendingReservation(order);
             }
 
-            // Delete related payment records first to avoid foreign key constraint
-            // violations
+            // Delete related payment records first to avoid foreign key constraint violations
             paymentRecordRepository.deleteByOrder_Id(orderId);
             OrderRepository.delete(order);
             deletedCount++;
@@ -188,16 +227,16 @@ public class OrderManagementService {
         paymentRecordRepository
                 .findByOrder_Id(order.getId())
                 .ifPresent(p -> {
-                    p.setStatus(PaymentStatus.COMPLETED);
+                    p.setStatus(PaymentStatus.PAID);
                     paymentRecordRepository.save(p);
                 });
     }
 
-    private void markPurchasePaymentFailed(Order order) {
+    private void markPurchasePaymentCancelled(Order order) {
         paymentRecordRepository
                 .findByOrder_Id(order.getId())
                 .ifPresent(p -> {
-                    p.setStatus(PaymentStatus.FAILED);
+                    p.setStatus(PaymentStatus.PENDING);
                     paymentRecordRepository.save(p);
                 });
     }

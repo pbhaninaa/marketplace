@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 // and also the provider needs to be able to see the history of the orders and their details and also to be able to see the analytics 
 // of the orders and their statuses
 
-
 /**
  * ORDER EVENT PUBLISHER
  *

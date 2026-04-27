@@ -10,11 +10,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Simplified inventory management based on payment status.
- * 
- * - PENDING: items are held/reserved
- * - CONFIRMED: items are deducted from available inventory
- * - REJECTED/CANCELLED: items are released back to inventory
+ * Purchase inventory management based on payment status.
+ *
+ * - PENDING payment: items are reserved (stockReserved)
+ * - PAID: items are deducted from stockQuantity
+ * - CANCELLED: reserved items are released back
  */
 @Service
 @RequiredArgsConstructor
@@ -24,29 +24,54 @@ public class PurchaseInventoryService {
     private final CartLineRepository cartLineRepository;
 
     /**
-     * Deduct inventory when payment is confirmed for an order.
+     * Finalizes a paid purchase by converting reservations to actual deductions.
+     * Called when order moves from PENDING_PAYMENT to PAID status.
      */
     @Transactional
-    public void deductInventoryForConfirmedOrder(Order order) {
+    public void finalizePaidPurchase(Order order) {
         for (CartLine item : order.getLines()) {
             Listing listing = item.getListing();
-            if (listing == null) continue;
+            if (listing == null || listing.getStockQuantity() == null)
+                continue;
 
-            listing.setAvailableQuantity(listing.getAvailableQuantity() - item.getQuantity());
+            // Deduct from reserved and from actual stock
+            ListingStock.removeReservation(listing, item.getQuantity());
+            ListingStock.deductStock(listing, item.getQuantity());
+            listingRepository.save(listing);
+        }
+        order.setInventoryFinalized(true);
+    }
+
+    /**
+     * Releases pending reservations when an order is cancelled.
+     * Called when order moves to CANCELLED status with PENDING payment.
+     */
+    @Transactional
+    public void releasePendingReservation(Order order) {
+        for (CartLine item : order.getLines()) {
+            Listing listing = item.getListing();
+            if (listing == null || listing.getStockQuantity() == null)
+                continue;
+
+            // Release the reservation
+            ListingStock.removeReservation(listing, item.getQuantity());
             listingRepository.save(listing);
         }
     }
 
     /**
-     * Release inventory back when payment is rejected or order is cancelled.
+     * Restores deducted inventory when a PAID order is cancelled or rejected.
+     * Called when order moves from PAID to CANCELLED status.
      */
     @Transactional
-    public void releaseInventoryForCancelledOrder(Order order) {
+    public void restoreDeductedInventory(Order order) {
         for (CartLine item : order.getLines()) {
             Listing listing = item.getListing();
-            if (listing == null) continue;
+            if (listing == null || listing.getStockQuantity() == null)
+                continue;
 
-            listing.setAvailableQuantity(listing.getAvailableQuantity() + item.getQuantity());
+            // Restore the deducted stock back to available inventory
+            ListingStock.restoreStock(listing, item.getQuantity());
             listingRepository.save(listing);
         }
     }
@@ -57,11 +82,15 @@ public class PurchaseInventoryService {
     public boolean hasSufficientInventory(Order order) {
         for (CartLine item : order.getLines()) {
             Listing listing = item.getListing();
-            if (listing == null || listing.getAvailableQuantity() < item.getQuantity()) {
+            if (listing == null || listing.getStockQuantity() == null) {
+                return false;
+            }
+
+            int available = ListingStock.availableForSale(listing);
+            if (available < item.getQuantity()) {
                 return false;
             }
         }
         return true;
     }
 }
-

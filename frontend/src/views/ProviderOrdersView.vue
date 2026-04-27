@@ -5,7 +5,7 @@ import { providerOrdersApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
-
+import FormField from '../components/ui/FormField.vue';
 const router = useRouter();
 const auth = useAuthStore();
 
@@ -13,6 +13,10 @@ const auth = useAuthStore();
 const tab = ref('purchases');
 const loading = ref(true);
 const error = ref('');
+const customerCode = ref('');
+const showCodeError = ref(false);
+const codeErrorMessage = ref('');
+const orderItems = ref([]);
 
 const purchases = ref({ content: [], totalElements: 0 });
 const rentals = ref({ content: [], totalElements: 0 });
@@ -27,12 +31,7 @@ const detailsError = ref('');
 /* ================= STATE: CONFIRMATION DIALOGS ================= */
 const showDeleteConfirm = ref(false);
 const deleteConfirmPending = ref(false);
-const deleteConfirmType = ref('single'); // 'single' or 'all'
 
-/* ================= STATE ================= */
-const deleteAllLoading = ref(false);
-const deleteAllError = ref('');
-const deleteAllSuccess = ref('');
 
 /* ================= DATA ================= */
 const rows = computed(() =>
@@ -60,22 +59,7 @@ const canFulfillOrder = computed(() => {
   return isPurchase.value && isPaid.value;
 });
 
-const orderItems = computed(() => {
-  const o = selectedOrder.value;
-  if (!o) return [];
-  const list = o.items || o.lines || o.orderLines || o.lineItems || [];
-  if (!Array.isArray(list)) return [];
-  return list.map((it) => ({
-    ...it,
-    title:
-      it.title ||
-      it.listingTitle ||
-      it.name ||
-      it.listingTitleSnapshot ||
-      it.listing?.title ||
-      'Item',
-  }));
-});
+
 
 const paymentProofUrl = computed(() => String(selectedOrder.value?.paymentProofUrl || '').trim());
 const isPaymentProofPdf = computed(() => paymentProofUrl.value.toLowerCase().endsWith('.pdf'));
@@ -120,6 +104,7 @@ async function openDetails(order) {
   // Try to hydrate full order details (items, proof, etc).
   detailsLoading.value = true;
   try {
+    orderItems.value = await providerOrdersApi.getOrderItems(order.id);
     const { data } =
       tab.value === 'rentals'
         ? await providerOrdersApi.getRental(order.id)
@@ -141,15 +126,23 @@ function closeDialog() {
   detailsLoading.value = false;
   detailsError.value = '';
 }
-
 async function confirmOrder() {
   if (!selectedOrder.value) return;
+
+  const code = customerCode.value?.trim();
+  const expected = selectedOrder.value.verificationCode;
+
+  // ❌ invalid code → show dialog
+  if (!code || code !== expected) {
+    codeErrorMessage.value = 'Invalid customer verification code. Please try again.';
+    showCodeError.value = true;
+    return;
+  }
+
   actionLoading.value = true;
   actionError.value = '';
+
   try {
-    if (tab.value !== 'purchases') {
-      throw new Error('Confirm is currently supported for purchases only.');
-    }
     await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'PAID');
     await load();
     closeDialog();
@@ -165,10 +158,8 @@ async function fulfillOrder() {
   actionLoading.value = true;
   actionError.value = '';
   try {
-    if (tab.value !== 'purchases') {
-      throw new Error('Fulfill is currently supported for purchases only.');
-    }
-    await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'FULFILLED');
+    await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'COLLECTED');
+
     await load();
     closeDialog();
   } catch (e) {
@@ -183,10 +174,10 @@ async function rejectOrder() {
   actionLoading.value = true;
   actionError.value = '';
   try {
-    if (tab.value !== 'purchases') {
-      throw new Error('Reject is currently supported for purchases only.');
-    }
+    await providerOrdersApi.updateStock(orderItems.value.data);
+  
     await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'CANCELLED');
+
     await load();
     closeDialog();
   } catch (e) {
@@ -199,7 +190,6 @@ async function rejectOrder() {
 async function deleteOrderById() {
   if (!selectedOrder.value) return;
   showDeleteConfirm.value = true;
-  deleteConfirmType.value = 'single';
   deleteConfirmPending.value = false;
 }
 
@@ -224,56 +214,6 @@ async function confirmDeleteOrder() {
 function cancelDeleteOrder() {
   showDeleteConfirm.value = false;
   deleteConfirmPending.value = false;
-}
-
-async function deleteAllPurchases() {
-  showDeleteConfirm.value = true;
-  deleteConfirmType.value = 'all-purchases';
-  deleteConfirmPending.value = false;
-}
-
-async function confirmDeleteAllPurchases() {
-  deleteConfirmPending.value = true;
-  deleteAllLoading.value = true;
-  deleteAllError.value = '';
-  deleteAllSuccess.value = '';
-
-  try {
-    const { data } = await providerOrdersApi.deleteAllPurchases();
-    deleteAllSuccess.value = `Successfully deleted ${data.deletedCount} purchase orders.`;
-    await load();
-    showDeleteConfirm.value = false;
-  } catch (e) {
-    deleteAllError.value = e.response?.data?.message || e.message;
-  } finally {
-    deleteAllLoading.value = false;
-    deleteConfirmPending.value = false;
-  }
-}
-
-async function deleteAllRentals() {
-  showDeleteConfirm.value = true;
-  deleteConfirmType.value = 'all-rentals';
-  deleteConfirmPending.value = false;
-}
-
-async function confirmDeleteAllRentals() {
-  deleteConfirmPending.value = true;
-  deleteAllLoading.value = true;
-  deleteAllError.value = '';
-  deleteAllSuccess.value = '';
-
-  try {
-    const { data } = await providerOrdersApi.deleteAllRentals();
-    deleteAllSuccess.value = `Successfully deleted ${data.deletedCount} rental orders.`;
-    await load();
-    showDeleteConfirm.value = false;
-  } catch (e) {
-    deleteAllError.value = e.response?.data?.message || e.message;
-  } finally {
-    deleteAllLoading.value = false;
-    deleteConfirmPending.value = false;
-  }
 }
 </script>
 
@@ -305,30 +245,8 @@ async function confirmDeleteAllRentals() {
         </button>
       </div>
 
-      <!-- DELETE ALL BUTTONS -->
-      <div class="delete-all-section">
-        <button
-          v-if="tab === 'purchases' && purchases.totalElements > 0"
-          class="btn btn--danger"
-          @click="deleteAllPurchases"
-          :disabled="deleteAllLoading"
-        >
-          {{ deleteAllLoading ? 'Deleting…' : 'Delete All Purchases' }}
-        </button>
 
-        <button
-          v-if="tab === 'rentals' && rentals.totalElements > 0"
-          class="btn btn--danger"
-          @click="deleteAllRentals"
-          :disabled="deleteAllLoading"
-        >
-          {{ deleteAllLoading ? 'Deleting…' : 'Delete All Rentals' }}
-        </button>
-      </div>
 
-      <!-- DELETE ALL MESSAGES -->
-      <p v-if="deleteAllError" class="err-toast">{{ deleteAllError }}</p>
-      <p v-if="deleteAllSuccess" class="toast success">{{ deleteAllSuccess }}</p>
 
       <!-- TABLE -->
       <ResponsiveRecordShell :desktop-label="tab === 'purchases' ? 'Purchase orders' : 'Rental bookings'">
@@ -367,7 +285,7 @@ async function confirmDeleteAllRentals() {
                   <button class="icon-btn" @click="openDetails(o)">
                     <span class="material-icons">visibility</span>
                   </button>
-                  
+
                 </td>
               </tr>
 
@@ -419,16 +337,12 @@ async function confirmDeleteAllRentals() {
             <p v-if="detailsLoading" class="muted small">Loading full order details…</p>
             <p v-else-if="detailsError" class="muted small">Some details could not be loaded. Showing summary.</p>
 
-            <div v-if="orderItems.length" style="margin-top: 0.75rem;">
-              <strong>Items</strong>
-              <ul style="margin: 0.4rem 0 0; padding-left: 1.1rem;">
-                <li v-for="(it, idx) in orderItems" :key="it.id || it.lineId || idx">
-                  {{ it.title || it.listingTitle || it.name || 'Item' }}
-                  <span v-if="it.quantity != null"> · Qty {{ it.quantity }}</span>
-                  <span v-if="it.unitPrice != null"> · R {{ it.unitPrice }}</span>
-                  <span v-if="it.lineTotal != null"> · Line R {{ it.lineTotal }}</span>
+            <div style="margin-top: 0.75rem;">
+              <ol style="padding-left: 1.2rem;">
+                <li v-for="(orderItem, index) in orderItems.data" :key="index">
+                  {{ orderItem.quantity }} {{ orderItem.listingName }}{{ orderItem.quantity > 1 ? 's' : '' }}
                 </li>
-              </ul>
+              </ol>
             </div>
 
             <div v-if="isPendingPayment && paymentProofUrl" style="margin-top: 0.75rem;">
@@ -436,26 +350,37 @@ async function confirmDeleteAllRentals() {
               <div style="margin-top: 0.35rem;">
                 <input type="text" :value="paymentProofUrl" readonly @click="$event.target.select()" />
               </div>
-              <iframe
-                v-if="isPaymentProofPdf"
-                :src="paymentProofUrl"
-                title="Payment proof PDF"
-                style="width: 100%; height: 320px; margin-top: 0.5rem; border-radius: 6px; border: 1px solid rgba(0,0,0,0.15);"
-              />
-              <img
-                v-else
-                :src="paymentProofUrl"
-                alt="Payment proof"
-                style="max-width: 100%; margin-top: 0.5rem; border-radius: 4px;"
-              />
+              <iframe v-if="isPaymentProofPdf" :src="paymentProofUrl" title="Payment proof PDF"
+                style="width: 100%; height: 320px; margin-top: 0.5rem; border-radius: 6px; border: 1px solid rgba(0,0,0,0.15);" />
+              <img v-else :src="paymentProofUrl" alt="Payment proof"
+                style="max-width: 100%; margin-top: 0.5rem; border-radius: 4px;" />
             </div>
+<!-- CODE ERROR DIALOG -->
+<div v-if="showCodeError" class="dialog-backdrop" @click.self="showCodeError = false">
+  <div class="surface-panel dialog" style="max-width: 360px;">
+    
+    <h2>Verification Failed</h2>
 
-            <div v-if="isPendingPayment && showPurchaseActions" style="margin-top: 0.9rem;">
-              <strong>Order actions</strong>
-              <p class="muted small" style="margin: 0.25rem 0 0.4rem;">
-                Meetup verification is parked for now. Use <strong>Confirm Payment</strong> to move this order to PAID.
-                After the purchase is completed, use <strong>Fulfill Order</strong> to mark the order as FULFILLED.
-              </p>
+    <div class="dialog-content">
+      <p class="err-toast">
+        {{ codeErrorMessage }}
+      </p>
+    </div>
+
+    <div class="dialog-actions">
+      <button class="btn btn--primary" @click="showCodeError = false">
+        OK
+      </button>
+    </div>
+
+  </div>
+</div>
+            <div v-if="isPendingPayment" style="margin-top: 0.9rem;">
+              
+              <FormField label="Customer Code">
+                <input v-model="customerCode" type="text" placeholder="Enter Customer Code" />
+              </FormField>
+
             </div>
 
             <p v-if="actionError" class="err-toast" style="margin-top: 0.75rem;">
@@ -466,39 +391,57 @@ async function confirmDeleteAllRentals() {
 
           <!-- ACTIONS -->
           <div class="dialog-actions">
-            
-            <button
-              class="btn btn--danger"
-              @click="rejectOrder"
-              :disabled="actionLoading || !canRejectOrder"
-            >
-              {{ actionLoading ? 'Working…' : 'Reject Order' }}
-            </button>
-            <button
-              class="btn btn--danger btn--outline"
-              @click="deleteOrderById"
-              :disabled="actionLoading || !canDeleteOrder"
-            >
-              {{ actionLoading ? 'Working…' : 'Delete Order' }}
-            </button>
 
-            <button
-              class="btn btn--primary"
-              v-if="isPendingPayment"
-              @click="confirmOrder"
-              :disabled="actionLoading || !canConfirmPayment"
-            >
-              {{ actionLoading ? 'Working…' : 'Confirm Payment' }}
-            </button>
-            <button
-              class="btn btn--primary"
-              v-else-if="isPaid"
-              @click="fulfillOrder"
-              :disabled="actionLoading || !canFulfillOrder"
-            >
-              {{ actionLoading ? 'Working…' : 'Fulfill Order' }}
-            </button>
-            <button class="btn btn--ghost" @click="closeDialog">Close</button>
+            <!-- PENDING PAYMENT -->
+            <template v-if="selectedOrder?.status === 'PENDING_PAYMENT'">
+
+              <button class="btn btn--danger" @click="rejectOrder" :disabled="actionLoading">
+                {{ actionLoading ? 'Working…' : 'Reject Order' }}
+              </button>
+
+              <button class="btn btn--primary" @click="confirmOrder" :disabled="actionLoading">
+                {{ actionLoading ? 'Working…' : 'Confirm Payment' }}
+              </button>
+
+              <button class="btn btn--ghost" @click="closeDialog">
+                Close
+              </button>
+
+            </template>
+
+            <!-- PAID -->
+            <template v-else-if="selectedOrder?.status === 'PAID'">
+
+              <button class="btn btn--primary" @click="fulfillOrder" :disabled="actionLoading">
+                {{ actionLoading ? 'Working…' : 'Fulfil Order' }}
+              </button>
+
+              <button class="btn btn--ghost" @click="closeDialog">
+                Close
+              </button>
+
+            </template>
+
+            <!-- CANCELLED -->
+            <template v-else-if="selectedOrder?.status === 'CANCELLED'">
+
+              <button class="btn btn--danger" @click="deleteOrderById" :disabled="actionLoading">
+                {{ actionLoading ? 'Working…' : 'Delete Order' }}
+              </button>
+
+              <button class="btn btn--ghost" @click="closeDialog">
+                Close
+              </button>
+
+            </template>
+
+            <!-- DEFAULT FALLBACK -->
+            <template v-else>
+              <button class="btn btn--ghost" @click="closeDialog">
+                Close
+              </button>
+            </template>
+
           </div>
 
         </div>
@@ -508,39 +451,21 @@ async function confirmDeleteAllRentals() {
       <div v-if="showDeleteConfirm" class="dialog-backdrop" @click.self="cancelDeleteOrder">
         <div class="surface-panel dialog" style="max-width: 420px;">
           <h2>Confirm Delete</h2>
-          
+
           <div class="dialog-content">
-            <p v-if="deleteConfirmType === 'single'">
+            <p>
               <strong>Delete this order permanently?</strong>
               <br />
               This will remove order
               <strong>#{{ selectedOrder?.id }}</strong>
               and all associated payment records. This action cannot be undone.
             </p>
-            <p v-else-if="deleteConfirmType === 'all-purchases'">
-              <strong>Delete ALL purchase orders?</strong>
-              <br />
-              This will remove all cancelled and pending payment orders and their associated payment records.
-              This action cannot be undone.
-            </p>
-            <p v-else-if="deleteConfirmType === 'all-rentals'">
-              <strong>Delete ALL rental bookings?</strong>
-              <br />
-              This will remove all cancelled and pending payment rental bookings.
-              This action cannot be undone.
-            </p>
+
           </div>
 
           <div class="dialog-actions">
-            <button
-              class="btn btn--danger"
-              @click="
-                deleteConfirmType === 'single' ? confirmDeleteOrder() :
-                deleteConfirmType === 'all-purchases' ? confirmDeleteAllPurchases() :
-                deleteConfirmType === 'all-rentals' ? confirmDeleteAllRentals() : null
-              "
-              :disabled="deleteConfirmPending || (deleteConfirmType === 'all-purchases' ? deleteAllLoading : deleteConfirmType === 'all-rentals' ? deleteAllLoading : actionLoading)"
-            >
+            <button class="btn btn--danger" @click="confirmDeleteOrder()"
+              :disabled="deleteConfirmPending || actionLoading">
               {{ deleteConfirmPending ? 'Deleting…' : 'Delete' }}
             </button>
             <button class="btn btn--ghost" @click="cancelDeleteOrder" :disabled="deleteConfirmPending">
@@ -625,7 +550,7 @@ async function confirmDeleteAllRentals() {
 .dialog-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;

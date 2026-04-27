@@ -94,13 +94,13 @@ watch(
       <div class="kpis">
         <div class="kpi">
           <span class="kpi__label">Purchase orders</span>
-          <strong class="kpi__value">{{ stats?.purchaseOrdersCount ?? '—' }}</strong>
-          <span class="kpi__hint">Total: R {{ stats?.purchaseOrdersTotal ?? '—' }}</span>
+          <strong class="kpi__value">{{ stats?.purchasesCount ?? '—' }}</strong>
+          <span class="kpi__hint">Total: R {{ stats?.purchasesTotal ?? '—' }}</span>
         </div>
         <div class="kpi">
           <span class="kpi__label">Rental bookings</span>
-          <strong class="kpi__value">{{ stats?.rentalBookingsCount ?? '—' }}</strong>
-          <span class="kpi__hint">Total: R {{ stats?.rentalBookingsTotal ?? '—' }}</span>
+          <strong class="kpi__value">{{ stats?.rentalsCount ?? '—' }}</strong>
+          <span class="kpi__hint">Total: R {{ stats?.rentalsTotal ?? '—' }}</span>
         </div>
         <div class="kpi">
           <span class="kpi__label">Range</span>

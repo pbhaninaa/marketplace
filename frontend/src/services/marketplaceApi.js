@@ -132,8 +132,19 @@ export const providerOrdersApi = {
   getRental(id) {
     return api.get(`/api/provider/me/orders/rentals/${id}`);
   },
+  getOrderItems(orderId) {
+    return api.get(`/api/provider/me/orders/purchases/${orderId}/items`);
+  },
+  updateStock(stockUpdates) {
+    return api.put('/api/provider/me/listings/update-stock', stockUpdates);
+  },
   updatePurchaseStatus(id, status) {
     return api.put(`/api/provider/me/orders/purchases/${id}/status`, null, {
+      params: { status },
+    });
+  },
+   updateRentalStatus(id, status) {
+    return api.put(`/api/provider/me/orders/rentals/${id}/status`, null, {
       params: { status },
     });
   },

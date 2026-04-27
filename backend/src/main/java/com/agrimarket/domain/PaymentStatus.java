@@ -2,24 +2,20 @@ package com.agrimarket.domain;
 
 /**
  * Payment status for an order.
- * Tracks the payment lifecycle independently from order fulfillment status.
+ * Simplified to two states: PENDING and PAID
  */
 public enum PaymentStatus {
     /**
-     * Payment has been requested but not yet confirmed.
+     * Payment has not been confirmed.
      * Inventory is RESERVED, not deducted.
+     * Orders can be cancelled or deleted in this state.
      */
     PENDING,
 
     /**
      * Payment has been confirmed/received.
      * Inventory has been deducted.
+     * Orders cannot be cancelled or deleted in this state.
      */
-    CONFIRMED,
-
-    /**
-     * Payment was rejected or order was cancelled.
-     * Inventory has been released back.
-     */
-    REJECTED
+    PAID
 }

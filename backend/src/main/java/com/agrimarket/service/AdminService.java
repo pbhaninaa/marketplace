@@ -102,7 +102,8 @@ public class AdminService {
                 .findByIdAndProvider_Id(staffUserId, p.getId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "STAFF", "User not found in this provider"));
         if (u.getRole() == UserRole.PROVIDER_OWNER) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "OWNER_IMMUTABLE", "Provider owner cannot be disabled here.");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "OWNER_IMMUTABLE",
+                    "Provider owner cannot be disabled here.");
         }
         u.setEnabled(false);
         userAccountRepository.save(u);
@@ -120,7 +121,8 @@ public class AdminService {
                 .findById(listingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "LISTING", "Listing not found"));
 
-        // If listing is already used in an order or booking, we must keep it for history.
+        // If listing is already used in an order or booking, we must keep it for
+        // history.
         if (cartLineRepository.existsByListing_Id(listingId) || rentalBookingRepository.existsByListing_Id(listingId)) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
@@ -175,9 +177,11 @@ public class AdminService {
                 .findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER", "User not found"));
         if (u.getRole() == UserRole.PLATFORM_ADMIN) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "ADMIN_IMMUTABLE", "Platform admin cannot be deleted via this endpoint.");
+            throw new ApiException(HttpStatus.BAD_REQUEST, "ADMIN_IMMUTABLE",
+                    "Platform admin cannot be deleted via this endpoint.");
         }
-        // Soft delete: disable + invalidate reset tokens. Keeps order history / audit data intact.
+        // Soft delete: disable + invalidate reset tokens. Keeps order history / audit
+        // data intact.
         u.setEnabled(false);
         userAccountRepository.save(u);
         passwordResetTokenRepository.deleteByUser_Id(u.getId());
@@ -190,8 +194,10 @@ public class AdminService {
     public int deleteAllUsersExcept(Long keepUserId) {
         int changed = 0;
         for (var u : userAccountRepository.findAll()) {
-            if (u.getId().equals(keepUserId)) continue;
-            if (!u.isEnabled()) continue;
+            if (u.getId().equals(keepUserId))
+                continue;
+            if (!u.isEnabled())
+                continue;
             u.setEnabled(false);
             userAccountRepository.save(u);
             passwordResetTokenRepository.deleteByUser_Id(u.getId());
@@ -207,7 +213,8 @@ public class AdminService {
         boolean owner = u.getRole() == UserRole.PROVIDER_OWNER;
         EnumSet<ProviderPermissionKey> perms = EnumSet.noneOf(ProviderPermissionKey.class);
         if (!owner && u.getProvider() != null) {
-            List<ProviderPermissionKey> keys = providerStaffPermissionRepository.findKeys(u.getProvider().getId(), u.getId());
+            List<ProviderPermissionKey> keys = providerStaffPermissionRepository.findKeys(u.getProvider().getId(),
+                    u.getId());
             if (!keys.isEmpty()) {
                 perms = EnumSet.copyOf(keys);
             }

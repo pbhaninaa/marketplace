@@ -75,13 +75,15 @@ public class CheckoutService {
         for (Long listingId : listingIds) {
             Listing listing = listingRepository
                     .findByIdWithLock(listingId)
-                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "LISTING_MISSING", "Listing not found"));
+                    .orElseThrow(
+                            () -> new ApiException(HttpStatus.BAD_REQUEST, "LISTING_MISSING", "Listing not found"));
 
             if (!listing.getProvider().getId().equals(providerId)) {
                 throw new ApiException(HttpStatus.CONFLICT, "PROVIDER_MIX", "Mixed-provider cart rejected");
             }
             if (!listing.isActive()) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "LISTING_INACTIVE", "Listing '" + listing.getTitle() + "' is no longer available");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "LISTING_INACTIVE",
+                        "Listing '" + listing.getTitle() + "' is no longer available");
             }
             lockedListings.add(listing);
         }
@@ -118,7 +120,7 @@ public class CheckoutService {
                 if (available < line.getQuantity()) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "INSUFFICIENT_STOCK",
                             "Insufficient stock for '" + listing.getTitle() + "'. Available: " + available +
-                            ", Requested: " + line.getQuantity());
+                                    ", Requested: " + line.getQuantity());
                 }
                 if (available == 0) {
                     throw new ApiException(HttpStatus.BAD_REQUEST, "OUT_OF_STOCK",
@@ -212,8 +214,7 @@ public class CheckoutService {
 
         for (CartLine line : rentLines) {
             Listing l = line.getListing();
-            BigDecimal rentTotal =
-                    rentalPricingService.priceRental(l, line.getRentalStart(), line.getRentalEnd());
+            BigDecimal rentTotal = rentalPricingService.priceRental(l, line.getRentalStart(), line.getRentalEnd());
             RentalBooking b = new RentalBooking();
             b.setProvider(cart.getProvider());
             b.setListing(l);
@@ -266,4 +267,3 @@ public class CheckoutService {
         return formatter.format(instant);
     }
 }
-

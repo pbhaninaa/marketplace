@@ -29,9 +29,9 @@ public class AdminMaintenanceService {
         out.put("password_reset_tokens", del("DELETE FROM password_reset_tokens"));
         out.put("client_otp_challenges", del("DELETE FROM client_otp_challenges"));
         out.put("support_tickets", del("DELETE FROM support_tickets"));
-        out.put("payment_records", del("DELETE FROM payment_records"));
         out.put("rental_bookings", del("DELETE FROM rental_bookings"));
         out.put("order_lines", del("DELETE FROM order_lines"));
+        out.put("payments", del("DELETE FROM payments"));
         out.put("purchase_orders", del("DELETE FROM purchase_orders"));
         out.put("cart_lines", del("DELETE FROM cart_lines"));
         out.put("cart_sessions", del("DELETE FROM cart_sessions"));

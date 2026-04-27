@@ -25,9 +25,9 @@ const form = ref({
   deliveryPricePerKm: '',
 });
 
-const allPaymentMethods = ['EFT', 'CASH'];
-
-const canEdit = computed(() => auth.role === 'PROVIDER_OWNER' || auth.role === 'PROVIDER_ADMIN');
+const canEdit = computed(() =>
+  auth.role === 'PROVIDER_OWNER' || auth.role === 'PROVIDER_ADMIN'
+);
 
 onMounted(async () => {
   auth.restoreFromStorage();
@@ -40,8 +40,6 @@ onMounted(async () => {
 
 async function load() {
   loading.value = true;
-  error.value = '';
-  message.value = '';
   try {
     const { data } = await providerSettingsApi.get();
     form.value = {
@@ -51,374 +49,255 @@ async function load() {
       bankAccountNumber: data.bankAccountNumber || '',
       bankBranchCode: data.bankBranchCode || '',
       bankReference: data.bankReference || '',
-      acceptedPaymentMethods: data.acceptedPaymentMethods?.length ? data.acceptedPaymentMethods : ['EFT', 'CASH'],
+      acceptedPaymentMethods: data.acceptedPaymentMethods?.length
+        ? data.acceptedPaymentMethods
+        : ['EFT', 'CASH'],
       deliveryAvailable: data.deliveryAvailable || false,
       deliveryPricePerKm: data.deliveryPricePerKm || '',
     };
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = e.message;
   } finally {
     loading.value = false;
   }
 }
 
 async function save() {
-  error.value = '';
-  message.value = '';
   if (!isNonEmptyString(form.value.location)) {
     error.value = 'Location is required.';
     return;
   }
-  if (!Array.isArray(form.value.acceptedPaymentMethods) || form.value.acceptedPaymentMethods.length === 0) {
-    error.value = 'Please select at least one accepted payment method.';
+
+  if (!form.value.acceptedPaymentMethods.length) {
+    error.value = 'Select at least one payment method.';
     return;
   }
-  if (form.value.deliveryAvailable) {
-    if (!isPositiveNumber(form.value.deliveryPricePerKm)) {
-      error.value = 'Please enter a delivery price per KM greater than zero.';
-      return;
-    }
+
+  if (form.value.deliveryAvailable && !isPositiveNumber(form.value.deliveryPricePerKm)) {
+    error.value = 'Enter valid delivery price.';
+    return;
   }
+
   try {
-    const { data } = await providerSettingsApi.patch({
-      location: form.value.location,
-      bankName: form.value.bankName || null,
-      bankAccountName: form.value.bankAccountName || null,
-      bankAccountNumber: form.value.bankAccountNumber || null,
-      bankBranchCode: form.value.bankBranchCode || null,
-      bankReference: form.value.bankReference || null,
-      acceptedPaymentMethods: form.value.acceptedPaymentMethods || [],
-      deliveryAvailable: form.value.deliveryAvailable,
-      deliveryPricePerKm: form.value.deliveryAvailable && form.value.deliveryPricePerKm ? parseFloat(form.value.deliveryPricePerKm) : null,
+    await providerSettingsApi.patch({
+      ...form.value,
+      deliveryPricePerKm: form.value.deliveryAvailable
+        ? parseFloat(form.value.deliveryPricePerKm)
+        : null,
     });
     message.value = 'Settings saved.';
-    // refresh local cart (bank details shown during checkout)
-    form.value.acceptedPaymentMethods = data.acceptedPaymentMethods || form.value.acceptedPaymentMethods;
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
-  }
-}
-
-async function deactivateAccount() {
-  if (!canEdit.value) return;
-  error.value = '';
-  message.value = '';
-  try {
-    await providerSettingsApi.deleteAccount();
-    auth.logout();
-    router.replace({ path: '/login' });
-  } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = e.message;
   }
 }
 </script>
 
 <template>
-  <div class="page-document provider-settings-page">
+  <div class="provider-settings-page">
 
-    <!-- HERO -->
-    <header class="page-hero">
-      <p class="page-hero__eyebrow">Provider settings</p>
-      <h1 class="page-hero__title">Business configuration</h1>
-      <p class="page-hero__lead">
-        Manage your location, payments, delivery, and banking details.
-      </p>
+    <!-- HEADER -->
+    <header class="hero">
+      <h1>Business Settings</h1>
+      <p>Manage your store configuration, payments, and delivery.</p>
     </header>
 
-    <!-- STATUS -->
     <p v-if="error" class="toast error">{{ error }}</p>
     <p v-if="message" class="toast success">{{ message }}</p>
-    <p v-if="loading" class="muted loading">Loading settings…</p>
+    <p v-if="loading" class="loading">Loading...</p>
 
-    <div v-else class="settings-grid">
+    <div v-else class="grid">
 
-      <!-- MAIN SETTINGS -->
-      <section class="card">
+      <!-- LEFT -->
+      <div class="column">
 
-        <h2 class="card-title">Business details</h2>
+        <!-- BUSINESS -->
+        <section class="card">
+          <h2>📍 Business</h2>
 
-        <FormField label="Location">
-          <input v-model="form.location" type="text" :disabled="!canEdit" />
-        </FormField>
-
-     <FormField label="Accepted payment methods">
-
-  <label class="check-card">
-    <input
-      type="checkbox"
-      value="EFT"
-      v-model="form.acceptedPaymentMethods"
-      :disabled="!canEdit"
-    />
-    <span class="check-label">
-      EFT <small>(Bank transfer)</small>
-    </span>
-  </label>
-
-  <label class="check-card">
-    <input
-      type="checkbox"
-      value="CASH"
-      v-model="form.acceptedPaymentMethods"
-      :disabled="!canEdit"
-    />
-    <span class="check-label">
-      Cash <small>(Pay on delivery)</small>
-    </span>
-  </label>
-
-</FormField>
-
-      </section>
-
-      <!-- DELIVERY -->
-      <section class="card">
-
-        <h2 class="card-title">Delivery</h2>
-
-        <label class="toggle">
-          <input v-model="form.deliveryAvailable" type="checkbox" :disabled="!canEdit" />
-          <span>I offer delivery services</span>
-        </label>
-
-        <div v-if="form.deliveryAvailable" class="fade-in">
-          <FormField label="Price per KM (ZAR)">
-            <input
-              v-model="form.deliveryPricePerKm"
-              type="number"
-              step="0.01"
-              min="0.01"
-              :disabled="!canEdit"
-              placeholder="e.g. 5.00"
-            />
+          <FormField label="Location">
+            <input v-model="form.location" type="text" :disabled="!canEdit" />
           </FormField>
 
-          <p class="hint">
-            Delivery fees are calculated based on distance.
-          </p>
+          <FormField label="Payment methods">
+            <div class="payment-grid">
+
+              <label class="check-card">
+                <input type="checkbox" value="EFT" v-model="form.acceptedPaymentMethods" />
+                <span>EFT</span>
+              </label>
+
+              <label class="check-card">
+                <input type="checkbox" value="CASH" v-model="form.acceptedPaymentMethods" />
+                <span>Cash</span>
+              </label>
+
+            </div>
+          </FormField>
+        </section>
+
+        <!-- DELIVERY -->
+        <section class="card">
+          <h2>🚚 Delivery</h2>
+
+          <label class="toggle">
+            <input type="checkbox" v-model="form.deliveryAvailable" />
+            <span>Offer delivery</span>
+          </label>
+
+          <div v-if="form.deliveryAvailable" class="delivery-box">
+            <FormField label="Price per KM">
+              <input v-model="form.deliveryPricePerKm" type="number" />
+            </FormField>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- RIGHT -->
+      <div class="column">
+
+        <!-- BANKING -->
+        <section class="card">
+          <h2>🏦 Banking</h2>
+
+          <FormField label="Bank name">
+            <input v-model="form.bankName" />
+          </FormField>
+
+          <FormField label="Account name">
+            <input v-model="form.bankAccountName" />
+          </FormField>
+
+          <FormField label="Account number">
+            <input v-model="form.bankAccountNumber" />
+          </FormField>
+
+          <FormField label="Branch code">
+            <input v-model="form.bankBranchCode" />
+          </FormField>
+        </section>
+
+      </div>
+
+      <!-- FULL WIDTH ACTION -->
+      <div class="full">
+        <div class="actions">
+          <button class="btn" @click="save">Save Changes</button>
         </div>
-
-      </section>
-
-      <!-- BANKING -->
-      <section class="card">
-
-        <h2 class="card-title">Banking (EFT)</h2>
-        <p class="hint">
-          Shown to customers when they choose EFT at checkout.
-        </p>
-
-        <FormField label="Bank name">
-          <input v-model="form.bankName" type="text" :disabled="!canEdit" />
-        </FormField>
-
-        <FormField label="Account name">
-          <input v-model="form.bankAccountName" type="text" :disabled="!canEdit" />
-        </FormField>
-
-        <FormField label="Account number">
-          <input v-model="form.bankAccountNumber" type="text" :disabled="!canEdit" />
-        </FormField>
-
-        <FormField label="Branch code">
-          <input v-model="form.bankBranchCode" type="text" :disabled="!canEdit" />
-        </FormField>
-
-        <FormField label="Reference hint (optional)">
-          <input v-model="form.bankReference" type="text" :disabled="!canEdit" />
-        </FormField>
-
-      </section>
-
-      <!-- ACTIONS -->
-      <section class="actions-bar">
-        <button class="btn btn-primary" :disabled="!canEdit" @click="save">
-          Save changes
-        </button>
-
-        <p v-if="!canEdit" class="muted small">
-          Only admins can edit settings.
-        </p>
-      </section>
+      </div>
 
       <!-- DANGER -->
-      <section class="card danger">
-
-        <h2 class="card-title danger-title">Danger zone</h2>
-
-        <p class="hint">
-          Deactivating will suspend your provider account and unpublish listings.
-        </p>
-
-        <button
-          class="btn btn-ghost danger-btn"
-          :disabled="!canEdit"
-          @click="deactivateAccount"
-        >
-          Deactivate account
-        </button>
-
-      </section>
+      <div class="full">
+        <section class="card danger">
+          <h2>⚠ Danger Zone</h2>
+          <button class="danger-btn">Deactivate Account</button>
+        </section>
+      </div>
 
     </div>
   </div>
 </template>
 
 <style scoped>
-
-/* PAGE */
 .provider-settings-page {
-  padding: 1rem 0 2.5rem;
+  max-width: 1100px;
+  margin: auto;
+}
+
+/* HERO */
+.hero {
+  margin-bottom: 1rem;
 }
 
 /* GRID */
-.settings-grid {
-  max-width: 720px;
-  margin: 0 auto;
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.2rem;
+}
+
+.column {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.full {
+  grid-column: span 2;
 }
 
 /* CARD */
 .card {
-  background: var(--color-surface-elevated);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
   padding: 1.2rem;
+  border-radius: 14px;
+  border: 1px solid #eee;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* PAYMENT */
+.payment-grid {
   display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
+  gap: 0.5rem;
 }
 
-/* TITLES */
-.card-title {
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  margin: 0;
+.check-card {
+  flex: 1;
+  padding: 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  cursor: pointer;
 }
 
-/* HINT TEXT */
-.hint {
-  font-size: 0.85rem;
-  color: var(--color-muted);
-  line-height: 1.4;
-  margin-top: -0.3rem;
+/* DELIVERY */
+.delivery-box {
+  margin-top: 0.6rem;
+  padding: 0.6rem;
+  border: 1px dashed #3b82f6;
+  border-radius: 10px;
 }
 
-/* TOGGLE */
-.toggle {
+/* ACTIONS */
+.actions {
   display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: 0.95rem;
+  justify-content: flex-end;
 }
 
-/* BUTTON BAR */
-.actions-bar {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.5rem 0;
+.btn {
+  padding: 0.6rem 1.2rem;
+  background: #2563eb;
+  color: white;
+  border-radius: 8px;
+  border: none;
 }
 
 /* DANGER */
 .danger {
-  border-color: rgba(180, 40, 40, 0.25);
-  background: rgba(255, 245, 245, 0.6);
-}
-
-.danger-title {
-  color: rgba(140, 20, 20, 1);
+  border-color: #fca5a5;
 }
 
 .danger-btn {
-  border-color: rgba(180, 40, 40, 0.4);
-  color: rgba(140, 20, 20, 1);
+  background: #fee2e2;
+  padding: 0.6rem;
+  border-radius: 8px;
 }
 
-/* TOASTS */
+/* TOAST */
 .toast {
-  max-width: 720px;
-  margin: 0 auto 1rem;
-  padding: 0.75rem 1rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
+  padding: 0.6rem;
+  margin-bottom: 1rem;
 }
 
-.toast.error {
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
-  color: #9f1239;
+.error { background: #fee2e2; }
+.success { background: #dcfce7; }
+
+/* MOBILE */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .full {
+    grid-column: span 1;
+  }
 }
-
-.toast.success {
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #065f46;
-}
-
-/* LOADING */
-.loading {
-  text-align: center;
-  padding: 1rem 0;
-}
-
-/* ANIMATION */
-.fade-in {
-  animation: fadeIn 0.2s ease-in;
-}
-
-.check-card {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-
-  padding: 0.75rem 0.9rem;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-
-  cursor: pointer;
-  margin-bottom: 0.6rem;
-
-  transition: all 0.15s ease;
-  background: var(--color-surface);
-}
-
-/* hover state */
-.check-card:hover {
-  border-color: #2563eb;
-  background: rgba(37, 99, 235, 0.04);
-}
-
-/* checkbox */
-.check-card input {
-  width: 16px;
-  height: 16px;
-  accent-color: #2563eb;
-  flex-shrink: 0;
-}
-
-/* label block */
-.check-label {
-  display: flex;
-  flex-direction: column;
-  font-size: 0.95rem;
-  color: var(--color-text);
-  line-height: 1.2;
-}
-
-/* subtitle */
-.check-label small {
-  font-size: 0.78rem;
-  color: var(--color-muted);
-  margin-top: 2px;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 </style>
-

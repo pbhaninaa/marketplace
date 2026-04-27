@@ -27,9 +27,9 @@ public class OrderPaymentService {
     @Transactional
     public void confirmPayment(Long orderId) {
         Order order = orderRepository.findById(orderId)
-            .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
 
-        order.setPaymentStatus(PaymentStatus.CONFIRMED);
+        order.setPaymentStatus(PaymentStatus.PAID);
         orderRepository.save(order);
 
         // Deduct items from inventory
@@ -37,34 +37,21 @@ public class OrderPaymentService {
     }
 
     /**
-     * Rejects payment for an order.
-     * This releases reserved inventory items back to stock.
-     */
-    @Transactional
-    public void rejectPayment(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-            .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
-
-        order.setPaymentStatus(PaymentStatus.REJECTED);
-        orderRepository.save(order);
-
-        // Release inventory items back
-        inventoryService.releaseInventoryForOrder(order);
-    }
-
-    /**
      * Cancels an order.
-     * If payment was confirmed, inventory is released.
+     * Only allowed if payment status is PENDING.
+     * This releases reserved inventory items back to stock.
      */
     @Transactional
     public void cancelOrder(Long orderId) {
         Order order = orderRepository.findById(orderId)
-            .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
 
-        order.setPaymentStatus(PaymentStatus.REJECTED);
-        orderRepository.save(order);
+        // Only allow cancellation if payment is PENDING
+        if (order.getPaymentStatus() != PaymentStatus.PENDING) {
+            throw new IllegalStateException("Cannot cancel order with PAID payment status");
+        }
 
-        // If payment was already confirmed, release inventory
+        // Keep payment status as PENDING but release inventory
         inventoryService.releaseInventoryForOrder(order);
     }
 
@@ -73,7 +60,7 @@ public class OrderPaymentService {
      */
     public PaymentStatus getPaymentStatus(Long orderId) {
         return orderRepository.findById(orderId)
-            .map(Order::getPaymentStatus)
-            .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
+                .map(Order::getPaymentStatus)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found: " + orderId));
     }
 }

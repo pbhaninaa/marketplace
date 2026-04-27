@@ -37,4 +37,40 @@ public final class ListingStock {
         int reserved = listing.getReservedStock() == null ? 0 : listing.getReservedStock();
         listing.setReservedStock(reserved + quantity);
     }
+
+    /** Remove reservation (when order is cancelled or deleted before payment) */
+    public static void removeReservation(Listing listing, int quantity) {
+        if (listing.getListingType() != ListingType.SALE || listing.getStockQuantity() == null) {
+            return;
+        }
+        if (quantity < 1) {
+            return;
+        }
+        int reserved = listing.getReservedStock() == null ? 0 : listing.getReservedStock();
+        listing.setReservedStock(Math.max(0, reserved - quantity));
+    }
+
+    /** Deduct stock when order is paid (convert reservation to actual deduction) */
+    public static void deductStock(Listing listing, int quantity) {
+        if (listing.getListingType() != ListingType.SALE || listing.getStockQuantity() == null) {
+            return;
+        }
+        if (quantity < 1) {
+            return;
+        }
+        int currentStock = listing.getStockQuantity() == null ? 0 : listing.getStockQuantity();
+        listing.setStockQuantity(Math.max(0, currentStock - quantity));
+    }
+
+    /** Restore stock when a paid order is cancelled or rejected */
+    public static void restoreStock(Listing listing, int quantity) {
+        if (listing.getListingType() != ListingType.SALE || listing.getStockQuantity() == null) {
+            return;
+        }
+        if (quantity < 1) {
+            return;
+        }
+        int currentStock = listing.getStockQuantity() == null ? 0 : listing.getStockQuantity();
+        listing.setStockQuantity(currentStock + quantity);
+    }
 }
