@@ -667,38 +667,111 @@ async function deleteListing(id) {
   }
 }
 
+/* ============================================
+   MODAL DIALOG STYLING - PROPER POPUP
+   ============================================ */
+
 .mp-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: min(760px, calc(100vw - 2rem));
+  max-height: 90vh;
   border: none;
   padding: 0;
   background: transparent;
+  z-index: var(--z-modal, 1000);
+  animation: slideUp 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
+
 .mp-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(28, 36, 24, 0.5);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
+
+.mp-dialog[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
+   MODAL ANIMATIONS
+   ============================================ */
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 20px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ============================================
+   MODAL PANEL
+   ============================================ */
+
 .mp-dialog__panel {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: 1rem 1rem 1.1rem;
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
   box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
+
+/* ============================================
+   MODAL HEADER
+   ============================================ */
+
 .mp-dialog__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.75rem;
+  gap: var(--space-lg, 1rem);
+  margin-bottom: var(--space-lg, 1rem);
+  padding-bottom: var(--space-lg, 1rem);
+  border-bottom: 1px solid var(--color-border);
 }
+
 .mp-dialog__title {
   font-family: var(--font-display);
   margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--color-text);
 }
+
+/* ============================================
+   MODAL ACTIONS
+   ============================================ */
+
 .mp-dialog__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-top: 0.75rem;
+  gap: var(--space-md, 0.75rem);
+  margin-top: var(--space-lg, 1rem);
+  padding-top: var(--space-lg, 1rem);
+  border-top: 1px solid var(--color-border);
+  justify-content: flex-end;
 }
 
 .previews {

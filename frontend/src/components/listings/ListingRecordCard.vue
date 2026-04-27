@@ -15,6 +15,8 @@ const props = defineProps({
 const emit = defineEmits(['add-to-cart', 'reset-rent-dates', 'update:rentStart', 'update:rentEnd']);
 
 const quantity = ref(1);
+const showLightbox = ref(false);
+const currentImageIndex = ref(0);
 
 watch(
   () => props.listing.id,
@@ -66,6 +68,39 @@ const firstImageUrl = computed(() => {
     .filter(Boolean)[0] || '';
 });
 
+const allImageUrls = computed(() => {
+  const raw = props.listing?.imageUrls;
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter(Boolean);
+  return String(raw)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+});
+
+const currentLightboxImage = computed(() => allImageUrls.value[currentImageIndex.value] || '');
+
+function openLightbox() {
+  currentImageIndex.value = 0;
+  showLightbox.value = true;
+}
+
+function closeLightbox() {
+  showLightbox.value = false;
+}
+
+function nextImage() {
+  if (currentImageIndex.value < allImageUrls.value.length - 1) {
+    currentImageIndex.value++;
+  }
+}
+
+function prevImage() {
+  if (currentImageIndex.value > 0) {
+    currentImageIndex.value--;
+  }
+}
+
 const rentalDays = computed(() => countInclusiveRentalDays(props.rentStart, props.rentEnd));
 
 const rentalEstimate = computed(() => {
@@ -88,7 +123,7 @@ const isGreyed = computed(() => props.greyed || isOutOfStock.value);
 
 <template>
   <article class="listing-card" :class="{ 'listing-card--greyed': isGreyed }">
-    <div class="listing-card__media" :class="{ 'listing-card__media--empty': !firstImageUrl }">
+    <div class="listing-card__media" :class="{ 'listing-card__media--empty': !firstImageUrl }" @click="openLightbox" role="button" tabindex="0">
       <img v-if="firstImageUrl" :src="firstImageUrl" :alt="listing.title" loading="lazy" />
       <div v-else class="listing-card__media-fallback" aria-hidden="true">No image</div>
     </div>
@@ -145,6 +180,48 @@ const isGreyed = computed(() => props.greyed || isOutOfStock.value);
     <button type="button" class="btn btn-primary listing-card__cta" :disabled="isGreyed" @click="onAddToCart">
       Add to cart
     </button>
+
+    <!-- IMAGE LIGHTBOX MODAL -->
+    <dialog class="image-lightbox" :open="showLightbox">
+      <div class="lightbox-backdrop" @click="closeLightbox" />
+      <div class="lightbox-container">
+        <button type="button" class="lightbox-close" @click="closeLightbox" aria-label="Close">
+          <span>✕</span>
+        </button>
+        
+        <div class="lightbox-main">
+          <img v-if="currentLightboxImage" :src="currentLightboxImage" :alt="listing.title" class="lightbox-image" />
+        </div>
+
+        <!-- Navigation Buttons -->
+        <button v-if="allImageUrls.length > 1" type="button" class="lightbox-nav lightbox-nav--prev" @click="prevImage" aria-label="Previous image" :disabled="currentImageIndex === 0">
+          ❮
+        </button>
+        <button v-if="allImageUrls.length > 1" type="button" class="lightbox-nav lightbox-nav--next" @click="nextImage" aria-label="Next image" :disabled="currentImageIndex === allImageUrls.length - 1">
+          ❯
+        </button>
+
+        <!-- Image Counter -->
+        <div v-if="allImageUrls.length > 1" class="lightbox-counter">
+          {{ currentImageIndex + 1 }} / {{ allImageUrls.length }}
+        </div>
+
+        <!-- Thumbnails -->
+        <div v-if="allImageUrls.length > 1" class="lightbox-thumbnails">
+          <button
+            v-for="(url, idx) in allImageUrls"
+            :key="idx"
+            type="button"
+            class="lightbox-thumbnail"
+            :class="{ 'lightbox-thumbnail--active': idx === currentImageIndex }"
+            @click="currentImageIndex = idx"
+            :aria-label="`View image ${idx + 1}`"
+          >
+            <img :src="url" :alt="`Thumbnail ${idx + 1}`" />
+          </button>
+        </div>
+      </div>
+    </dialog>
   </article>
 </template>
 
@@ -181,6 +258,14 @@ const isGreyed = computed(() => props.greyed || isOutOfStock.value);
   border: 1px solid rgba(26, 60, 52, 0.10);
   background: rgba(26, 60, 52, 0.03);
   aspect-ratio: 16 / 9;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.listing-card__media:hover {
+  border-color: rgba(61, 122, 102, 0.35);
+  box-shadow: 0 0 12px rgba(61, 122, 102, 0.2);
+  transform: scale(1.02);
 }
 
 .listing-card__media img {
@@ -327,5 +412,303 @@ const isGreyed = computed(() => props.greyed || isOutOfStock.value);
   font-size: 0.78rem;
   font-weight: 700;
   width: fit-content;
+}
+
+/* ==================== LIGHTBOX STYLES ==================== */
+.image-lightbox {
+  all: revert;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  z-index: 9999;
+}
+
+.image-lightbox:not([open]) {
+  display: none;
+}
+
+.image-lightbox::backdrop {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.lightbox-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  cursor: pointer;
+  z-index: -1;
+}
+
+.lightbox-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 900px;
+  height: 90vh;
+  max-height: 800px;
+  background: var(--color-surface-elevated, white);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  z-index: 10000;
+  animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 20px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: rgba(26, 60, 52, 0.1);
+  border-radius: 50%;
+  color: var(--color-canopy, #1a3c34);
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+  transition: all 0.2s ease;
+}
+
+.lightbox-close:hover {
+  background: rgba(26, 60, 52, 0.2);
+  transform: rotate(90deg);
+}
+
+.lightbox-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: rgba(26, 60, 52, 0.05);
+  position: relative;
+  padding: 0.5rem;
+}
+
+.lightbox-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-md, 8px);
+  display: block;
+}
+
+.lightbox-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 50px;
+  border: none;
+  background: rgba(26, 60, 52, 0.8);
+  color: white;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10001;
+}
+
+.lightbox-nav:hover:not(:disabled) {
+  background: rgba(26, 60, 52, 1);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.lightbox-nav:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.lightbox-nav--prev {
+  left: 1rem;
+}
+
+.lightbox-nav--next {
+  right: 1rem;
+}
+
+.lightbox-counter {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(26, 60, 52, 0.9);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  z-index: 10001;
+}
+
+.lightbox-thumbnails {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: rgba(26, 60, 52, 0.03);
+  border-top: 1px solid rgba(26, 60, 52, 0.1);
+  overflow-x: auto;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.lightbox-thumbnail {
+  flex-shrink: 0;
+  width: 70px;
+  height: 70px;
+  border: 2px solid transparent;
+  border-radius: var(--radius-md, 8px);
+  padding: 0;
+  background: none;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.lightbox-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.lightbox-thumbnail:hover {
+  border-color: rgba(61, 122, 102, 0.5);
+  transform: scale(1.05);
+}
+
+.lightbox-thumbnail--active {
+  border-color: var(--color-sage, #3d7a66);
+  box-shadow: 0 0 8px rgba(61, 122, 102, 0.3);
+}
+
+@media (max-width: 768px) {
+  .lightbox-container {
+    width: 95%;
+    height: 90vh;
+    max-height: 90vh;
+  }
+
+  .lightbox-main {
+    padding: 0.25rem;
+  }
+
+  .lightbox-nav {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+  }
+
+  .lightbox-nav--prev {
+    left: 0.35rem;
+  }
+
+  .lightbox-nav--next {
+    right: 0.35rem;
+  }
+
+  .lightbox-close {
+    width: 32px;
+    height: 32px;
+    font-size: 1.2rem;
+    top: 0.5rem;
+    right: 0.5rem;
+  }
+
+  .lightbox-counter {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .lightbox-thumbnails {
+    padding: 0.5rem;
+    gap: 0.25rem;
+    max-height: 100px;
+  }
+
+  .lightbox-thumbnail {
+    width: 55px;
+    height: 55px;
+  }
+}
+
+@media (max-width: 480px) {
+  .lightbox-container {
+    width: 98%;
+    height: 85vh;
+    border-radius: var(--radius-md, 8px);
+  }
+
+  .lightbox-main {
+    padding: 0;
+  }
+
+  .lightbox-nav {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+  }
+
+  .lightbox-nav--prev {
+    left: 0.25rem;
+  }
+
+  .lightbox-nav--next {
+    right: 0.25rem;
+  }
+
+  .lightbox-close {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+    top: 0.35rem;
+    right: 0.35rem;
+  }
+
+  .lightbox-thumbnails {
+    padding: 0.4rem;
+    gap: 0.2rem;
+    max-height: 80px;
+  }
+
+  .lightbox-thumbnail {
+    width: 50px;
+    height: 50px;
+  }
+
+  .lightbox-counter {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.7rem;
+  }
 }
 </style>

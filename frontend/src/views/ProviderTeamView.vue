@@ -464,49 +464,90 @@ async function recordPayroll() {
 
 <style scoped>
 /* =========================
-   DIALOG BASE
+   ANIMATIONS
+========================= */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 20px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* =========================
+   DIALOG BASE - PROPER MODAL POPUP
 ========================= */
 .mp-dialog {
   position: fixed;
-  inset: 0;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: min(760px, calc(100vw - 2rem));
+  max-height: 90vh;
   border: none;
   padding: 0;
   background: transparent;
+  z-index: var(--z-modal);
+  animation: slideUp 0.3s var(--ease-out);
 }
 
 .mp-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(28, 36, 24, 0.5);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s var(--ease-out);
+}
+
+.mp-dialog[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Close button icon style */
+.btn-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* =========================
-   OVERLAY (optional if used)
+   OVERLAY (not needed with ::backdrop, kept for safety)
 ========================= */
 .mp-dialog__overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(4px);
+  display: none; /* Hidden - using native ::backdrop instead */
 }
 
 /* =========================
-   PANEL
+   PANEL - Modal Content Container
 ========================= */
 .mp-dialog__panel {
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: 1rem 1rem 1.1rem;
-
-  /* remove all shadow/elevation */
-  box-shadow: none !important;
-
-  position: relative;
-  width: min(720px, 92vw);
-  max-height: 90vh;
-  overflow: auto;
-  margin: 5vh auto;
-
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-lg);
+  
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  
   display: flex;
   flex-direction: column;
 }
@@ -660,16 +701,13 @@ async function recordPayroll() {
    ACTIONS (DEDUPED)
 ========================= */
 .mp-dialog__actions {
-  position: sticky;
-  bottom: 0;
-  background: #fff;
-  padding: 16px 24px;
-  border-top: 1px solid #eee;
-
   display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
   justify-content: flex-end;
-  gap: 0.6rem;
-  margin-top: 0.75rem;
 }
 
 /* =========================

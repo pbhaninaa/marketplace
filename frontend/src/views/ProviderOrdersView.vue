@@ -300,13 +300,61 @@ function cancelDeleteOrder() {
         <!-- MOBILE -->
         <template #mobile>
           <div class="cards">
-            <article v-for="o in rows" :key="o.id" class="order-card">
-              <strong>#{{ o.id }} · {{ o.status }}</strong>
-              <span class="meta">{{ o.guestEmail }}</span>
-              <span class="meta">R {{ o.total }}</span>
+            <article v-for="o in rows" :key="o.id" class="order-card mobile-expanded">
+              <!-- Header with Order ID and Status -->
+              <div class="order-card__header">
+                <strong>#{{ o.id }}</strong>
+                <span class="order-card__status" :class="`status-${o.status.toLowerCase()}`">
+                  {{ o.status }}
+                </span>
+              </div>
 
-              <button class="icon-btn" @click="openDetails(o)">
-                <span class="material-icons">visibility</span>
+              <!-- Guest Information -->
+              <div class="order-card__section">
+                <h3 class="section-title">Guest</h3>
+                <div class="info-row">
+                  <span class="label">Name:</span>
+                  <span class="value">{{ o.guestName || '—' }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Email:</span>
+                  <span class="value">{{ o.guestEmail || '—' }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Phone:</span>
+                  <span class="value">{{ o.guestPhone }}</span>
+                </div>
+              </div>
+
+              <!-- Order Information -->
+              <div class="order-card__section">
+                <h3 class="section-title">Order</h3>
+                <div class="info-row">
+                  <span class="label">Date:</span>
+                  <span class="value">{{ String(o.createdAt || '').slice(0, 19) }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Total:</span>
+                  <span class="value amount">R {{ o.total }}</span>
+                </div>
+              </div>
+
+              <!-- Rental Window (if rental) -->
+              <div v-if="tab === 'rentals'" class="order-card__section">
+                <h3 class="section-title">Booking Period</h3>
+                <div class="info-row">
+                  <span class="label">From:</span>
+                  <span class="value">{{ String(o.startAt || '').slice(0, 16) }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">To:</span>
+                  <span class="value">{{ String(o.endAt || '').slice(0, 16) }}</span>
+                </div>
+              </div>
+
+              <!-- Action Button -->
+              <button class="btn btn-primary-mobile" @click="openDetails(o)">
+                View Full Details
               </button>
             </article>
           </div>
@@ -569,5 +617,133 @@ function cancelDeleteOrder() {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+/* ============================================
+   MOBILE CARD STYLING - ALWAYS EXPANDED
+   ============================================ */
+
+.order-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.order-card.mobile-expanded {
+  padding: 1.25rem;
+  gap: 1rem;
+}
+
+.order-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.order-card__header strong {
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+
+.order-card__status {
+  display: inline-block;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.order-card__status.status-pending_payment {
+  background: var(--color-wheat-soft);
+  color: var(--color-earth);
+}
+
+.order-card__status.status-paid {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.order-card__status.status-fulfilled {
+  background: var(--color-sage-soft);
+  color: var(--color-canopy);
+}
+
+.order-card__status.status-cancelled {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.order-card__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.section-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--color-muted);
+  letter-spacing: 0.02em;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.95rem;
+}
+
+.info-row .label {
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.info-row .value {
+  text-align: right;
+  color: var(--color-text);
+  flex-shrink: 1;
+  word-break: break-word;
+}
+
+.info-row .value.amount {
+  font-weight: 600;
+  color: var(--color-canopy);
+}
+
+.btn-primary-mobile {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-top: 0.5rem;
+  background: var(--color-sage);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.btn-primary-mobile:hover {
+  background: var(--color-canopy);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-primary-mobile:active {
+  transform: scale(0.98);
 }
 </style>
