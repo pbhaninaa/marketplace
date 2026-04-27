@@ -349,7 +349,7 @@ async function deleteListing(id) {
     <p v-if="loading" class="muted loading-line">Loading…</p>
 
     <template v-else>
-      <section class="surface-panel listings-panel">
+      <section v-if="!showDialog" class="surface-panel listings-panel">
         <div class="panel-head">
           <h2>Your listings</h2>
           <button type="button" class="btn btn-primary" :disabled="!canEdit" @click="openAdd">Add new</button>
@@ -686,7 +686,7 @@ async function deleteListing(id) {
 @media (max-width: 980px) {
   .mp-dialog {
     width: 90%;
-    margin: 3rem 50%;
+    margin: 12rem 50%;
   background: transparent;
   z-index: var(--z-modal, 1000);
   animation: slideUp 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
