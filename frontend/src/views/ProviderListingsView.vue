@@ -673,10 +673,9 @@ async function deleteListing(id) {
 
 .mp-dialog {
   position: fixed;
-  top: 50%;
-  left: 50%;
+  margin: 4rem 87rem;
   transform: translate(-50%, -50%);
-  width: min(760px, calc(100vw - 2rem));
+  width: min(40%);
   max-height: 90vh;
   border: none;
   padding: 0;
@@ -684,6 +683,27 @@ async function deleteListing(id) {
   z-index: var(--z-modal, 1000);
   animation: slideUp 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
+@media (max-width: 980px) {
+  .mp-dialog {
+    width: 90%;
+    margin: 3rem 50%;
+  background: transparent;
+  z-index: var(--z-modal, 1000);
+  animation: slideUp 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+  }
+  .mp-dialog::backdrop {
+  background: rgba(28, 36, 24, 0.5);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.mp-dialog[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+}
+
 
 .mp-dialog::backdrop {
   background: rgba(28, 36, 24, 0.5);

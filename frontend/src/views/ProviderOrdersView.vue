@@ -746,4 +746,12 @@ function cancelDeleteOrder() {
 .btn-primary-mobile:active {
   transform: scale(0.98);
 }
+@media (max-width: 980px) {
+ .tabs {
+    display: flex;
+    justify-content: center;
+    width: fit-content;
+    margin: 0 auto; 
+}
+}
 </style>

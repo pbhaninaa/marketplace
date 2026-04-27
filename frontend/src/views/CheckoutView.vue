@@ -45,9 +45,11 @@ function resetTouched() {
 const paymentMethod = ref('CASH');
 const deliveryMode = ref(''); // DELIVERY | PICKUP
 const deliveryDistanceKm = ref('');
-
+const showCheckout = ref(false);
 const submitting = ref(false);
-
+const toggleCheckout = () => {
+  showCheckout.value = !showCheckout.value;
+};
 function roundMoney(n) {
   return Math.round(Number(n) * 100) / 100;
 }
@@ -265,157 +267,172 @@ async function handleLimitWarning({ message, type }) {
 
 <template>
   <div class="checkout-page">
+    <div>
+      <header class="page-hero">
+        <h1>Complete your order</h1>
+      </header>
 
-    <header class="page-hero">
-      <h1>Complete your order</h1>
-    </header>
+      <div class="checkout-grid">
 
-    <div class="checkout-grid">
+        <!-- CART -->
+        <section class="surface-panel" v-if="!showCheckout">
+          <h2>Your cart</h2>
 
-      <!-- CART -->
-      <section class="surface-panel">
-        <h2>Your cart</h2>
+          <CartLinesSection :lines="cart.lines" :estimated-total="cart.estimatedTotal" @clear="clearCart"
+            @update-quantity="handleUpdateQuantity" @remove-line="handleRemoveLine"
+            @show-limit-warning="handleLimitWarning" @toggle-checkout="showCheckout = $event" />
 
-        <CartLinesSection
-          :lines="cart.lines"
-          :estimated-total="cart.estimatedTotal"
-          @clear="clearCart"
-          @update-quantity="handleUpdateQuantity"
-          @remove-line="handleRemoveLine"
-          @show-limit-warning="handleLimitWarning"
-        />
-      </section>
+        </section>
 
-      <!-- CHECKOUT -->
-      <section class="surface-panel">
+        <!-- CHECKOUT -->
+        <section class="surface-panel" v-if="showCheckout">
 
-        <h2>Checkout</h2>
+          <h2>Checkout</h2>
 
-        <FormField label="Name" :error="guestNameError">
-          <input 
-            v-model="guestName"
-            @blur="markFieldTouched('guestName')"
-            placeholder="Your full name"
-          />
-        </FormField>
-
-        <FormField label="Email" :error="guestEmailError">
-          <input 
-            v-model="guestEmail"
-            @blur="markFieldTouched('guestEmail')"
-            type="email"
-            placeholder="your.email@example.com"
-          />
-        </FormField>
-
-        <FormField label="Phone" :error="guestPhoneError">
-          <input 
-            v-model="guestPhone"
-            @blur="markFieldTouched('guestPhone')"
-            type="tel"
-            placeholder="0721234567 or +27721234567"
-          />
-        </FormField>
-
-        <!-- DELIVERY: only when provider offers it; otherwise pickup-only -->
-        <template v-if="deliveryAvailable">
-          <FormField label="How do you want to receive your order?">
-            <div class="radio-group">
-              <label class="radio-card">
-                <input type="radio" v-model="deliveryMode" value="DELIVERY" />
-                <span>🚚 Delivery <small>To your address — fee = distance × R{{ deliveryRate.toFixed(2) }}/km</small></span>
-              </label>
-              <label class="radio-card">
-                <input type="radio" v-model="deliveryMode" value="PICKUP" />
-                <span>🏪 Pickup <small>Collect from the provider</small></span>
-              </label>
-            </div>
+          <FormField label="Name" :error="guestNameError">
+            <input v-model="guestName" @blur="markFieldTouched('guestName')" placeholder="Your full name" />
           </FormField>
 
-          <div v-if="deliveryMode === 'DELIVERY'">
-            <FormField label="Delivery distance (km)">
-              <input
-                v-model="deliveryDistanceKm"
-                type="number"
-                min="0"
-                step="0.1"
-                placeholder="e.g. 12.5"
-              />
+          <FormField label="Email" :error="guestEmailError">
+            <input v-model="guestEmail" @blur="markFieldTouched('guestEmail')" type="email"
+              placeholder="your.email@example.com" />
+          </FormField>
+
+          <FormField label="Phone" :error="guestPhoneError">
+            <input v-model="guestPhone" @blur="markFieldTouched('guestPhone')" type="tel"
+              placeholder="0721234567 or +27721234567" />
+          </FormField>
+
+          <!-- DELIVERY: only when provider offers it; otherwise pickup-only -->
+          <template v-if="deliveryAvailable">
+            <FormField label="How do you want to receive your order?">
+              <div class="radio-group">
+                <label class="radio-card">
+                  <input type="radio" v-model="deliveryMode" value="DELIVERY" />
+                  <span>🚚 Delivery <small>To your address — fee = distance × R{{ deliveryRate.toFixed(2)
+                  }}/km</small></span>
+                </label>
+                <label class="radio-card">
+                  <input type="radio" v-model="deliveryMode" value="PICKUP" />
+                  <span>🏪 Pickup <small>Collect from the provider</small></span>
+                </label>
+              </div>
             </FormField>
-            <p v-if="deliveryRate > 0 && calculatedDeliveryFee > 0" class="muted" style="margin-top: -0.35rem;">
-              Delivery fee: <strong>R{{ calculatedDeliveryFee.toFixed(2) }}</strong>
-              ({{ Number(deliveryDistanceKm) || 0 }} km × R{{ deliveryRate.toFixed(2) }}/km)
-            </p>
-            <p v-else-if="deliveryMode === 'DELIVERY' && deliveryRate <= 0" class="muted small">
-              This provider has delivery enabled but no per-km rate — contact them or choose pickup.
-            </p>
-          </div>
-        </template>
-        <p v-else class="muted" style="margin: 0.5rem 0 1rem;">
-          This provider offers <strong>pickup only</strong>. You will collect your order from them.
-        </p>
 
-        <!-- PAYMENT -->
-        <FormField label="Payment method">
-          <select v-model="paymentMethod">
-            <option v-for="m in acceptedPaymentMethods" :key="m" :value="m">
-              {{ m }}
-            </option>
-          </select>
-        </FormField>
+            <div v-if="deliveryMode === 'DELIVERY'">
+              <FormField label="Delivery distance (km)">
+                <input v-model="deliveryDistanceKm" type="number" min="0" step="0.1" placeholder="e.g. 12.5" />
+              </FormField>
+              <p v-if="deliveryRate > 0 && calculatedDeliveryFee > 0" class="muted mt-3" style="margin: 0.5rem 0 1rem;">
+                Delivery fee: <strong>R{{ calculatedDeliveryFee.toFixed(2) }}</strong>
+                ({{ Number(deliveryDistanceKm) || 0 }} km × R{{ deliveryRate.toFixed(2) }}/km)
+              </p>
+              <p v-else-if="deliveryMode === 'DELIVERY' && deliveryRate <= 0" class="muted small">
+                This provider has delivery enabled but no per-km rate — contact them or choose pickup.
+              </p>
+            </div>
+          </template>
+          <p v-else class="muted" style="margin: 0.5rem 0 1rem;">
+            This provider offers <strong>pickup only</strong>. You will collect your order from them.
+          </p>
 
-        <!-- BANK DETAILS -->
-        <div v-if="showBankDetails" class="bank-box">
-          <h3>EFT Payment Details</h3>
+          <!-- PAYMENT -->
+          <FormField label="Payment method">
+            <select v-model="paymentMethod">
+              <option v-for="m in acceptedPaymentMethods" :key="m" :value="m">
+                {{ m }}
+              </option>
+            </select>
+          </FormField>
 
-          <p><strong>Bank:</strong> {{ cart.lockedProviderBank?.bankName }}</p>
-          <p><strong>Account:</strong> {{ cart.lockedProviderBank?.accountName }}</p>
-          <p><strong>Number:</strong> {{ cart.lockedProviderBank?.accountNumber }}</p>
-          <p><strong>Branch:</strong> {{ cart.lockedProviderBank?.branchCode }}</p>
-        </div>
+          <!-- BANK DETAILS -->
+          <div v-if="showBankDetails" class="bank-box">
+            <h3>EFT Payment Details</h3>
 
-        <!-- TOTAL -->
-        <div class="total-box">
-
-          <div class="row">
-            <span>Subtotal</span>
-            <strong>R{{ Number(cart.estimatedTotal).toFixed(2) }}</strong>
+            <p><strong>Bank:</strong> {{ cart.lockedProviderBank?.bankName }}</p>
+            <p><strong>Account:</strong> {{ cart.lockedProviderBank?.accountName }}</p>
+            <p><strong>Number:</strong> {{ cart.lockedProviderBank?.accountNumber }}</p>
+            <p><strong>Branch:</strong> {{ cart.lockedProviderBank?.branchCode }}</p>
           </div>
 
-          <div class="row" v-if="deliveryAvailable && deliveryMode === 'DELIVERY' && calculatedDeliveryFee > 0">
-            <span>Delivery</span>
-            <strong>R{{ calculatedDeliveryFee.toFixed(2) }}</strong>
+          <!-- TOTAL -->
+          <div class="total-box">
+
+            <div class="row">
+              <span>Subtotal</span>
+              <strong>R{{ Number(cart.estimatedTotal).toFixed(2) }}</strong>
+            </div>
+
+            <div class="row" v-if="deliveryAvailable && deliveryMode === 'DELIVERY' && calculatedDeliveryFee > 0">
+              <span>Delivery</span>
+              <strong>R{{ calculatedDeliveryFee.toFixed(2) }}</strong>
+            </div>
+
+            <div class="row total">
+              <span>Total</span>
+              <strong>R{{ estimatedTotalWithDelivery.toFixed(2) }}</strong>
+            </div>
+
           </div>
+          <div class="mt-5" style="flex-grow: 1;">
+            <button class="btn btn-primary" :disabled="!canCheckout || submitting" @click="submitCheckout">
+              {{ submitting ? 'Processing...' : 'Place Order' }}
+            </button>
+            <button class="btn btn-ghost" @click="toggleCheckout()" style="margin-left: 0.75rem;">
+              Back to Cart
+            </button>
+          </div> <!-- push buttons to bottom -->
 
-          <div class="row total">
-            <span>Total</span>
-            <strong>R{{ estimatedTotalWithDelivery.toFixed(2) }}</strong>
-          </div>
 
-        </div>
+        </section>
 
-        <button
-          class="btn btn-primary"
-          :disabled="!canCheckout || submitting"
-          @click="submitCheckout"
-        >
-          {{ submitting ? 'Processing...' : 'Place Order' }}
-        </button>
-
-      </section>
-
+      </div>
     </div>
+
   </div>
 </template>
 
 <style scoped>
-.checkout-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
+.checkout-page {
+  display: flex;
+  justify-content: center;
+  min-width: 50vw;
+  width: 100%;
+  min-height: 100vh;
+  padding: 1rem;
+  box-sizing: border-box;
 }
 
-/* RADIO SMALL FIX */
+/* MAIN LAYOUT */
+.checkout-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  /* FIX: single column */
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 720px;
+  /* FIX: consistent width */
+}
+
+/* BOTH CART + CHECKOUT */
+.surface-panel {
+  min-height: 50vh;
+  min-width: 30vw;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+/* PUSH BUTTONS DOWN */
+.surface-panel .btn {
+  width: fit-content;
+  margin: 5px 0 0 auto;
+  display: inline;
+}
+
+/* RADIO */
 .radio-group {
   display: flex;
   flex-direction: column;
@@ -431,6 +448,12 @@ async function handleLimitWarning({ message, type }) {
   border-radius: 10px;
   cursor: pointer;
   font-size: 0.9rem;
+  transition: 0.2s;
+}
+
+.radio-card:hover {
+  border-color: #bbb;
+  background: #fafafa;
 }
 
 .radio-card input {
@@ -444,11 +467,13 @@ async function handleLimitWarning({ message, type }) {
   color: #777;
 }
 
+/* TOTAL */
 .total-box {
   margin-top: 1rem;
   padding: 0.85rem;
   border: 1px solid #ddd;
   border-radius: 12px;
+  background: #fafafa;
 }
 
 .total-box .row {
@@ -463,6 +488,7 @@ async function handleLimitWarning({ message, type }) {
   padding-top: 0.5rem;
 }
 
+/* BANK */
 .bank-box {
   margin-top: 1rem;
   padding: 0.8rem;
@@ -470,9 +496,43 @@ async function handleLimitWarning({ message, type }) {
   border-radius: 12px;
 }
 
-@media (max-width: 900px) {
+/* HEADINGS */
+.page-hero {
+  width: 100%;
+  max-width: 720px;
+  margin-bottom: 1rem;
+}
+
+.page-hero h1 {
+  margin: 0;
+}
+
+/* MOBILE */
+@media (max-width: 980px) {
   .checkout-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+
+  .checkout-page {
+    padding: 0.5rem;
+  }
+
+  .surface-panel {
+    height: fit-content;
+    width: 80vw;
+    padding: 0.75rem;
+  }
+
+  .page-hero h1 {
+    font-size: 1.3rem;
+    text-align: center;
+  }
+
+  .radio-card {
+    font-size: 0.85rem;
   }
 }
 </style>

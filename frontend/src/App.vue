@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { useSessionStore } from './stores/session';
 import { useSetupStore } from './stores/setup';
@@ -14,6 +14,16 @@ const setup = useSetupStore();
 const auth = useAuthStore();
 const cart = useCartStore();
 const { dialogState } = useDialog();
+
+const mobileMenuOpen = ref(false);
+
+const toggleMobileMenu = () => {
+  mobileMenuOpen.value = !mobileMenuOpen.value;
+};
+
+const closeMobileMenu = () => {
+  mobileMenuOpen.value = false;
+};
 
 const envBadge = computed(() => import.meta.env.VITE_APP_ENV || '');
 
@@ -80,6 +90,17 @@ onMounted(async () => {
 
       <!-- Logged in: compact user strip in top bar -->
       <div v-else class="top-user">
+        <button 
+          v-if="auth.isAuthenticated"
+          type="button" 
+          class="hamburger" 
+          :aria-label="mobileMenuOpen ? 'Close menu' : 'Open menu'"
+          @click="toggleMobileMenu"
+        >
+          <span class="hamburger__line"></span>
+          <span class="hamburger__line"></span>
+          <span class="hamburger__line"></span>
+        </button>
         <span class="nav-user" :title="auth.email">{{ auth.displayLabel }}</span>
         <button type="button" class="nav-signout" @click="auth.logout()">Sign out</button>
       </div>
@@ -89,32 +110,32 @@ onMounted(async () => {
 
     <!-- Logged in: side navigation -->
     <div v-if="auth.isAuthenticated" class="authed-layout">
-      <aside class="side-nav" aria-label="Workspace navigation">
+      <aside class="side-nav" :class="{ 'side-nav--mobile-open': mobileMenuOpen }" aria-label="Workspace navigation">
         <div v-if="auth.isProviderUser" class="side-nav__group">
           <p class="side-nav__title">Provider</p>
-          <router-link to="/provider" class="side-link">Dashboard</router-link>
-          <router-link to="/provider/settings" class="side-link">Settings</router-link>
-          <router-link to="/provider/orders" class="side-link">Orders</router-link>
+          <router-link to="/provider" class="side-link" @click="closeMobileMenu">Dashboard</router-link>
+          <router-link to="/provider/settings" class="side-link" @click="closeMobileMenu">Settings</router-link>
+          <router-link to="/provider/orders" class="side-link" @click="closeMobileMenu">Orders</router-link>
           <!-- <router-link v-if="auth.canManageStaff" to="/provider/team" class="side-link">Team & payroll</router-link> -->
           <!-- <router-link v-if="auth.canManageStaff" to="/provider/staff-payments" class="side-link">Staff payments</router-link> -->
           <!-- Listings UI will live at /provider/listings -->
-          <router-link to="/provider/listings" class="side-link">Listings</router-link>
+          <router-link to="/provider/listings" class="side-link" @click="closeMobileMenu">Listings</router-link>
         </div>
 
         <div v-if="auth.isSupport && !auth.isPlatformAdmin" class="side-nav__group">
           <p class="side-nav__title">Support</p>
-          <router-link to="/support" class="side-link">Support dashboard</router-link>
+          <router-link to="/support" class="side-link" @click="closeMobileMenu">Support dashboard</router-link>
         </div>
 
         <div v-if="auth.isPlatformAdmin" class="side-nav__group">
           <p class="side-nav__title">Admin</p>
-          <router-link to="/admin" class="side-link">Dashboard</router-link>
-          <router-link to="/admin/providers" class="side-link">Providers</router-link>
-          <router-link to="/admin/listings" class="side-link">Listings</router-link>
-          <router-link to="/admin/users" class="side-link">Users</router-link>
-          <router-link to="/support" class="side-link">Support</router-link>
-          <router-link to="/admin/support-users" class="side-link">Support users</router-link>
-          <router-link to="/admin/password" class="side-link">Password</router-link>
+          <router-link to="/admin" class="side-link" @click="closeMobileMenu">Dashboard</router-link>
+          <router-link to="/admin/providers" class="side-link" @click="closeMobileMenu">Providers</router-link>
+          <router-link to="/admin/listings" class="side-link" @click="closeMobileMenu">Listings</router-link>
+          <router-link to="/admin/users" class="side-link" @click="closeMobileMenu">Users</router-link>
+          <router-link to="/support" class="side-link" @click="closeMobileMenu">Support</router-link>
+          <router-link to="/admin/support-users" class="side-link" @click="closeMobileMenu">Support users</router-link>
+          <router-link to="/admin/password" class="side-link" @click="closeMobileMenu">Password</router-link>
         </div>
       </aside>
 
@@ -268,33 +289,77 @@ onMounted(async () => {
   color: var(--color-canopy);
 }
 
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 0.35rem;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  margin-right: auto;
+}
+
+.hamburger__line {
+  width: 24px;
+  height: 2.5px;
+  background: var(--color-canopy, #1a3c34);
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
 @media (max-width: 980px) {
+  .hamburger {
+    display: flex;
+  }
+
+ .top-user {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+
   .authed-layout {
     grid-template-columns: 1fr;
   }
   .side-nav {
-    position: static;
-    height: auto;
+    position: fixed;
+    top: 64px;
+    left: 0;
+    width: 100%;
+    height: calc(100vh - 64px);
     border-right: none;
-    border-bottom: 1px solid var(--color-border);
-    padding: 0.75rem 0.75rem;
-
-    display: flex;
-    gap: 0.75rem;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    border-bottom: none;
+    padding: 1rem;
+    background: white;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    
+    display: none;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+    z-index: 999;
   }
+
+  .side-nav--mobile-open {
+    display: flex;
+  }
+
   .side-nav__group {
-    flex: 0 0 auto;
-    min-width: 170px;
+    flex: none;
+    min-width: auto;
   }
   .side-nav__group + .side-nav__group {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: none;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(26, 60, 52, 0.08);
   }
   .side-link {
-    padding: 0.45rem 0.6rem;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.95rem;
   }
 }
 </style>

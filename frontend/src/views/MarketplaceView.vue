@@ -14,6 +14,7 @@ const listings = ref({ content: [], totalElements: 0 });
 const categories = ref([]);
 const providers = ref([]);
 const loading = ref(true);
+const showMobileFilters = ref(false);
 
 const entryListingType = ref('SALE'); // controlled by the Buy/Rent toggle
 
@@ -124,6 +125,7 @@ function onFiltersUpdate(v) {
 
 function applyFilters() {
   filters.value = { ...filters.value, page: 0 };
+  showMobileFilters.value = false;
   loadListings();
 }
 
@@ -205,6 +207,8 @@ onMounted(async () => {
     <div class="market-body" :class="{ 'market-body--no-sidebar': !hasSidebar }">
       <MarketplaceFilterSidebar
         v-if="entryListingType"
+        :class="{ 'show-mobile': showMobileFilters }"
+        class="marketplace-filter-sidebar"
         :model-value="filters"
         :categories="categories"
         :providers="providers"
@@ -215,6 +219,14 @@ onMounted(async () => {
       />
 
       <section class="market-content">
+        <button
+          type="button"
+          class="filter-toggle filter-toggle--mobile"
+          :aria-label="showMobileFilters ? 'Hide filters' : 'Show filters'"
+          @click="showMobileFilters = !showMobileFilters"
+        >
+          ⚙ Filter
+        </button>
         <header class="feed-hero">
           <p class="feed-hero__eyebrow">Livestock · vehicles · equipment</p>
           <h1 class="feed-hero__title">Marketplace</h1>
@@ -440,14 +452,83 @@ onMounted(async () => {
   color: var(--color-muted);
 }
 
+.filter-toggle--mobile {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .market-body {
     grid-template-columns: 1fr;
   }
 
+  .market-body .feed-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .mode-toggle {
+    display: flex;
+    gap: 0.6rem;
+  }
+
+  .filter-toggle {
+    display: none;
+  }
+
+  .filter-toggle--mobile {
+    display: block;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface-elevated);
+    cursor: pointer;
+    font: inherit;
+    font-weight: 700;
+    padding: 0.55rem 1.2rem;
+    border-radius: 999px;
+    color: var(--color-canopy);
+    font-size: 0.95rem;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    margin-bottom: 1rem;
+  }
+
+  .filter-toggle--mobile:active {
+    background: rgba(61, 122, 102, 0.12);
+  }
+
+  :deep(.marketplace-filter-sidebar) {
+    position: fixed;
+    top: 64px;
+    left: 0;
+    width: 100%;
+    height: calc(100vh - 64px);
+    max-width: none;
+    border-right: none;
+    border-bottom: none;
+    background: white;
+    z-index: 998;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    overflow-y: auto;
+    display: none;
+    flex-direction: column;
+    padding: 1.5rem 1rem;
+  }
+
+  :deep(.marketplace-filter-sidebar.show-mobile) {
+    display: flex;
+  }
+
   :deep(.filters) {
     border-right: none;
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-toggle--mobile {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
   }
 }
 </style>

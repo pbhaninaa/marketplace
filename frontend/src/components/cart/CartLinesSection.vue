@@ -1,4 +1,5 @@
 <script setup>
+import { RouterLink } from 'vue-router';
 import ResponsiveRecordShell from '../layout/ResponsiveRecordShell.vue';
 import CartLinesTable from './CartLinesTable.vue';
 import CartLineCard from './CartLineCard.vue';
@@ -50,14 +51,24 @@ defineEmits(['clear', 'update-quantity', 'remove-line', 'show-limit-warning']);
         Estimated total: <strong>R {{ estimatedTotal }}</strong>
       </div>
 
-      <button
-        type="button"
-        class="btn btn-ghost clear-btn"
-        @click="$emit('clear')"
-      >
-        <span class="material-icons">delete_sweep</span>
-        Clear cart
-      </button>
+      <div class="cart-actions">
+        <button
+          type="button"
+          class="btn btn-ghost clear-btn"
+          @click="$emit('clear')"
+        >
+          <span class="material-icons">delete_sweep</span>
+          Clear cart
+        </button>
+        <button
+  type="button"
+  class="btn btn-primary checkout-btn"
+  @click="$emit('toggle-checkout', true)"
+>
+  Proceed to Checkout
+</button>
+      </div>
+      
     </template>
   </div>
 </template>
@@ -78,18 +89,26 @@ defineEmits(['clear', 'update-quantity', 'remove-line', 'show-limit-warning']);
   font-size: 1rem;
 }
 
-.clear-btn {
-  margin-top: 0.75rem;
-  align-self: flex-start;
-  display: inline-flex;
+
+
+
+
+.cart-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+
+.btn{
+  max-width: fit-content;
+  flex: 1;
+  text-decoration: none;
+  display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
 }
-
-.clear-btn .material-icons {
-  font-size: 18px;
-}
-
 .muted {
   color: var(--color-muted);
 }
