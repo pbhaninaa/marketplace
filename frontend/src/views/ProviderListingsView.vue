@@ -423,7 +423,7 @@ async function deleteListing(id) {
         <div class="mp-dialog__panel">
           <div class="mp-dialog__head">
             <h2 class="mp-dialog__title">{{ editing ? 'Edit listing' : 'Add listing' }}</h2>
-            <button type="button" class="btn btn-ghost" @click="closeDialog">Close</button>
+            <button type="button" class="btn btn-ghost" @click="closeDialog">X</button>
           </div>
 
           <div class="grid">
@@ -541,7 +541,6 @@ async function deleteListing(id) {
             <button type="button" class="btn btn-primary" :disabled="!canEdit || saving" @click="createListing">
               {{ saving ? 'Saving…' : editing ? 'Save changes' : 'Create listing' }}
             </button>
-            <button type="button" class="btn btn-ghost" @click="closeDialog">Cancel</button>
           </div>
         </div>
       </dialog>
@@ -673,7 +672,7 @@ async function deleteListing(id) {
 
 .mp-dialog {
   position: fixed;
-  margin: 4rem 87rem;
+  margin: 20rem 87rem;
   transform: translate(-50%, -50%);
   width: min(40%);
   max-height: 90vh;

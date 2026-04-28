@@ -190,41 +190,26 @@ onMounted(async () => {
     <div v-if="cart.isLocked" class="banner-lock">
       <div class="banner-lock__inner">
         <p class="banner-lock__text">
-          You are currently purchasing from <strong>{{ cart.lockedProviderName }}</strong
-          >. Complete or cancel this transaction before selecting items from another provider.
+          You are currently purchasing from <strong>{{ cart.lockedProviderName }}</strong>. Complete or cancel this
+          transaction before selecting items from another provider.
         </p>
-        <button
-          type="button"
-          class="btn btn-ghost banner-lock__cancel"
-          :disabled="clearingCart"
-          @click="cancelLockedCart"
-        >
+        <button type="button" class="btn btn-ghost banner-lock__cancel" :disabled="clearingCart"
+          @click="cancelLockedCart">
           {{ clearingCart ? 'Clearing…' : 'Cancel & clear cart' }}
         </button>
       </div>
     </div>
 
     <div class="market-body" :class="{ 'market-body--no-sidebar': !hasSidebar }">
-      <MarketplaceFilterSidebar
-        v-if="entryListingType"
-        :class="{ 'show-mobile': showMobileFilters }"
-        class="marketplace-filter-sidebar"
-        :model-value="filters"
-        :categories="categories"
-        :providers="providers"
-        :hide-listing-type="true"
-        :for-rent="entryListingType === 'RENT'"
-        @update:model-value="onFiltersUpdate"
-        @apply="applyFilters"
-      />
+      <MarketplaceFilterSidebar v-if="entryListingType" :class="{ 'show-mobile': showMobileFilters }"
+        class="marketplace-filter-sidebar" :model-value="filters" :categories="categories" :providers="providers"
+        :hide-listing-type="true" :for-rent="entryListingType === 'RENT'" @update:model-value="onFiltersUpdate"
+        @apply="applyFilters" />
 
       <section class="market-content">
-        <button
-          type="button"
-          class="filter-toggle filter-toggle--mobile"
+        <button type="button" class="filter-toggle filter-toggle--mobile"
           :aria-label="showMobileFilters ? 'Hide filters' : 'Show filters'"
-          @click="showMobileFilters = !showMobileFilters"
-        >
+          @click="showMobileFilters = !showMobileFilters">
           ⚙ Filter
         </button>
         <header class="feed-hero">
@@ -235,20 +220,12 @@ onMounted(async () => {
             clear for business.
           </p>
           <div v-if="entryListingType" class="mode-toggle">
-            <button
-              type="button"
-              class="mode-btn"
-              :class="{ active: entryListingType === 'SALE' }"
-              @click="chooseEntry('SALE')"
-            >
+            <button type="button" class="mode-btn" :class="{ active: entryListingType === 'SALE' }"
+              @click="chooseEntry('SALE')">
               Buy
             </button>
-            <button
-              type="button"
-              class="mode-btn"
-              :class="{ active: entryListingType === 'RENT' }"
-              @click="chooseEntry('RENT')"
-            >
+            <button type="button" class="mode-btn" :class="{ active: entryListingType === 'RENT' }"
+              @click="chooseEntry('RENT')">
               Rent
             </button>
           </div>
@@ -266,45 +243,64 @@ onMounted(async () => {
         <ResponsiveRecordShell v-else desktop-label="Marketplace listings">
           <template #desktop>
             <div class="cards-grid cards-grid--desktop">
-              <ListingRecordCard
-                v-for="item in listings.content"
-                :key="item.id"
-                :listing="item"
-                :greyed="cart.isGreyed(item)"
-                :rent-start="rentDefaults[item.id]?.start ?? ''"
-                :rent-end="rentDefaults[item.id]?.end ?? ''"
-                @add-to-cart="(q) => addToCart(item, q)"
-                @reset-rent-dates="setRentDefaults(item)"
-                @update:rent-start="patchRentField(item.id, 'start', $event)"
-                @update:rent-end="patchRentField(item.id, 'end', $event)"
-              />
+              <ListingRecordCard v-for="item in listings.content" :key="item.id" :listing="item"
+                :greyed="cart.isGreyed(item)" :rent-start="rentDefaults[item.id]?.start ?? ''"
+                :rent-end="rentDefaults[item.id]?.end ?? ''" @add-to-cart="(q) => addToCart(item, q)"
+                @reset-rent-dates="setRentDefaults(item)" @update:rent-start="patchRentField(item.id, 'start', $event)"
+                @update:rent-end="patchRentField(item.id, 'end', $event)" />
             </div>
           </template>
           <template #mobile>
             <div class="cards-grid cards-grid--mobile">
-              <ListingRecordCard
-                v-for="item in listings.content"
-                :key="item.id"
-                :listing="item"
-                :greyed="cart.isGreyed(item)"
-                :rent-start="rentDefaults[item.id]?.start ?? ''"
-                :rent-end="rentDefaults[item.id]?.end ?? ''"
-                @add-to-cart="(q) => addToCart(item, q)"
-                @reset-rent-dates="setRentDefaults(item)"
-                @update:rent-start="patchRentField(item.id, 'start', $event)"
-                @update:rent-end="patchRentField(item.id, 'end', $event)"
-              />
+              <ListingRecordCard v-for="item in listings.content" :key="item.id" :listing="item"
+                :greyed="cart.isGreyed(item)" :rent-start="rentDefaults[item.id]?.start ?? ''"
+                :rent-end="rentDefaults[item.id]?.end ?? ''" @add-to-cart="(q) => addToCart(item, q)"
+                @reset-rent-dates="setRentDefaults(item)" @update:rent-start="patchRentField(item.id, 'start', $event)"
+                @update:rent-end="patchRentField(item.id, 'end', $event)" />
             </div>
           </template>
         </ResponsiveRecordShell>
+        <div v-if="!loading && listings.content.length === 0" class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <h3 class="empty-title">No Items found</h3>
+          <p class="empty-text">
+            Try adjusting your filters or search criteria to find what you're looking for.
+          </p>
 
-        <PaginationBar v-if="!loading" :page="filters.page" :total-pages="totalPages" @prev="prevPage" @next="nextPage" />
+        </div>
+        <PaginationBar v-if="!loading" :page="filters.page" :total-pages="totalPages" @prev="prevPage"
+          @next="nextPage" />
       </section>
     </div>
   </div>
 </template>
 
 <style scoped>
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #6b7280;
+  /* muted gray */
+}
+
+.empty-icon {
+  font-size: 40px;
+  margin-bottom: 10px;
+}
+
+.empty-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+.empty-text {
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+
 .market-layout {
   display: flex;
   flex-direction: column;
@@ -323,7 +319,7 @@ onMounted(async () => {
 }
 
 .market-content {
-  padding: clamp(1rem, 2.5vw, 1.75rem) clamp(1rem, 3vw, 2.25rem) ;
+  padding: clamp(1rem, 2.5vw, 1.75rem) clamp(1rem, 3vw, 2.25rem);
   width: 100%;
   max-width: none;
   margin: 0;
@@ -415,12 +411,14 @@ onMounted(async () => {
 }
 
 @keyframes pulse-dot {
+
   0%,
   80%,
   100% {
     opacity: 0.25;
     transform: scale(0.85);
   }
+
   40% {
     opacity: 1;
     transform: scale(1);

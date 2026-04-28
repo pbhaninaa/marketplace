@@ -174,7 +174,7 @@ async function rejectOrder() {
   actionError.value = '';
   try {
     await providerOrdersApi.updateStock(orderItems.value.data);
-  
+
     await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'CANCELLED');
 
     await load();
@@ -259,6 +259,8 @@ function cancelDeleteOrder() {
                 <th>Phone</th>
                 <th>Email</th>
                 <th>Status</th>
+                <th>Delivery</th>
+                <th>Delivery Address</th>
                 <th class="col-num">Total</th>
                 <th v-if="tab === 'rentals'">Window</th>
                 <th>Actions</th>
@@ -272,8 +274,10 @@ function cancelDeleteOrder() {
                 <td>{{ o.guestPhone }}</td>
                 <td>{{ o.guestEmail || '—' }}</td>
                 <td>{{ o.status }}</td>
-                <td class="col-num">R {{ o.total }}</td>
+                <td>{{ o.includesDelivery || '—' }}</td>
 
+                <td>{{ o.deliveryAddress || o.includesDelivery?'Call : ' + o.guestPhone: 'Not Applicable' }}</td>
+                <td class="col-num">R {{ o.total }}</td>
                 <td v-if="tab === 'rentals'">
                   {{ String(o.startAt || '').slice(0, 16) }} →
                   {{ String(o.endAt || '').slice(0, 16) }}
@@ -332,6 +336,14 @@ function cancelDeleteOrder() {
                 <div class="info-row">
                   <span class="label">Date:</span>
                   <span class="value">{{ String(o.createdAt || '').slice(0, 19) }}</span>
+                </div>
+                <div class="info-row">
+                  <span class="label">Delivery:</span>
+                  <span class="value">{{ o.includesDelivery || '—' }}</span>
+                </div>
+                <div v-if="o.includesDelivery == 'DELIVERY'" class="info-row">
+                  <span class="label">Address:</span>
+                  <span class="value">{{ o.deliveryAddress || 'Call : ' + o.guestPhone }}</span>
                 </div>
                 <div class="info-row">
                   <span class="label">Total:</span>
@@ -402,28 +414,28 @@ function cancelDeleteOrder() {
               <img v-else :src="paymentProofUrl" alt="Payment proof"
                 style="max-width: 100%; margin-top: 0.5rem; border-radius: 4px;" />
             </div>
-<!-- CODE ERROR DIALOG -->
-<div v-if="showCodeError" class="dialog-backdrop" @click.self="showCodeError = false">
-  <div class="surface-panel dialog" style="max-width: 360px;">
-    
-    <h2>Verification Failed</h2>
+            <!-- CODE ERROR DIALOG -->
+            <div v-if="showCodeError" class="dialog-backdrop" @click.self="showCodeError = false">
+              <div class="surface-panel dialog" style="max-width: 360px;">
 
-    <div class="dialog-content">
-      <p class="err-toast">
-        {{ codeErrorMessage }}
-      </p>
-    </div>
+                <h2>Verification Failed</h2>
 
-    <div class="dialog-actions">
-      <button class="btn btn--primary" @click="showCodeError = false">
-        OK
-      </button>
-    </div>
+                <div class="dialog-content">
+                  <p class="err-toast">
+                    {{ codeErrorMessage }}
+                  </p>
+                </div>
 
-  </div>
-</div>
+                <div class="dialog-actions">
+                  <button class="btn btn--primary" @click="showCodeError = false">
+                    OK
+                  </button>
+                </div>
+
+              </div>
+            </div>
             <div v-if="isPendingPayment" style="margin-top: 0.9rem;">
-              
+
               <FormField label="Customer Code">
                 <input v-model="customerCode" type="text" placeholder="Enter Customer Code" />
               </FormField>
@@ -746,12 +758,13 @@ function cancelDeleteOrder() {
 .btn-primary-mobile:active {
   transform: scale(0.98);
 }
+
 @media (max-width: 980px) {
- .tabs {
+  .tabs {
     display: flex;
     justify-content: center;
     width: fit-content;
-    margin: 0 auto; 
-}
+    margin: 0 auto;
+  }
 }
 </style>

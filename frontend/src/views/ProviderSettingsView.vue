@@ -9,6 +9,7 @@ import { isNonEmptyString, isPositiveNumber } from '../utils/validation';
 const router = useRouter();
 const auth = useAuthStore();
 
+
 const loading = ref(true);
 const error = ref('');
 const message = ref('');
@@ -122,12 +123,12 @@ async function save() {
             <div class="payment-grid">
 
               <label class="check-card">
-                <input type="checkbox" value="EFT" v-model="form.acceptedPaymentMethods" />
+                <input type="checkbox" :disabled="!canEdit" value="EFT" v-model="form.acceptedPaymentMethods" />
                 <span>EFT</span>
               </label>
 
               <label class="check-card">
-                <input type="checkbox" value="CASH" v-model="form.acceptedPaymentMethods" />
+                <input type="checkbox" :disabled="!canEdit" value="CASH" v-model="form.acceptedPaymentMethods" />
                 <span>Cash</span>
               </label>
 
@@ -140,13 +141,13 @@ async function save() {
           <h2>🚚 Delivery</h2>
 
           <label class="toggle">
-            <input type="checkbox" v-model="form.deliveryAvailable" />
+            <input type="checkbox" :disabled="!canEdit" v-model="form.deliveryAvailable" />
             <span>Offer delivery</span>
           </label>
 
           <div v-if="form.deliveryAvailable" class="delivery-box">
             <FormField label="Price per KM">
-              <input v-model="form.deliveryPricePerKm" type="number" />
+              <input v-model="form.deliveryPricePerKm" type="number" :disabled="!canEdit" />
             </FormField>
           </div>
         </section>
@@ -161,19 +162,19 @@ async function save() {
           <h2>🏦 Banking</h2>
 
           <FormField label="Bank name">
-            <input v-model="form.bankName" />
+            <input v-model="form.bankName" :disabled="!canEdit" />
           </FormField>
 
           <FormField label="Account name">
-            <input v-model="form.bankAccountName" />
+            <input v-model="form.bankAccountName" :disabled="!canEdit" />
           </FormField>
 
           <FormField label="Account number">
-            <input v-model="form.bankAccountNumber" />
+            <input v-model="form.bankAccountNumber" :disabled="!canEdit" />
           </FormField>
 
           <FormField label="Branch code">
-            <input v-model="form.bankBranchCode" />
+            <input v-model="form.bankBranchCode" :disabled="!canEdit" />
           </FormField>
         </section>
 
@@ -182,15 +183,15 @@ async function save() {
       <!-- FULL WIDTH ACTION -->
       <div class="full">
         <div class="actions">
-          <button class="btn" @click="save">Save Changes</button>
+          <button class="btn" background="primary" :disabled="!canEdit" @click="save">Save Changes</button>
         </div>
-      </div>
+      </div>  
 
       <!-- DANGER -->
       <div class="full">
         <section class="card danger">
           <h2>⚠ Danger Zone</h2>
-          <button class="danger-btn">Deactivate Account</button>
+          <button class="danger-btn" :disabled="!canEdit" @click="deactivateAccount">Deactivate Account</button>
         </section>
       </div>
 
