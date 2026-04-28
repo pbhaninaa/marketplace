@@ -191,7 +191,7 @@ function openEdit(l) {
     unitPrice: l.unitPrice != null ? String(l.unitPrice) : '',
     stockQuantity: l.stockQuantity != null ? String(l.stockQuantity) : '',
     rentPriceHourly: l.rentPriceHourly != null ? String(l.rentPriceHourly) : '',
-    rentPriceDaily: l.rentPriceDaily != null ? String(l.rentPriceDaily) : '',
+    // rentPriceDaily: l.rentPriceDaily != null ? String(l.rentPriceDaily) : '',
     rentPriceWeekly: l.rentPriceWeekly != null ? String(l.rentPriceWeekly) : '',
     rentRateModes: type === 'RENT' ? rentModesFromListing(l) : [],
     categoryKey: parsed.categoryKey,
@@ -240,18 +240,18 @@ async function createListing() {
       const raw = Number(form.value[key]);
       return modes.includes(label) && (!Number.isFinite(raw) || raw <= 0);
     };
-    if (need('rentPriceHourly', 'HOURLY')) {
-      error.value = 'Enter an hourly rate greater than zero.';
-      return;
-    }
-    if (need('rentPriceDaily', 'DAILY')) {
-      error.value = 'Enter a daily rate greater than zero.';
-      return;
-    }
-    if (need('rentPriceWeekly', 'WEEKLY')) {
-      error.value = 'Enter a weekly rate greater than zero.';
-      return;
-    }
+    // if (need('rentPriceHourly', 'HOURLY')) {
+    //   error.value = 'Enter an hourly rate greater than zero.';
+    //   return;
+    // }
+    // if (need('rentPriceDaily', 'DAILY')) {
+    //   error.value = 'Enter a daily rate greater than zero.';
+    //   return;
+    // }
+    // if (need('rentPriceWeekly', 'WEEKLY')) {
+    //   error.value = 'Enter a weekly rate greater than zero.';
+    //   return;
+    // }
   }
   saving.value = true;
   error.value = '';
@@ -425,7 +425,7 @@ async function deleteListing(id) {
             <h2 class="mp-dialog__title">{{ editing ? 'Edit listing' : 'Add listing' }}</h2>
             <button type="button" class="btn btn-ghost" @click="closeDialog">X</button>
           </div>
-
+ <p v-if="error" class="err-toast">{{ error }}</p>
           <div class="grid">
             <FormField label="Type">
               <select v-model="form.listingType" :disabled="!canEdit">
@@ -489,19 +489,13 @@ async function deleteListing(id) {
             </div>
           </FormField>
 
-          <div class="grid">
-            <FormField label="Price (ZAR)">
-              <input v-model="form.unitPrice" type="number" min="0" step="0.01" required :disabled="!canEdit" />
-            </FormField>
-
-            <FormField v-if="showStockQuantity" label="Stock quantity">
-              <input v-model="form.stockQuantity" type="number" min="0" step="1" :disabled="!canEdit" />
-            </FormField>
-          </div>
-
+         
           <div v-if="isRent" class="rent-section">
             <FormField label="Rental rate types">
-              <select
+               <p class="muted small">
+                Choose which rates you offer. Hold <kbd>Ctrl</kbd> (Windows) or <kbd>⌘</kbd> (Mac) to select more
+                than one. Then enter the price for each selected type below.
+              </p> <select
                 v-model="form.rentRateModes"
                 multiple
                 class="rent-rate-select"
@@ -512,12 +506,9 @@ async function deleteListing(id) {
                 <option value="DAILY">Daily</option>
                 <option value="WEEKLY">Weekly</option>
               </select>
-              <p class="muted small">
-                Choose which rates you offer. Hold <kbd>Ctrl</kbd> (Windows) or <kbd>⌘</kbd> (Mac) to select more
-                than one. Then enter the price for each selected type below.
-              </p>
+            
             </FormField>
-            <div class="rent-grid">
+            <!-- <div class="rent-grid">
               <FormField v-if="form.rentRateModes.includes('HOURLY')" label="Hourly rate (ZAR)">
                 <input v-model="form.rentPriceHourly" type="number" min="0" step="0.01" :disabled="!canEdit" />
               </FormField>
@@ -527,7 +518,16 @@ async function deleteListing(id) {
               <FormField v-if="form.rentRateModes.includes('WEEKLY')" label="Weekly rate (ZAR)">
                 <input v-model="form.rentPriceWeekly" type="number" min="0" step="0.01" :disabled="!canEdit" />
               </FormField>
-            </div>
+            </div> -->
+          </div>
+ <div class="grid">
+            <FormField label="Price (ZAR)">
+              <input v-model="form.unitPrice" type="number" min="0" step="0.01" required :disabled="!canEdit" />
+            </FormField>
+
+            <FormField v-if="showStockQuantity" label="Stock quantity">
+              <input v-model="form.stockQuantity" type="number" min="0" step="1" :disabled="!canEdit" />
+            </FormField>
           </div>
 
           <FormField label="Publish">

@@ -9,7 +9,7 @@ import { useSessionStore } from '../stores/session';
 import { useCartStore } from '../stores/cart';
 import { useDialog } from '../composables/useDialog';
 import { isNonEmptyString, isValidEmail, isPositiveNumber, isValidSAPhoneNumber, getFieldErrorMessage } from '../utils/validation';
-
+import { getCurrentLocation } from "../utils/getCurrentLocation";
 import FormField from '../components/ui/FormField.vue';
 import CartLinesSection from '../components/cart/CartLinesSection.vue';
 
@@ -43,7 +43,7 @@ function resetTouched() {
 }
 
 const paymentMethod = ref('CASH');
-const deliveryMode = ref(''); // DELIVERY | PICKUP
+const deliveryMode = ref(''); 
 const deliveryDistanceKm = ref('');
 const showCheckout = ref(false);
 const submitting = ref(false);
@@ -64,6 +64,19 @@ const acceptedPaymentMethods = computed(() => {
 const deliveryAvailable = computed(() =>
   !!cart.lockedProviderDeliverySettings?.deliveryAvailable
 );
+/*=================== Get Current Location ================= */
+const locationName = ref('');
+const coords = ref({ latitude: null, longitude: null });
+async function loadLocation() {
+  try {
+    const loc = await getCurrentLocation();
+    locationName.value = loc.locationName;
+    coords.value = loc.coords;
+
+  } catch (err) {
+    console.error("Failed to get location:", err.message);
+  }
+}
 
 const deliveryRate = computed(() =>
   Number(cart.lockedProviderDeliverySettings?.deliveryPricePerKm) || 0
@@ -150,6 +163,7 @@ const showBankDetails = computed(() =>
 onMounted(async () => {
   await session.ensureSession();
   await cart.refresh();
+  await loadLocation();
 });
 
 /* ================= CHECKOUT ================= */
@@ -189,10 +203,10 @@ async function submitCheckout() {
       guestPhone: guestPhone.value,
       deliveryOrPickup: deliveryMode.value,
       paymentMethod: paymentMethod.value,
-      deliveryDistanceKm:
-        deliveryMode.value === 'DELIVERY'
-          ? Number(deliveryDistanceKm.value)
-          : null,
+      deliveryDistanceKm:deliveryMode.value === 'DELIVERY' ? Number(deliveryDistanceKm.value): null,
+      deliveryAddress: deliveryMode.value === 'DELIVERY' ? locationName.value : null,
+      latitude: deliveryMode.value === 'DELIVERY' ? coords.value.latitude : null,
+      longitude: deliveryMode.value === 'DELIVERY' ? coords.value.longitude : null,
     });
 
     const codes = response.data.verificationCodes || [];

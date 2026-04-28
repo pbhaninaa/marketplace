@@ -132,7 +132,7 @@ const isGreyed = computed(() => props.greyed || isOutOfStock.value);
       <span class="provider-chip">{{ listing.providerName }}</span>
     </div>
     <h3 class="listing-card__title">{{ listing.title }}</h3>
-    <p class="muted small">{{ listing.providerLocation }}</p>
+    <p class="muted small">📍{{ listing.providerLocation }}</p>
     <p class="listing-card__desc">{{ listing.description }}</p>
     <ListingPriceSummary :listing="listing" />
 

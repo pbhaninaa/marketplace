@@ -276,7 +276,7 @@ function cancelDeleteOrder() {
                 <td>{{ o.status }}</td>
                 <td>{{ o.includesDelivery || '—' }}</td>
 
-                <td>{{ o.deliveryAddress || o.includesDelivery?'Call : ' + o.guestPhone: 'Not Applicable' }}</td>
+                <td>{{ o.deliveryAddress || o.deliveryAddress? o.deliveryAddress:'Call : ' + o.guestPhone }}</td>
                 <td class="col-num">R {{ o.total }}</td>
                 <td v-if="tab === 'rentals'">
                   {{ String(o.startAt || '').slice(0, 16) }} →

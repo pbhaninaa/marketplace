@@ -1,18 +1,52 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { providerSettingsApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import { isNonEmptyString, isPositiveNumber } from '../utils/validation';
+import { getCurrentLocation } from '../utils/getCurrentLocation';
 
 const router = useRouter();
 const auth = useAuthStore();
 
-
 const loading = ref(true);
 const error = ref('');
 const message = ref('');
+
+/* ================= SWITCH (ADDED) ================= */
+const useCurrentLocation = ref(false);
+
+/*=================== Get Current Location ================= */
+const locationName = ref('');
+const coords = ref({ latitude: null, longitude: null });
+
+async function loadLocation() {
+  try {
+    const loc = await getCurrentLocation();
+    locationName.value = loc.locationName;
+    coords.value = loc.coords;
+
+    // ONLY populate when switch is ON
+    if (useCurrentLocation.value) {
+      form.value.location = loc.locationName;
+    }
+
+  } catch (err) {
+    console.error("Failed to get location:", err.message);
+  }
+}
+
+/* WATCH SWITCH (ADDED) */
+watch(useCurrentLocation, async (val) => {
+  if (val) {
+    await loadLocation();
+  } else {
+    form.value.location = '';
+    locationName.value = '';
+    coords.value = { latitude: null, longitude: null };
+  }
+});
 
 const form = ref({
   location: '',
@@ -114,6 +148,14 @@ async function save() {
         <!-- BUSINESS -->
         <section class="card">
           <h2>📍 Business</h2>
+
+          <!-- SWITCH (ADDED) -->
+          <FormField label="Use current location">
+            <label class="switch">
+              <input type="checkbox" v-model="useCurrentLocation" :disabled="!canEdit" />
+              <span class="slider"></span>
+            </label>
+          </FormField>
 
           <FormField label="Location">
             <input v-model="form.location" type="text" :disabled="!canEdit" />
@@ -291,6 +333,49 @@ async function save() {
 
 .error { background: #fee2e2; }
 .success { background: #dcfce7; }
+
+/* SWITCH */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #ccc;
+  transition: 0.3s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.3s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #2563eb;
+}
+
+input:checked + .slider:before {
+  transform: translateX(22px);
+}
 
 /* MOBILE */
 @media (max-width: 768px) {
