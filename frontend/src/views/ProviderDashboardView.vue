@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { providerDashboardApi } from '../services/marketplaceApi';
+import { providerDashboardApi, providerSubscriptionApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DateRangeFilter from '../components/ui/DateRangeFilter.vue';
 
@@ -14,6 +14,8 @@ const loading = ref(false);
 const error = ref('');
 const stats = ref(null);
 const range = ref({ preset: 'LAST_7', from: '', to: '' });
+const subLoading = ref(false);
+const subscription = ref(null);
 
 onMounted(() => {
   auth.restoreFromStorage();
@@ -22,6 +24,7 @@ onMounted(() => {
     return;
   }
   loadStats();
+  loadSubscription();
 });
 
 function toDateInputValue(d) {
@@ -68,6 +71,24 @@ async function loadStats() {
   }
 }
 
+async function loadSubscription() {
+  subLoading.value = true;
+  try {
+    const { data } = await providerSubscriptionApi.status();
+    subscription.value = data;
+  } catch {
+    subscription.value = null;
+  } finally {
+    subLoading.value = false;
+  }
+}
+
+const subProgress = computed(() => {
+  if (subscription.value?.valid === true) return 100;
+  if (subscription.value?.plan) return 55;
+  return 15;
+});
+
 watch(
   () => ({ ...range.value }),
   () => {
@@ -84,7 +105,7 @@ watch(
     <header class="page-hero">
       <p class="page-hero__eyebrow">Provider</p>
       <h1 class="page-hero__title">Dashboard</h1>
-      <p class="page-hero__lead">Insights and quick access to your provider tools.</p>
+      <p class="page-hero__lead">Insights, subscription status, and quick access to your provider tools.</p>
     </header>
 
     <p v-if="error" class="err-toast">{{ error }}</p>
@@ -110,6 +131,53 @@ watch(
       </div>
     </section>
 
+    <section class="surface-panel dash-panel dash-panel--status">
+      <div class="status-head">
+        <div>
+          <h2>Progress</h2>
+          <p class="muted small">Keep your subscription active to unlock all provider tools.</p>
+        </div>
+        <button type="button" class="btn btn-ghost" :disabled="subLoading" @click="loadSubscription">
+          {{ subLoading ? 'Refreshing…' : 'Refresh' }}
+        </button>
+      </div>
+      <div class="status-grid">
+        <div class="status-card">
+          <div class="status-card__top">
+            <strong>Subscription</strong>
+            <span class="muted small">{{ subscription?.valid ? 'Active' : 'Not active' }}</span>
+          </div>
+          <div class="bar">
+            <div class="bar__fill" :style="{ width: `${subProgress}%` }" />
+          </div>
+          <p class="muted small">
+            Plan: <strong>{{ subscription?.plan || '—' }}</strong> · Cycle: <strong>{{ subscription?.billingCycle || '—' }}</strong>
+          </p>
+          <router-link to="/provider/subscription" class="btn btn-primary btn-xs">Manage subscription</router-link>
+        </div>
+        <div class="status-card">
+          <div class="status-card__top">
+            <strong>Next best action</strong>
+            <span class="muted small">Suggested</span>
+          </div>
+          <ul class="checklist">
+            <li>
+              <span class="dot" />
+              Review today’s orders in <router-link to="/provider/orders">Orders</router-link>
+            </li>
+            <li>
+              <span class="dot" />
+              Keep listings updated in <router-link to="/provider/listings">Listings</router-link>
+            </li>
+            <li v-if="canManage">
+              <span class="dot" />
+              Audit permissions in <router-link to="/provider/team">Team & payroll</router-link>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
     <section class="surface-panel dash-panel">
       <div class="dash-grid">
         <router-link to="/provider/orders" class="dash-card">
@@ -119,6 +187,10 @@ watch(
         <router-link to="/provider/listings" class="dash-card">
           <strong>Listings</strong>
           <span class="muted small">Create and manage items/services</span>
+        </router-link>
+        <router-link to="/provider/subscription" class="dash-card">
+          <strong>Subscription</strong>
+          <span class="muted small">{{ subscription?.valid ? 'Active plan' : 'Activate to unlock full access' }}</span>
         </router-link>
         <router-link to="/provider/settings" class="dash-card">
           <strong>Profile & settings</strong>
@@ -179,6 +251,79 @@ watch(
   max-width: 840px;
   margin: 0 auto;
 }
+
+.dash-panel--status {
+  margin-bottom: 1rem;
+}
+
+.status-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 0.85rem;
+}
+
+.status-card {
+  border: 1px solid rgba(26, 60, 52, 0.14);
+  background: rgba(61, 122, 102, 0.05);
+  border-radius: var(--radius-lg);
+  padding: 0.95rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.status-card__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(26, 60, 52, 0.1);
+  overflow: hidden;
+  border: 1px solid rgba(26, 60, 52, 0.12);
+}
+
+.bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-sage) 0%, var(--color-canopy-mid) 100%);
+  transition: width 0.25s var(--ease-out);
+}
+
+.checklist {
+  padding-left: 0;
+  margin: 0.25rem 0 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+.checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  font-size: 0.92rem;
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(26, 60, 52, 0.25);
+  margin-top: 0.35rem;
+  flex: 0 0 auto;
+}
 .dash-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -202,6 +347,9 @@ watch(
 }
 @media (max-width: 900px) {
   .kpis {
+    grid-template-columns: 1fr;
+  }
+  .status-grid {
     grid-template-columns: 1fr;
   }
   .dash-grid {

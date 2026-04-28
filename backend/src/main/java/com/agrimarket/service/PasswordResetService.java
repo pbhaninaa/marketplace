@@ -33,6 +33,7 @@ public class PasswordResetService {
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetProperties props;
     private final Environment environment;
+    private final EmailService emailService;
 
     private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -60,11 +61,31 @@ public class PasswordResetService {
         String base = props.getPublicAppBaseUrl().replaceAll("/$", "");
         String encoded = URLEncoder.encode(raw, StandardCharsets.UTF_8);
         String link = base + "/reset-password?token=" + encoded;
+        String subject = "Reset your password";
+        String plain = """
+                Reset your password
+
+                We received a request to reset your password.
+                Use the link below to set a new password:
+
+                %s
+
+                If you didn’t request this, you can ignore this email.
+                """.formatted(link);
+
+        String html = EmailTemplates.layout(
+                "Reset your password",
+                "Password reset",
+                "We received a request to reset your password. Use the link below to set a new password.",
+                java.util.List.of("Reset link: " + link),
+                "If you didn’t request this, you can ignore this email."
+        );
+
+        // In local/dev we still log the link for convenience.
         if (isLocalProfile()) {
             log.info("Password reset link for {}: {}", user.getEmail(), link);
-        } else {
-            log.info("Password reset requested for {}", user.getEmail());
         }
+        emailService.send(user.getEmail(), subject, plain, html);
     }
 
     @Transactional

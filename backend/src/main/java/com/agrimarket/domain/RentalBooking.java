@@ -1,16 +1,7 @@
 package com.agrimarket.domain;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 import lombok.Getter;
@@ -28,12 +19,17 @@ public class RentalBooking {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 🔴 Prevent lazy crash
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "provider_id", nullable = false)
+    @JsonIgnore
     private Provider provider;
 
+
+    // 🔴 Also lazy + chained to Provider
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "listing_id", nullable = false)
+    @JsonIgnore
     private Listing listing;
 
     @Column(name = "guest_name", nullable = false)
@@ -47,6 +43,13 @@ public class RentalBooking {
 
     @Column(name = "delivery_or_pickup", length = 4000, nullable = false)
     private String deliveryOrPickup;
+
+    @Column(name="delivery_address", nullable = true)
+    private String deliveryAddress;
+    @Column(name="latitude", nullable = true)
+    private String latitude;
+    @Column(name="longitude", nullable = true)
+    private String longitude;
 
     @Column(name = "start_at", nullable = false)
     private Instant startAt;

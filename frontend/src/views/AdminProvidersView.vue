@@ -5,6 +5,7 @@ import { adminProvidersApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DataTableShell from '../components/ui/DataTableShell.vue';
 import FormField from '../components/ui/FormField.vue';
+import TextWithTooltip from '../components/ui/TextWithTooltip.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -86,7 +87,6 @@ async function updateStatus(p, status) {
       <DataTableShell caption="Providers">
         <thead>
           <tr>
-            <th>ID</th>
             <th>Name</th>
             <th>Location</th>
             <th>Status</th>
@@ -95,14 +95,13 @@ async function updateStatus(p, status) {
         </thead>
         <tbody>
           <tr v-for="p in providers.content" :key="p.id">
-            <td>{{ p.id }}</td>
             <td>
               <div class="cell-stack">
-                <strong>{{ p.name }}</strong>
-                <span class="muted small">{{ p.slug }}</span>
+                <strong><TextWithTooltip class="cell-text" :text="p.name || '—'" :max-length="24" /></strong>
+                <span class="muted small"><TextWithTooltip class="cell-text" :text="p.slug || '—'" :max-length="24" /></span>
               </div>
             </td>
-            <td>{{ p.location || '—' }}</td>
+            <td><TextWithTooltip class="cell-text" :text="p.location || '—'" :max-length="22" /></td>
             <td>
               <FormField label="">
                 <select :value="p.status" @change="updateStatus(p, $event.target.value)">
@@ -110,14 +109,14 @@ async function updateStatus(p, status) {
                 </select>
               </FormField>
             </td>
-            <td class="col-actions">
+            <td class="cell-actions">
               <router-link class="btn btn-ghost" :to="`/admin/providers/${p.id}`">Support</router-link>
               <button type="button" class="btn btn-ghost" @click="updateStatus(p, 'ACTIVE')">Activate</button>
               <button type="button" class="btn btn-ghost" @click="updateStatus(p, 'SUSPENDED')">Suspend</button>
             </td>
           </tr>
           <tr v-if="!(providers.content || []).length">
-            <td colspan="5" class="muted small">No providers yet.</td>
+            <td colspan="4" class="muted small">No providers yet.</td>
           </tr>
         </tbody>
       </DataTableShell>

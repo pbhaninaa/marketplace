@@ -19,6 +19,7 @@ import com.agrimarket.repo.ListingRepository;
 import com.agrimarket.repo.PaymentRecordRepository;
 import com.agrimarket.repo.OrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
+import com.agrimarket.repo.UserAccountRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -46,6 +47,8 @@ public class CheckoutService {
     private final CartSessionRepository cartSessionRepository;
     private final ListingRepository listingRepository;
     private final VerificationCodeService verificationCodeService;
+    private final UserAccountRepository userAccountRepository;
+    private final EmailService emailService;
 
     @Transactional
     public Map<String, Object> guestCheckout(String sessionKey, GuestCheckoutRequest req) {
@@ -98,7 +101,7 @@ public class CheckoutService {
             if (listing.getListingType() == ListingType.RENT) {
                 var conflictingBookings = rentalBookingRepository.findOverlapping(
                         listing.getId(),
-                        Set.of(BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED),
+                        Set.of(BookingStatus.PENDING_PAYMENT),
                         line.getRentalStart(),
                         line.getRentalEnd());
                 if (!conflictingBookings.isEmpty()) {
@@ -147,8 +150,7 @@ public class CheckoutService {
         List<Long> bookingIds = new ArrayList<>();
         List<String> verificationCodes = new ArrayList<>();
 
-        // Generate a single verification code for both purchase and rental if done together
-        String sharedVerificationCode = verificationCodeService.generateVerificationCode();
+        // Verification codes must be unique per record (DB constraint). We keep purchase + rentals linked via sessionKey.
 
         boolean distanceProvided = req.deliveryDistanceKm() != null
                 && req.deliveryDistanceKm().compareTo(BigDecimal.ZERO) > 0;
@@ -189,7 +191,7 @@ public class CheckoutService {
             order.setTotalAmount(saleTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
             order.setSessionKey(sessionKey);
             order.setStatus(OrderStatus.PENDING_PAYMENT);
-            order.setVerificationCode(sharedVerificationCode);
+            order.setVerificationCode(verificationCodeService.generateVerificationCode());
 
             for (CartLine line : saleLines) {
                 Listing l = line.getListing();
@@ -211,7 +213,7 @@ public class CheckoutService {
             pay.setOrder(order);
             pay.setMethod(req.paymentMethod());
             pay.setAmount(order.getTotalAmount());
-            pay.setStatus(PaymentStatus.PENDING);
+            pay.setStatus(com.agrimarket.domain.PaymentRecordStatus.PENDING_PAYMENT);
             paymentRecordRepository.save(pay);
         }
 
@@ -232,7 +234,7 @@ public class CheckoutService {
             b.setTotalAmount(rentTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
             b.setSessionKey(sessionKey);
             b.setStatus(BookingStatus.PENDING_PAYMENT);
-            b.setVerificationCode(sharedVerificationCode);
+            b.setVerificationCode(verificationCodeService.generateVerificationCode());
             rentalBookingRepository.save(b);
             bookingIds.add(b.getId());
             verificationCodes.add(b.getVerificationCode());
@@ -242,7 +244,7 @@ public class CheckoutService {
             pay.setRentalBooking(b);
             pay.setMethod(req.paymentMethod());
             pay.setAmount(b.getTotalAmount());
-            pay.setStatus(PaymentStatus.PENDING);
+            pay.setStatus(com.agrimarket.domain.PaymentRecordStatus.PENDING_PAYMENT);
             paymentRecordRepository.save(pay);
         }
 
@@ -251,8 +253,70 @@ public class CheckoutService {
         cart.setUpdatedAt(java.time.Instant.now());
         cartSessionRepository.save(cart);
 
+        // Send email notifications (best-effort).
+        try {
+            String clientTo = req.guestEmail();
+            String subject = "Order confirmation";
+            String plain = EmailTemplates.simpleText(
+                    "Order confirmation",
+                    java.util.List.of(
+                            "Purchases: " + orderIds,
+                            "Rentals: " + bookingIds,
+                            "Payment method: " + req.paymentMethod(),
+                            "Delivery/Pickup: " + req.deliveryOrPickup()
+                    ),
+                    "Thank you for using Agri Marketplace."
+            );
+            String html = EmailTemplates.layout(
+                    "Order confirmation",
+                    "Thanks " + (req.guestName() == null ? "" : req.guestName()),
+                    "Your order has been placed successfully.",
+                    java.util.List.of(
+                            "Purchases: " + orderIds,
+                            "Rentals: " + bookingIds,
+                            "Payment method: " + req.paymentMethod(),
+                            "Delivery/Pickup: " + req.deliveryOrPickup()
+                    ),
+                    "Thank you for using Agri Marketplace."
+            );
+            emailService.send(clientTo, subject, plain, html);
+
+            // Provider notification: send to all users linked to provider (owners/staff).
+            var providerUsers = userAccountRepository.findByProvider_IdOrderByEmailAsc(providerId);
+            String providerSubject = "New order received";
+            String providerPlain = EmailTemplates.simpleText(
+                    "New order received",
+                    java.util.List.of(
+                            "Purchases: " + orderIds,
+                            "Rentals: " + bookingIds,
+                            "Customer: " + req.guestName() + " (" + req.guestPhone() + ")"
+                    ),
+                    null
+            );
+            String providerHtml = EmailTemplates.layout(
+                    "New order received",
+                    "New order received",
+                    "A customer placed an order on your store.",
+                    java.util.List.of(
+                            "Purchases: " + orderIds,
+                            "Rentals: " + bookingIds,
+                            "Customer: " + req.guestName() + " (" + req.guestPhone() + ")"
+                    ),
+                    null
+            );
+            for (var u : providerUsers) {
+                if (u.getEmail() == null || u.getEmail().isBlank()) continue;
+                emailService.send(u.getEmail(), providerSubject, providerPlain, providerHtml);
+            }
+        } catch (Exception ignored) {
+            // Never fail checkout due to email.
+        }
+
+        // Backward-compatible response keys (older clients/tests used OrderIds/bookingIds)
         return Map.of(
+                "purchaseOrderIds", orderIds,
                 "OrderIds", orderIds,
+                "rentalBookingIds", bookingIds,
                 "bookingIds", bookingIds,
                 "providerId", providerId,
                 "verificationCodes", verificationCodes);

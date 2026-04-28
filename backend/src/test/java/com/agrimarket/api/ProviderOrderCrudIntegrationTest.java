@@ -147,7 +147,7 @@ class ProviderOrderCrudIntegrationTest extends AbstractIntegrationTest {
 
         // Verify inventory was deducted
         Listing updatedListing = listingRepository.findById(listing.getId()).orElseThrow();
-        assertThat(updatedListing.getStockReserved()).isEqualTo(0);
+        assertThat(updatedListing.getReservedStock()).isEqualTo(0);
     }
 
     @Test

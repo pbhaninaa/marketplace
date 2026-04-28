@@ -6,11 +6,7 @@ import com.agrimarket.api.dto.AdminUserResponse;
 import com.agrimarket.api.dto.ListingResponse;
 import com.agrimarket.api.dto.StaffMemberResponse;
 import com.agrimarket.api.error.ApiException;
-import com.agrimarket.domain.ProviderPermissionKey;
-import com.agrimarket.domain.Provider;
-import com.agrimarket.domain.ProviderStatus;
-import com.agrimarket.domain.UserAccount;
-import com.agrimarket.domain.UserRole;
+import com.agrimarket.domain.*;
 import com.agrimarket.repo.PasswordResetTokenRepository;
 import com.agrimarket.repo.ListingRepository;
 import com.agrimarket.repo.CartLineRepository;
@@ -18,8 +14,13 @@ import com.agrimarket.repo.RentalBookingRepository;
 import com.agrimarket.repo.ProviderStaffPermissionRepository;
 import com.agrimarket.repo.ProviderRepository;
 import com.agrimarket.repo.UserAccountRepository;
+
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Objects;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import lombok.RequiredArgsConstructor;
@@ -114,6 +115,13 @@ public class AdminService {
     public Page<ListingResponse> listAllListings(Pageable pageable) {
         return listingRepository.findAll(pageable).map(ListingMapper::toResponse);
     }
+
+    public record OrderItemDTO(
+            Long listingId,
+            String listingName,
+            int quantity,
+            BigDecimal unitPrice
+    ) {}
 
     @Transactional
     public void deleteListing(Long listingId) {

@@ -193,7 +193,7 @@ async function confirmPayment() {
                   <strong>R {{ Number(m._expected).toFixed(2) }}</strong>
                 </td>
 
-                <td>
+                <td class="cell-actions">
                   <button
                     class="btn btn-primary"
                     :disabled="!m._units || m._units <= 0"
@@ -222,6 +222,13 @@ async function confirmPayment() {
       <h2>Payroll history</h2>
 
       <DataTableShell>
+        <thead>
+          <tr>
+            <th>Staff</th>
+            <th>Units</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
         <tbody>
           <tr v-for="e in payroll" :key="e.id">
             <td>{{ e.staffEmail }}</td>

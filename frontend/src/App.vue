@@ -115,6 +115,7 @@ onMounted(async () => {
           <p class="side-nav__title">Provider</p>
           <router-link to="/provider" class="side-link" @click="closeMobileMenu">Dashboard</router-link>
           <router-link to="/provider/settings" class="side-link" @click="closeMobileMenu">Settings</router-link>
+          <router-link to="/provider/subscription" class="side-link" @click="closeMobileMenu">Subscription</router-link>
           <router-link to="/provider/orders" class="side-link" @click="closeMobileMenu">Orders</router-link>
           <!-- <router-link v-if="auth.canManageStaff" to="/provider/team" class="side-link">Team & payroll</router-link> -->
           <!-- <router-link v-if="auth.canManageStaff" to="/provider/staff-payments" class="side-link">Staff payments</router-link> -->
@@ -125,6 +126,9 @@ onMounted(async () => {
         <div v-if="auth.isSupport && !auth.isPlatformAdmin" class="side-nav__group">
           <p class="side-nav__title">Support</p>
           <router-link to="/support" class="side-link" @click="closeMobileMenu">Support dashboard</router-link>
+          <router-link to="/support/users" class="side-link" @click="closeMobileMenu">Users</router-link>
+          <router-link to="/support/tickets" class="side-link" @click="closeMobileMenu">Tickets</router-link>
+          <router-link to="/support/otp" class="side-link" @click="closeMobileMenu">Client OTP</router-link>
         </div>
 
         <div v-if="auth.isPlatformAdmin" class="side-nav__group">
@@ -136,6 +140,7 @@ onMounted(async () => {
           <router-link to="/support" class="side-link" @click="closeMobileMenu">Support</router-link>
           <router-link to="/admin/support-users" class="side-link" @click="closeMobileMenu">Support users</router-link>
           <router-link to="/admin/password" class="side-link" @click="closeMobileMenu">Password</router-link>
+          <router-link to="/admin/maintenance" class="side-link" @click="closeMobileMenu">Maintenance</router-link>
         </div>
       </aside>
 

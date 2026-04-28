@@ -105,7 +105,6 @@ async function disableStaff(userId) {
         <DataTableShell caption="Provider listings">
           <thead>
             <tr>
-              <th>ID</th>
               <th>Type</th>
               <th>Title</th>
               <th>Active</th>
@@ -114,19 +113,18 @@ async function disableStaff(userId) {
           </thead>
           <tbody>
             <tr v-for="l in listings" :key="l.id">
-              <td>{{ l.id }}</td>
               <td>{{ l.listingType }}</td>
               <td>
                 <strong>{{ l.title }}</strong>
                 <div class="tiny muted clamp">Images: {{ l.imageUrls || '—' }}</div>
               </td>
               <td>{{ l.active ? 'Yes' : 'No' }}</td>
-              <td class="col-actions">
+              <td class="cell-actions">
                 <button type="button" class="btn btn-ghost" @click="deleteListing(l.id)">Delete</button>
               </td>
             </tr>
             <tr v-if="!(listings || []).length">
-              <td colspan="5" class="muted small">No listings.</td>
+              <td colspan="4" class="muted small">No listings.</td>
             </tr>
           </tbody>
         </DataTableShell>
@@ -137,7 +135,6 @@ async function disableStaff(userId) {
         <DataTableShell caption="Provider staff">
           <thead>
             <tr>
-              <th>ID</th>
               <th>Email</th>
               <th>Role</th>
               <th>Enabled</th>
@@ -146,21 +143,20 @@ async function disableStaff(userId) {
           </thead>
           <tbody>
             <tr v-for="u in staff" :key="u.id">
-              <td>{{ u.id }}</td>
               <td>
                 <strong>{{ u.email }}</strong>
                 <div class="tiny muted clamp">Perms: {{ (u.permissions || []).join(', ') || '—' }}</div>
               </td>
               <td>{{ u.role }}</td>
               <td>{{ u.enabled ? 'Yes' : 'No' }}</td>
-              <td class="col-actions">
+              <td class="cell-actions">
                 <button type="button" class="btn btn-ghost" :disabled="u.owner || !u.enabled" @click="disableStaff(u.id)">
                   Disable
                 </button>
               </td>
             </tr>
             <tr v-if="!(staff || []).length">
-              <td colspan="5" class="muted small">No staff users.</td>
+              <td colspan="4" class="muted small">No staff users.</td>
             </tr>
           </tbody>
         </DataTableShell>

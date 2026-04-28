@@ -32,7 +32,7 @@ async function load() {
   error.value = '';
   message.value = '';
   try {
-    const { data } = await adminListingsApi.list({ page: page.value, size: 50 });
+    const { data } = await adminListingsApi.list({ page: page.value, size: 5 });
     rows.value = data;
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
@@ -104,7 +104,7 @@ async function removeAll() {
           <button
             type="button"
             class="btn btn-ghost"
-            :disabled="(rows.content || []).length < 50"
+            :disabled="(rows.content || []).length < 5"
             @click="page++; load()"
           >
             Next
@@ -117,7 +117,6 @@ async function removeAll() {
           <DataTableShell caption="All listings">
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Provider</th>
                 <th>Category</th>
                 <th>Type</th>
@@ -128,7 +127,6 @@ async function removeAll() {
             </thead>
             <tbody>
               <tr v-for="l in rows.content" :key="l.id">
-                <td>{{ l.id }}</td>
                 <td>
                   <div class="cell-stack">
                     <strong>{{ l.providerName }}</strong>
@@ -137,10 +135,12 @@ async function removeAll() {
                 </td>
                 <td>{{ l.categoryName }}</td>
                 <td>{{ l.listingType }}</td>
-                <!-- <td> 
-                  <strong>{{ l.title }}</strong>
-                  <div class="tiny muted clamp">Images: {{ l.imageUrls || '—' }}</div>
-                </td>-->
+                <td>
+                  <div class="cell-stack">
+                    <strong><TextWithTooltip class="cell-text" :text="l.title || '—'" :max-length="22" /></strong>
+                    <span class="tiny muted clamp">Images: {{ l.imageUrls || '—' }}</span>
+                  </div>
+                </td>
                 <td>
                   <FormField label="">
                     <select :value="l.active ? 'YES' : 'NO'" @change="setActive(l, $event.target.value === 'YES')">
@@ -149,7 +149,7 @@ async function removeAll() {
                     </select>
                   </FormField>
                 </td>
-                <td class="col-actions">
+                <td class="cell-actions">
                   <button v-if="l.active" type="button" class="btn btn-ghost" @click="setActive(l, false)">
                     Unpublish
                   </button>
@@ -158,7 +158,7 @@ async function removeAll() {
                 </td>
               </tr>
               <tr v-if="!(rows.content || []).length">
-                <td colspan="7" class="muted small">No listings.</td>
+                <td colspan="6" class="muted small">No listings.</td>
               </tr>
             </tbody>
           </DataTableShell>

@@ -3,15 +3,17 @@ package com.agrimarket.service;
 import com.agrimarket.api.dto.ListingResponse;
 import com.agrimarket.api.dto.ListingUpsertRequest;
 import com.agrimarket.api.error.ApiException;
-import com.agrimarket.domain.Category;
-import com.agrimarket.domain.Listing;
-import com.agrimarket.domain.Provider;
+import com.agrimarket.domain.*;
 import com.agrimarket.repo.CategoryRepository;
+import com.agrimarket.repo.CartLineRepository;
 import com.agrimarket.repo.ListingRepository;
+import com.agrimarket.repo.PaymentRecordRepository;
 import com.agrimarket.repo.ProviderRepository;
+import com.agrimarket.repo.RentalBookingRepository;
 import com.agrimarket.security.MarketUserPrincipal;
 import java.util.ArrayList;
 import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,6 +33,9 @@ public class ProviderListingService {
     private final SubscriptionService subscriptionService;
     private final SlugService slugService;
     private final ProviderListingImageService providerListingImageService;
+    private final PaymentRecordRepository paymentRecordRepository;
+    private final RentalBookingRepository rentalBookingRepository;
+    private final CartLineRepository cartLineRepository;
 
     @Transactional(readOnly = true)
     public Page<ListingResponse> listForProvider(MarketUserPrincipal user, Pageable pageable) {
@@ -113,18 +118,47 @@ public class ProviderListingService {
                 req.active());
         return update(user, listingId, mergedReq);
     }
-
     @Transactional
     public void delete(MarketUserPrincipal user, Long listingId) {
+
         TenantAccess.assertCanWriteListings(user);
-        Listing l = listingRepository
-                .findAll(ListingSpecifications.byProviderAndId(user.getProviderId(), listingId), PageRequest.of(0, 1))
+
+        // =========================
+        // 1. LOAD LISTING
+        // =========================
+        Listing listing = listingRepository
+                .findAll(
+                        ListingSpecifications.byProviderAndId(user.getProviderId(), listingId),
+                        PageRequest.of(0, 1)
+                )
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "LISTING", "Listing not found"));
-        listingRepository.delete(l);
-    }
 
+        // Always remove any in-progress cart lines referencing this listing (safe to delete).
+        // We do this first to prevent "stuck cart" rows and to reduce FK surprises.
+        cartLineRepository.deleteActiveCartLinesByListingId(listingId);
+
+        // Safe delete: if a listing is referenced by any existing orders/bookings,
+        // we prefer to unpublish rather than hard-delete to avoid FK issues.
+        // (Admin maintenance can be used for deeper cleanup.)
+        boolean hasBookings = rentalBookingRepository.existsByListing_Id(listingId);
+        boolean referencedByOrders = cartLineRepository.existsByListing_IdAndOrderIsNotNull(listingId);
+        if (hasBookings || referencedByOrders) {
+            listing.setActive(false);
+            listingRepository.save(listing);
+            return;
+        }
+
+        // Remove linked payment records for rentals (if any) then delete rentals and listing.
+        List<RentalBooking> rentals = rentalBookingRepository.findAllByListing_Id(listingId);
+        for (RentalBooking rental : rentals) {
+            paymentRecordRepository.deleteByRentalBooking_Id(rental.getId());
+            rentalBookingRepository.delete(rental);
+        }
+
+        listingRepository.delete(listing);
+    }
     private Category resolveCategory(String rawName) {
         String name = rawName == null ? "" : rawName.trim();
         if (name.isBlank()) {
@@ -183,4 +217,5 @@ public class ProviderListingService {
         l.setRentPriceWeekly(req.rentPriceWeekly());
         l.setActive(req.active());
     }
+    // Removed stale stock-restock helpers (were unused and could NPE on null stockQuantity).
 }

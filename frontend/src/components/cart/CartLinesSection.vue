@@ -10,8 +10,7 @@ defineProps({
   emptyMessage: { type: String, default: 'Cart is empty.' },
 });
 
-/* ✅ UPDATED emits */
-defineEmits(['clear', 'update-quantity', 'remove-line', 'show-limit-warning']);
+defineEmits(['clear', 'update-quantity', 'remove-line', 'show-limit-warning', 'toggle-checkout']);
 </script>
 
 <template>

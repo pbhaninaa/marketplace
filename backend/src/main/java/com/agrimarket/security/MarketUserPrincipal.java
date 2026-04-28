@@ -28,6 +28,21 @@ public class MarketUserPrincipal implements UserDetails {
         this.enabled = u.isEnabled();
     }
 
+    public MarketUserPrincipal(
+            Long userId,
+            String email,
+            String passwordHash,
+            UserRole role,
+            Long providerId,
+            boolean enabled) {
+        this.userId = userId;
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.role = role;
+        this.providerId = providerId;
+        this.enabled = enabled;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));

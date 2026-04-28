@@ -25,8 +25,17 @@ public class CartLine {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "order_id", nullable = false)
+    /**
+     * CartLine is used in two contexts:
+     * - as a line in a guest cart session (cartSession != null, order == null)
+     * - as a persisted line item in an Order (order != null, cartSession == null)
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cart_session_id")
+    private CartSession cartSession;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "order_id")
     private Order order;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

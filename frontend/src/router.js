@@ -17,13 +17,19 @@ import AdminUsersView from './views/AdminUsersView.vue';
 import AdminProviderSupportView from './views/AdminProviderSupportView.vue';
 import AdminSupportUsersView from './views/AdminSupportUsersView.vue';
 import AdminPasswordView from './views/AdminPasswordView.vue';
+import AdminMaintenanceView from './views/AdminMaintenanceView.vue';
 import SupportDashboardView from './views/SupportDashboardView.vue';
+import SupportUsersView from './views/SupportUsersView.vue';
+import SupportTicketsView from './views/SupportTicketsView.vue';
+import SupportOtpView from './views/SupportOtpView.vue';
 import ProviderTeamView from './views/ProviderTeamView.vue';
 import ProviderSettingsView from './views/ProviderSettingsView.vue';
 import ProviderListingsView from './views/ProviderListingsView.vue';
 import ProviderOrdersView from './views/ProviderOrdersView.vue';
 import ProviderDashboardView from './views/ProviderDashboardView.vue';
 import ProviderStaffPaymentsView from './views/ProviderStaffPaymentsView.vue';
+import ProviderSubscriptionView from './views/ProviderSubscriptionView.vue';
+import { providerSubscriptionApi } from './services/marketplaceApi';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -45,13 +51,18 @@ const router = createRouter({
     { path: '/admin/providers/:id', name: 'admin-provider-support', component: AdminProviderSupportView, meta: { requiresAdmin: true } },
     { path: '/admin/support-users', name: 'admin-support-users', component: AdminSupportUsersView, meta: { requiresAdmin: true } },
     { path: '/admin/password', name: 'admin-password', component: AdminPasswordView, meta: { requiresAdmin: true } },
+    { path: '/admin/maintenance', name: 'admin-maintenance', component: AdminMaintenanceView, meta: { requiresAdmin: true } },
     { path: '/support', name: 'support', component: SupportDashboardView, meta: { requiresSupport: true } },
+    { path: '/support/users', name: 'support-users', component: SupportUsersView, meta: { requiresSupport: true } },
+    { path: '/support/tickets', name: 'support-tickets', component: SupportTicketsView, meta: { requiresSupport: true } },
+    { path: '/support/otp', name: 'support-otp', component: SupportOtpView, meta: { requiresSupport: true } },
     { path: '/provider', name: 'provider-home', component: ProviderDashboardView, meta: { requiresAuth: true } },
     {      path: '/provider/team',      name: 'provider-team',      component: ProviderTeamView,      meta: { requiresAuth: true },    },
     { path: '/provider/staff-payments', name: 'provider-staff-payments', component: ProviderStaffPaymentsView, meta: { requiresAuth: true } },
     { path: '/provider/settings', name: 'provider-settings', component: ProviderSettingsView, meta: { requiresAuth: true } },
     { path: '/provider/listings', name: 'provider-listings', component: ProviderListingsView, meta: { requiresAuth: true } },
     { path: '/provider/orders', name: 'provider-orders', component: ProviderOrdersView, meta: { requiresAuth: true } },
+    { path: '/provider/subscription', name: 'provider-subscription', component: ProviderSubscriptionView, meta: { requiresAuth: true } },
   ],
 });
 
@@ -68,6 +79,27 @@ router.beforeEach(async (to) => {
   }
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { path: '/login', query: { redirect: to.fullPath } };
+  }
+
+  // Provider subscription gate:
+  // If provider subscription is inactive, force provider users to stay on subscription page only.
+  if (
+    auth.isAuthenticated &&
+    auth.isProviderUser &&
+    typeof to.path === 'string' &&
+    to.path.startsWith('/provider') &&
+    to.name !== 'provider-subscription'
+  ) {
+    try {
+      const { data } = await providerSubscriptionApi.status();
+      const active = !!data?.valid;
+      if (!active) {
+        return { path: '/provider/subscription', query: { redirect: to.fullPath } };
+      }
+    } catch {
+      // If status fails, be safe and keep provider on subscription.
+      return { path: '/provider/subscription', query: { redirect: to.fullPath } };
+    }
   }
   if (to.name === 'market' && auth.isAuthenticated) {
     if (auth.isPlatformAdmin) return { path: '/admin' };

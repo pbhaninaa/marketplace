@@ -151,6 +151,9 @@ export const providerOrdersApi = {
   deletePurchase(id) {
     return api.delete(`/api/provider/me/orders/purchases/${id}`);
   },
+  deleteRental(id) {
+    return api.delete(`/api/provider/me/orders/rentals/${id}`);
+  },
   deletePurchases(ids) {
     return api.delete('/api/provider/me/orders/purchases', {
       params: { ids },
@@ -173,6 +176,27 @@ export const providerOrdersApi = {
 export const providerDashboardApi = {
   stats(params) {
     return api.get('/api/provider/me/dashboard/stats', params);
+  },
+};
+
+export const providerSubscriptionApi = {
+  status() {
+    return api.get('/api/provider/me/subscription/status').catch((e) => {
+      // Backend may not have subscription module enabled yet.
+      if (e?.response?.status === 404) {
+        return { data: { valid: false, plan: null, billingCycle: null, status: null, expiresAt: null } };
+      }
+      throw e;
+    });
+  },
+  select(body) {
+    return api.post('/api/provider/me/subscription/select', body);
+  },
+};
+
+export const adminDashboardApi = {
+  stats(params) {
+    return api.get('/api/admin/dashboard/stats', { params });
   },
 };
 
@@ -284,5 +308,8 @@ export const supportApi = {
   },
   resendClientOtp(body) {
     return api.post('/api/support/client/otp/resend', body);
+  },
+  shadowProvider(providerId) {
+    return api.post(`/api/support/shadow/provider/${providerId}`);
   },
 };

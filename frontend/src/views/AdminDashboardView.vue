@@ -1,138 +1,112 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { adminSupportUsersApi, authApi, adminMaintenanceApi } from '../services/marketplaceApi';
+import { adminDashboardApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
-import FormField from '../components/ui/FormField.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
 
-const supportEmail = ref('');
-const supportPassword = ref('');
-const message = ref('');
-const error = ref('');
-
-const currentPassword = ref('');
-const newPassword = ref('');
-const confirmNewPassword = ref('');
-const pwdMessage = ref('');
-const pwdError = ref('');
-
-const cleanMessage = ref('');
-const cleanError = ref('');
-const cleaning = ref(false);
+const loading = ref(false);
+const stats = ref(null);
 
 onMounted(() => {
   auth.restoreFromStorage();
   if (!auth.isPlatformAdmin) {
     router.replace({ path: '/login', query: { redirect: '/admin' } });
-  }
-});
-
-async function createSupport() {
-  message.value = '';
-  error.value = '';
-  try {
-    await adminSupportUsersApi.create({
-      email: supportEmail.value,
-      password: supportPassword.value,
-    });
-    message.value = 'Support user created.';
-    supportEmail.value = '';
-    supportPassword.value = '';
-  } catch (e) {
-    error.value = e.response?.data?.message || e.message;
-  }
-}
-
-async function changeOwnPassword() {
-  pwdMessage.value = '';
-  pwdError.value = '';
-  if (newPassword.value !== confirmNewPassword.value) {
-    pwdError.value = 'New passwords do not match';
     return;
   }
+  load();
+});
+
+async function load() {
+  loading.value = true;
   try {
-    await authApi.changePassword({
-      currentPassword: currentPassword.value,
-      newPassword: newPassword.value,
-    });
-    pwdMessage.value = 'Password updated. Use it next time you sign in.';
-    currentPassword.value = '';
-    newPassword.value = '';
-    confirmNewPassword.value = '';
-  } catch (e) {
-    pwdError.value = e.response?.data?.message || e.message;
+    const { data } = await adminDashboardApi.stats();
+    stats.value = data;
+  } catch {
+    stats.value = null;
+  } finally {
+    loading.value = false;
   }
 }
 
-async function cleanDb() {
-  cleaning.value = true;
-  cleanMessage.value = '';
-  cleanError.value = '';
-  try {
-    const { data } = await adminMaintenanceApi.cleanDb();
-    const deletedUsers = data?.users ?? 0;
-    cleanMessage.value = `Database cleaned. Deleted ${deletedUsers} users (kept only your admin).`;
-  } catch (e) {
-    cleanError.value = e.response?.data?.message || e.message;
-  } finally {
-    cleaning.value = false;
-  }
-}
+const activityScore = computed(() => {
+  const purchaseCount = Number(stats.value?.purchaseCount ?? 0);
+  const rentalCount = Number(stats.value?.rentalCount ?? 0);
+  const n = purchaseCount + rentalCount;
+  return Math.max(0, Math.min(100, Math.round((Math.log10(n + 1) / Math.log10(200 + 1)) * 100)));
+});
 </script>
 
 <template>
-  <div class="page-document admin-page">
+  <div class="page-document page-document--wide admin-page">
     <header class="page-hero">
       <p class="page-hero__eyebrow">Platform</p>
       <h1 class="page-hero__title">Administration</h1>
-      <p class="page-hero__lead">
-        Change your administrator password anytime. Support accounts are invite-only and cannot self-register.
-      </p>
+      <p class="page-hero__lead">Progress overview and quick links to admin tools.</p>
     </header>
 
-    <section class="surface-panel admin-panel">
-      <h2>Your password</h2>
-      <p class="muted small">Use your current password, then choose a new one (at least 8 characters).</p>
-      <FormField label="Current password">
-        <input v-model="currentPassword" type="password" autocomplete="current-password" />
-      </FormField>
-      <FormField label="New password">
-        <input v-model="newPassword" type="password" minlength="8" autocomplete="new-password" />
-      </FormField>
-      <FormField label="Confirm new password">
-        <input v-model="confirmNewPassword" type="password" minlength="8" autocomplete="new-password" />
-      </FormField>
-      <p v-if="pwdError" class="err-toast">{{ pwdError }}</p>
-      <p v-if="pwdMessage" class="ok-msg">{{ pwdMessage }}</p>
-      <button type="button" class="btn btn-primary" @click="changeOwnPassword">Update password</button>
+    <section class="surface-panel admin-panel admin-panel--wide">
+      <div class="panel-head">
+        <h2>Platform progress</h2>
+        <button type="button" class="btn btn-ghost" :disabled="loading" @click="load">
+          {{ loading ? 'Refreshing…' : 'Refresh' }}
+        </button>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi">
+          <span class="kpi__label">Users created</span>
+          <strong class="kpi__value">{{ stats?.usersCreated ?? '—' }}</strong>
+          <span class="kpi__hint">In date range</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">Providers created</span>
+          <strong class="kpi__value">{{ stats?.providersCreated ?? '—' }}</strong>
+          <span class="kpi__hint">Onboarding</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">Listings created</span>
+          <strong class="kpi__value">{{ stats?.listingsCreated ?? '—' }}</strong>
+          <span class="kpi__hint">Supply growth</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">Activity health</span>
+          <strong class="kpi__value">{{ activityScore }}%</strong>
+          <span class="kpi__hint">Signal from order volume</span>
+        </div>
+      </div>
     </section>
 
-    <section class="surface-panel admin-panel">
-      <h2>New support user</h2>
-      <FormField label="Email">
-        <input v-model="supportEmail" type="email" required />
-      </FormField>
-      <FormField label="Password">
-        <input v-model="supportPassword" type="password" required minlength="8" />
-      </FormField>
-      <p v-if="error" class="err-toast">{{ error }}</p>
-      <p v-if="message" class="ok-msg">{{ message }}</p>
-      <button type="button" class="btn btn-primary" @click="createSupport">Create support user</button>
-    </section>
-
-    <section class="surface-panel admin-panel danger">
-      <h2>Danger zone</h2>
-      <p class="muted small">
-        This will delete almost everything in the database and leave only your platform admin account.
-      </p>
-      <p v-if="cleanError" class="err-toast">{{ cleanError }}</p>
-      <p v-if="cleanMessage" class="ok-msg">{{ cleanMessage }}</p>
-      <button type="button" class="btn btn-ghost danger-btn" :disabled="cleaning" @click="cleanDb">
-        {{ cleaning ? 'Cleaning…' : 'Clean database (keep only me)' }}
-      </button>
+    <section class="surface-panel admin-panel admin-panel--wide">
+      <h2>Admin tools</h2>
+      <div class="tools-grid">
+        <router-link to="/admin/providers" class="tool-card">
+          <strong>Providers</strong>
+          <span class="muted small">Approve & support providers</span>
+        </router-link>
+        <router-link to="/admin/listings" class="tool-card">
+          <strong>Listings</strong>
+          <span class="muted small">Publish/unpublish & cleanup</span>
+        </router-link>
+        <router-link to="/admin/users" class="tool-card">
+          <strong>Users</strong>
+          <span class="muted small">Search and disable accounts</span>
+        </router-link>
+        <router-link to="/admin/support-users" class="tool-card">
+          <strong>Support users</strong>
+          <span class="muted small">Create and manage support accounts</span>
+        </router-link>
+        <router-link to="/admin/password" class="tool-card">
+          <strong>Password</strong>
+          <span class="muted small">Change your admin password</span>
+        </router-link>
+        <router-link to="/admin/maintenance" class="tool-card tool-card--danger">
+          <strong>Maintenance</strong>
+          <span class="muted small">Danger zone operations</span>
+        </router-link>
+      </div>
     </section>
   </div>
 </template>
@@ -143,11 +117,23 @@ async function cleanDb() {
 }
 
 .admin-panel {
-  max-width: 480px;
-  margin: 0 auto 1.5rem;
+  max-width: 560px;
+  margin: 0 auto 1.35rem;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
+}
+
+.admin-panel--wide {
+  max-width: 980px;
+}
+
+.panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .admin-panel .muted {
@@ -158,13 +144,76 @@ async function cleanDb() {
   font-family: var(--font-display);
 }
 
-.admin-panel .btn {
-  margin-top: 0.65rem;
-  align-self: flex-start;
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin-top: 0.75rem;
 }
 
-.danger-btn {
-  border-color: rgba(180, 40, 40, 0.35);
-  color: rgba(140, 20, 20, 0.95);
+.kpi {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 0.85rem 0.95rem;
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.kpi__label {
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  color: var(--color-muted);
+}
+
+.kpi__value {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+
+.kpi__hint {
+  font-size: 0.82rem;
+  color: var(--color-muted);
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.tool-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: var(--color-canopy);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tool-card:hover {
+  border-color: rgba(61, 122, 102, 0.28);
+  box-shadow: var(--shadow-md);
+}
+
+.tool-card--danger {
+  border-color: rgba(180, 40, 40, 0.22);
+  background: rgba(252, 239, 234, 0.6);
+}
+
+@media (max-width: 980px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tools-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

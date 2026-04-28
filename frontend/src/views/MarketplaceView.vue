@@ -14,6 +14,7 @@ const listings = ref({ content: [], totalElements: 0 });
 const categories = ref([]);
 const providers = ref([]);
 const loading = ref(true);
+const error = ref('');
 const showMobileFilters = ref(false);
 
 const entryListingType = ref('SALE'); // controlled by the Buy/Rent toggle
@@ -75,6 +76,7 @@ async function loadFiltersData() {
 
 async function loadListings() {
   loading.value = true;
+  error.value = '';
   try {
     const params = {
       page: filters.value.page,
@@ -89,12 +91,22 @@ async function loadListings() {
     if (filters.value.search) params.search = filters.value.search;
 
     const { data } = await publicCatalogApi.listings(params);
-    listings.value = data;
-    for (const item of data.content || []) {
+    // Backend may return either a Page-like object or a raw array; normalize to {content,totalElements}.
+    const normalized = Array.isArray(data)
+      ? { content: data, totalElements: data.length }
+      : {
+          content: Array.isArray(data?.content) ? data.content : [],
+          totalElements: Number(data?.totalElements ?? (Array.isArray(data?.content) ? data.content.length : 0)),
+        };
+    listings.value = normalized;
+    for (const item of normalized.content || []) {
       if (item.listingType === 'RENT') {
         setRentDefaults(item);
       }
     }
+  } catch (e) {
+    error.value = e.response?.data?.message || e.message || 'Failed to load listings.';
+    listings.value = { content: [], totalElements: 0 };
   } finally {
     loading.value = false;
   }
@@ -232,6 +244,7 @@ onMounted(async () => {
         </header>
 
         <div v-if="cart.lastError" class="err-toast">{{ cart.lastError }}</div>
+        <div v-if="error" class="err-toast">{{ error }}</div>
 
         <div v-if="loading" class="loading-state">
           <span class="loading-state__dot" aria-hidden="true" />

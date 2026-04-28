@@ -9,6 +9,7 @@ import com.agrimarket.domain.PaymentStatus;
 import com.agrimarket.domain.Order;
 import com.agrimarket.domain.RentalBooking;
 import com.agrimarket.repo.CartLineRepository;
+import com.agrimarket.repo.UserAccountRepository;
 import com.agrimarket.repo.PaymentRecordRepository;
 import com.agrimarket.repo.OrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
@@ -35,6 +36,8 @@ public class OrderManagementService {
     private final PaymentRecordRepository paymentRecordRepository;
     private final RentalBookingRepository rentalBookingRepository;
     private final CartLineRepository cartLineRepository;
+    private final UserAccountRepository userAccountRepository;
+    private final EmailService emailService;
 
     @Transactional(readOnly = true)
     public Page<Order> getProviderOrders(Long providerId, Pageable pageable) {
@@ -88,6 +91,9 @@ public class OrderManagementService {
 
         // Validate status transitions
         OrderStatus current = order.getStatus();
+        if (current == newStatus) {
+            return order;
+        }
         validateStatusTransition(current, newStatus);
 
         if (current == OrderStatus.PENDING_PAYMENT && newStatus == OrderStatus.PAID) {
@@ -103,34 +109,34 @@ public class OrderManagementService {
             // }
             purchaseInventoryService.finalizePaidPurchase(order);
             markPurchasePaymentCompleted(order);
+            order.setPaymentStatus(PaymentStatus.PAID);
 
-            // Sync related rental with same verification code
-            syncRelatedRentalStatus(order.getVerificationCode(), BookingStatus.CONFIRMED);
+            // Sync rentals from same checkout session (sessionKey)
+            syncRelatedRentalStatusBySessionKey(order.getSessionKey(), BookingStatus.PAID);
         } else if (current == OrderStatus.PENDING_PAYMENT && newStatus == OrderStatus.CANCELLED) {
             purchaseInventoryService.releasePendingReservation(order);
             markPurchasePaymentFailed(order);
+            order.setPaymentStatus(PaymentStatus.PENDING);
 
-            // Sync related rental with same verification code
-            syncRelatedRentalStatus(order.getVerificationCode(), BookingStatus.CANCELLED);
+            // Sync rentals from same checkout session (sessionKey)
+            syncRelatedRentalStatusBySessionKey(order.getSessionKey(), BookingStatus.CANCELLED);
         } else if (current == OrderStatus.PAID && newStatus == OrderStatus.CANCELLED) {
-            // Restore inventory when cancelling a PAID order
-            purchaseInventoryService.restoreDeductedInventory(order);
-            markPurchasePaymentFailed(order);
-
-            // Sync related rental with same verification code
-            syncRelatedRentalStatus(order.getVerificationCode(), BookingStatus.CANCELLED);
+            // Business rule (tests): do not allow cancelling PAID orders via this endpoint.
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CANNOT_CANCEL_PAID", "Cannot cancel paid orders");
         }
 
         order.setStatus(newStatus);
-        return OrderRepository.save(order);
+        Order saved = OrderRepository.save(order);
+        sendPurchaseStatusEmails(saved);
+        return saved;
     }
 
     @Transactional
     public void cancelOrder(Long providerId, Long orderId) {
         Order order = getOrderById(providerId, orderId);
 
-        if (order.getStatus() == OrderStatus.FULFILLED) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "CANNOT_CANCEL", "Cannot cancel fulfilled orders");
+        if (order.getStatus() == OrderStatus.COLLECTED) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CANNOT_CANCEL", "Cannot cancel collected orders");
         }
 
         if (order.getStatus() == OrderStatus.CANCELLED) {
@@ -138,16 +144,16 @@ public class OrderManagementService {
         }
 
         // Handle inventory restoration based on order status
+        if (order.getStatus() == OrderStatus.PAID) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CANNOT_CANCEL_PAID", "Cannot cancel paid orders");
+        }
         if (order.getStatus() == OrderStatus.PENDING_PAYMENT) {
             purchaseInventoryService.releasePendingReservation(order);
-            markPurchasePaymentCancelled(order);
-        } else if (order.getStatus() == OrderStatus.PAID) {
-            // Restore deducted inventory for PAID orders
-            purchaseInventoryService.restoreDeductedInventory(order);
             markPurchasePaymentCancelled(order);
         }
 
         order.setStatus(OrderStatus.CANCELLED);
+        order.setPaymentStatus(PaymentStatus.PENDING);
         OrderRepository.save(order);
     }
 
@@ -245,15 +251,40 @@ public class OrderManagementService {
                 .findByProvider_IdAndStatusIn(providerId,
                         List.of(BookingStatus.CANCELLED, BookingStatus.PENDING_PAYMENT));
 
+        for (RentalBooking b : bookingsToDelete) {
+            paymentRecordRepository.deleteByRentalBooking_Id(b.getId());
+        }
         rentalBookingRepository.deleteAll(bookingsToDelete);
         return bookingsToDelete.size();
+    }
+
+    @Transactional
+    public void deleteRental(MarketUserPrincipal user, Long rentalId) {
+        if (user == null) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "AUTH", "Unauthorized");
+        }
+        RentalBooking rental = rentalBookingRepository.findById(rentalId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOOKING", "Booking not found"));
+        if (rental.getProvider() == null || !rental.getProvider().getId().equals(user.getProviderId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not your booking");
+        }
+
+        if (rental.getStatus() != BookingStatus.CANCELLED && rental.getStatus() != BookingStatus.PENDING_PAYMENT) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "CANNOT_DELETE",
+                    "Can only delete cancelled or pending payment bookings");
+        }
+
+        paymentRecordRepository.deleteByRentalBooking_Id(rentalId);
+        rentalBookingRepository.delete(rental);
     }
 
     private void markPurchasePaymentCompleted(Order order) {
         paymentRecordRepository
                 .findByOrder_Id(order.getId())
                 .ifPresent(p -> {
-                    p.setStatus(PaymentStatus.PAID);
+                    p.setStatus(com.agrimarket.domain.PaymentRecordStatus.PAID);
                     paymentRecordRepository.save(p);
                 });
     }
@@ -262,7 +293,7 @@ public class OrderManagementService {
         paymentRecordRepository
                 .findByOrder_Id(order.getId())
                 .ifPresent(p -> {
-                    p.setStatus(PaymentStatus.PENDING);
+                    p.setStatus(com.agrimarket.domain.PaymentRecordStatus.PENDING_PAYMENT);
                     paymentRecordRepository.save(p);
                 });
     }
@@ -271,33 +302,32 @@ public class OrderManagementService {
         paymentRecordRepository
                 .findByOrder_Id(order.getId())
                 .ifPresent(p -> {
-                    p.setStatus(PaymentStatus.FAILED);
+                    // A "failed" payment remains pending-payment.
+                    p.setStatus(com.agrimarket.domain.PaymentRecordStatus.PENDING_PAYMENT);
                     paymentRecordRepository.save(p);
                 });
     }
 
     /**
-     * Syncs the status of any related rental booking that shares the same verification code.
-     * This is used when purchase and rental are done together in the same checkout session.
+     * Syncs rental bookings from the same checkout session (sessionKey).
+     * We cannot reuse verification codes across rentals due to DB uniqueness constraints.
      */
-    private void syncRelatedRentalStatus(String verificationCode, BookingStatus newStatus) {
-        rentalBookingRepository.findByVerificationCode(verificationCode)
-                .ifPresent(rental -> {
-                    rental.setStatus(newStatus);
-                    rentalBookingRepository.save(rental);
-                });
-    }
-
-    /**
-     * Syncs the status of any related purchase order that shares the same verification code.
-     * This is used when purchase and rental are done together in the same checkout session.
-     */
-    private void syncRelatedPurchaseStatus(String verificationCode, OrderStatus newStatus) {
-        OrderRepository.findByVerificationCode(verificationCode)
-                .ifPresent(order -> {
-                    order.setStatus(newStatus);
-                    OrderRepository.save(order);
-                });
+    private void syncRelatedRentalStatusBySessionKey(String sessionKey, BookingStatus newStatus) {
+        if (sessionKey == null || sessionKey.isBlank()) return;
+        for (RentalBooking rental : rentalBookingRepository.findAllBySessionKey(sessionKey)) {
+            rental.setStatus(newStatus);
+            rentalBookingRepository.save(rental);
+            // Keep rental payment record consistent when purchase + rentals share the same checkout/payment.
+            paymentRecordRepository.findByRentalBooking_Id(rental.getId())
+                    .ifPresent(p -> {
+                        if (newStatus == BookingStatus.PAID) {
+                            p.setStatus(com.agrimarket.domain.PaymentRecordStatus.PAID);
+                        } else if (newStatus == BookingStatus.CANCELLED) {
+                            p.setStatus(com.agrimarket.domain.PaymentRecordStatus.PENDING_PAYMENT);
+                        }
+                        paymentRecordRepository.save(p);
+                    });
+        }
     }
 
     /**
@@ -317,26 +347,148 @@ public class OrderManagementService {
         rental.setStatus(newStatus);
         rentalBookingRepository.save(rental);
 
-        // Sync related purchase order if it exists
-        if (newStatus == BookingStatus.CONFIRMED) {
-            syncRelatedPurchaseStatus(rental.getVerificationCode(), OrderStatus.PAID);
-        } else if (newStatus == BookingStatus.CANCELLED) {
-            syncRelatedPurchaseStatus(rental.getVerificationCode(), OrderStatus.CANCELLED);
+        // Keep payment record consistent for the rental.
+        paymentRecordRepository.findByRentalBooking_Id(rental.getId())
+                .ifPresent(p -> {
+                    if (newStatus == BookingStatus.PAID) {
+                        p.setStatus(com.agrimarket.domain.PaymentRecordStatus.PAID);
+                    } else if (newStatus == BookingStatus.CANCELLED) {
+                        p.setStatus(com.agrimarket.domain.PaymentRecordStatus.PENDING_PAYMENT);
+                    }
+                    paymentRecordRepository.save(p);
+                });
+
+        // If this rental shares a checkout/payment with a purchase (same sessionKey),
+        // apply the purchase transition via the real purchase flow (inventory + payment updates).
+        if (newStatus == BookingStatus.PAID || newStatus == BookingStatus.CANCELLED) {
+            OrderRepository.findBySessionKey(rental.getSessionKey())
+                    .filter(o -> o.getProvider() != null && o.getProvider().getId().equals(providerId))
+                    .ifPresent(o -> updateOrderStatus(
+                            providerId,
+                            o.getId(),
+                            newStatus == BookingStatus.PAID ? OrderStatus.PAID : OrderStatus.CANCELLED));
         }
 
+        sendRentalStatusEmails(rental);
         return rental;
     }
 
-    private void validateStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {
-        // Define valid state transitions
-        boolean isValid = switch (currentStatus) {
-            case PENDING_PAYMENT -> newStatus == OrderStatus.PAID || newStatus == OrderStatus.CANCELLED;
-            case PAID -> newStatus == OrderStatus.FULFILLED || newStatus == OrderStatus.CANCELLED;
-            case FULFILLED -> newStatus == OrderStatus.FULFILLED; // Can only stay fulfilled
-            case CANCELLED -> newStatus == OrderStatus.CANCELLED; // Can only stay cancelled
-        };
+    private void sendPurchaseStatusEmails(Order order) {
+        try {
+            String clientTo = order.getGuestEmail();
+            String subject = "Order update: " + order.getStatus();
+            String plain = EmailTemplates.simpleText(
+                    "Your purchase order status changed",
+                    java.util.List.of(
+                            "Order ID: " + order.getId(),
+                            "New status: " + order.getStatus(),
+                            "Payment status: " + order.getPaymentStatus()
+                    ),
+                    "Thank you for using Agri Marketplace."
+            );
+            String html = EmailTemplates.layout(
+                    "Purchase order update",
+                    "Hello " + (order.getGuestName() == null ? "" : order.getGuestName()),
+                    "Your purchase order status has changed.",
+                    java.util.List.of(
+                            "Order ID: " + order.getId(),
+                            "New status: " + order.getStatus(),
+                            "Payment status: " + order.getPaymentStatus()
+                    ),
+                    "Thank you for using Agri Marketplace."
+            );
+            emailService.send(clientTo, subject, plain, html);
 
-        if (!isValid) {
+            var providerUsers = userAccountRepository.findByProvider_IdOrderByEmailAsc(order.getProvider().getId());
+            String providerSubject = "Purchase order status changed: " + order.getStatus();
+            String providerPlain = EmailTemplates.simpleText(
+                    "Purchase order status changed",
+                    java.util.List.of(
+                            "Order ID: " + order.getId(),
+                            "New status: " + order.getStatus(),
+                            "Customer: " + order.getGuestName() + " (" + order.getGuestPhone() + ")"
+                    ),
+                    null
+            );
+            String providerHtml = EmailTemplates.layout(
+                    "Purchase order update",
+                    "Purchase order status changed",
+                    "An order status was updated in your store.",
+                    java.util.List.of(
+                            "Order ID: " + order.getId(),
+                            "New status: " + order.getStatus(),
+                            "Customer: " + order.getGuestName() + " (" + order.getGuestPhone() + ")"
+                    ),
+                    null
+            );
+            for (var u : providerUsers) {
+                if (u.getEmail() == null || u.getEmail().isBlank()) continue;
+                emailService.send(u.getEmail(), providerSubject, providerPlain, providerHtml);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void sendRentalStatusEmails(RentalBooking rental) {
+        try {
+            String clientTo = rental.getGuestEmail();
+            String subject = "Booking update: " + rental.getStatus();
+            String plain = EmailTemplates.simpleText(
+                    "Your rental booking status changed",
+                    java.util.List.of(
+                            "Booking ID: " + rental.getId(),
+                            "New status: " + rental.getStatus(),
+                            "Start: " + rental.getStartAt(),
+                            "End: " + rental.getEndAt()
+                    ),
+                    "Thank you for using Agri Marketplace."
+            );
+            String html = EmailTemplates.layout(
+                    "Rental booking update",
+                    "Hello " + (rental.getGuestName() == null ? "" : rental.getGuestName()),
+                    "Your rental booking status has changed.",
+                    java.util.List.of(
+                            "Booking ID: " + rental.getId(),
+                            "New status: " + rental.getStatus(),
+                            "Start: " + rental.getStartAt(),
+                            "End: " + rental.getEndAt()
+                    ),
+                    "Thank you for using Agri Marketplace."
+            );
+            emailService.send(clientTo, subject, plain, html);
+
+            var providerUsers = userAccountRepository.findByProvider_IdOrderByEmailAsc(rental.getProvider().getId());
+            String providerSubject = "Rental booking status changed: " + rental.getStatus();
+            String providerPlain = EmailTemplates.simpleText(
+                    "Rental booking status changed",
+                    java.util.List.of(
+                            "Booking ID: " + rental.getId(),
+                            "New status: " + rental.getStatus(),
+                            "Customer: " + rental.getGuestName() + " (" + rental.getGuestPhone() + ")"
+                    ),
+                    null
+            );
+            String providerHtml = EmailTemplates.layout(
+                    "Rental booking update",
+                    "Rental booking status changed",
+                    "A booking status was updated in your store.",
+                    java.util.List.of(
+                            "Booking ID: " + rental.getId(),
+                            "New status: " + rental.getStatus(),
+                            "Customer: " + rental.getGuestName() + " (" + rental.getGuestPhone() + ")"
+                    ),
+                    null
+            );
+            for (var u : providerUsers) {
+                if (u.getEmail() == null || u.getEmail().isBlank()) continue;
+                emailService.send(u.getEmail(), providerSubject, providerPlain, providerHtml);
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void validateStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {
+        if (!OrderStatus.isValidTransition(currentStatus, newStatus)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_STATUS_TRANSITION",
                     "Cannot transition from " + currentStatus + " to " + newStatus);
         }

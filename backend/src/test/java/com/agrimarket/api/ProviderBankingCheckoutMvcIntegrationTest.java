@@ -18,6 +18,7 @@ import com.agrimarket.repo.ListingRepository;
 import com.agrimarket.repo.ProviderRepository;
 import com.agrimarket.repo.UserAccountRepository;
 import com.agrimarket.security.JwtService;
+import com.agrimarket.support.TestFixtures;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.util.EnumSet;
@@ -53,6 +54,9 @@ class ProviderBankingCheckoutMvcIntegrationTest extends AbstractIntegrationTest 
     @Autowired
     private JwtService jwtService;
 
+    @Autowired
+    private TestFixtures fixtures;
+
     @Test
     void cartResponse_includesProviderBankingDetailsWhenLocked() throws Exception {
         // Provider + owner
@@ -65,6 +69,7 @@ class ProviderBankingCheckoutMvcIntegrationTest extends AbstractIntegrationTest 
         p.setBankReference("Use email");
         p.setAcceptedPaymentMethods(EnumSet.of(PaymentMethod.EFT));
         p = providerRepository.save(p);
+        fixtures.saveActiveSubscription(p);
 
         UserAccount owner = new UserAccount("owner-banking@integration.test", passwordEncoder.encode("SecurePass123!"), UserRole.PROVIDER_OWNER, p);
         userAccountRepository.save(owner);

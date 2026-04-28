@@ -14,6 +14,8 @@ import {
 import FormField from '../components/ui/FormField.vue';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
+import TablePager from '../components/ui/TablePager.vue';
+import TextWithTooltip from '../components/ui/TextWithTooltip.vue';
 import { isNonEmptyString, isPositiveNumber, isMinInt } from '../utils/validation';
 
 const router = useRouter();
@@ -28,6 +30,39 @@ const showDialog = ref(false);
 const editing = ref(null); // listing object when editing
 
 const listings = ref([]);
+
+/* ================= TABLE: SEARCH + PAGINATION ================= */
+const q = ref('');
+const PAGE_SIZE = 5;
+const page = ref(1);
+
+const filteredListings = computed(() => {
+  const raw = (q.value || '').trim().toLowerCase();
+  const all = listings.value || [];
+  if (!raw) return all;
+  return all.filter((l) => {
+    const hay = [
+      l?.title,
+      l?.description,
+      l?.categoryName,
+      l?.listingType,
+      l?.unitPrice != null ? String(l.unitPrice) : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return hay.includes(raw);
+  });
+});
+
+const pageCount = computed(() => Math.max(1, Math.ceil(filteredListings.value.length / PAGE_SIZE)));
+const pagedListings = computed(() =>
+  filteredListings.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE),
+);
+
+watch(q, () => {
+  page.value = 1;
+});
 
 const form = ref({
   listingType: 'SALE',
@@ -119,6 +154,7 @@ async function loadAll() {
   try {
     const { data } = await providerListingsApi.list();
     listings.value = data?.content || [];
+    page.value = 1;
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
   } finally {
@@ -354,6 +390,12 @@ async function deleteListing(id) {
           <h2>Your listings</h2>
           <button type="button" class="btn btn-primary" :disabled="!canEdit" @click="openAdd">Add new</button>
         </div>
+        <div class="toolbar">
+          <FormField label="">
+            <input v-model="q" type="text" placeholder="Search listings…" style="min-width: 240px" />
+          </FormField>
+          <TablePager v-model:page="page" :page-count="pageCount" />
+        </div>
         <p v-if="!canEdit" class="muted small">Only provider owner/admin can create or delete listings.</p>
         <ResponsiveRecordShell desktop-label="Your listings">
           <template #desktop>
@@ -370,7 +412,7 @@ async function deleteListing(id) {
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="l in listings" :key="l.id">
+                <tr v-for="l in pagedListings" :key="l.id">
                   <td>{{ l.listingType }}</td>
                   <td class="thumb-cell">
                     <div v-if="listingFirstImageUrl(l)" class="thumb">
@@ -379,30 +421,35 @@ async function deleteListing(id) {
                     <div v-else class="thumb thumb--empty">No image</div>
                   </td>
                   <td>
-                    <strong>{{ l.title }}</strong>
-                    <div class="small muted clamp">{{ l.description }}</div>
+                    <strong><TextWithTooltip class="cell-text" :text="l.title || '—'" :max-length="22" /></strong>
+                    <div class="small muted clamp">
+                      <TextWithTooltip class="cell-text" :text="l.description || '—'" :max-length="32" />
+                    </div>
                     <div class="tiny muted">{{ listingImageCount(l) }} photo{{ listingImageCount(l) === 1 ? '' : 's' }}</div>
                   </td>
                   <td class="small">{{ l.categoryName || '—' }}</td>
                   <td>R {{ l.unitPrice }}</td>
                   <td>{{ l.active ? 'Yes' : 'No' }}</td>
-                  <td class="actions">
+                  <td class="cell-actions">
                     <button type="button" class="btn btn-ghost" :disabled="!canEdit" @click="openEdit(l)">Edit</button>
                     <button type="button" class="btn btn-ghost" :disabled="!canEdit" @click="deleteListing(l.id)">
                       Delete
                     </button>
                   </td>
                 </tr>
+                <tr v-if="!pagedListings.length">
+                  <td colspan="7" class="muted small">No listings found.</td>
+                </tr>
               </tbody>
             </DataTableShell>
           </template>
           <template #mobile>
             <div class="cards">
-              <article v-for="l in listings" :key="l.id" class="listing-card">
+              <article v-for="l in pagedListings" :key="l.id" class="listing-card">
                 <div v-if="listingFirstImageUrl(l)" class="card-thumb">
                   <img :src="listingFirstImageUrl(l)" :alt="l.title" />
                 </div>
-                <strong>{{ l.title }}</strong>
+                <strong><TextWithTooltip :text="l.title || '—'" :max-length="26" /></strong>
                 <span class="meta"
                   >{{ l.listingType }} · {{ l.categoryName || '—' }} · R{{ l.unitPrice }} ·
                   {{ l.active ? 'Active' : 'Draft' }}</span
@@ -561,6 +608,14 @@ async function deleteListing(id) {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 0.5rem;
+}
+.toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
 }
 .grid {
   display: grid;

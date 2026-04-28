@@ -23,26 +23,15 @@ public enum OrderStatus {
     PENDING_PAYMENT,
 
     /**
-     * Provider has verified guest's meetup code.
-     * Payment proof may exist but not yet confirmed.
-     * Inventory still RESERVED.
-     * Provider can confirm payment or reject order.
-     */
-    VERIFIED,
-
-    /**
      * Payment confirmed by provider.
      * Inventory is DEDUCTED (committed).
-     * Provider can fulfill or cancel (with refund).
      */
     PAID,
 
     /**
-     * Order completed (delivered/picked up).
-     * Final state - no further transitions.
-     * Inventory permanently deducted.
+     * Order collected/delivered.
      */
-    FULFILLED,
+    COLLECTED,
 
     /**
      * Order cancelled by provider or guest.
@@ -61,18 +50,14 @@ public enum OrderStatus {
      */
     private static final Set<Transition> VALID_TRANSITIONS = Set.of(
             // PENDING_PAYMENT transitions
-            new Transition(PENDING_PAYMENT, VERIFIED),
+            new Transition(PENDING_PAYMENT, PAID),
             new Transition(PENDING_PAYMENT, CANCELLED),
 
-            // VERIFIED transitions
-            new Transition(VERIFIED, PAID),
-            new Transition(VERIFIED, CANCELLED),
-
             // PAID transitions
-            new Transition(PAID, FULFILLED),
+            new Transition(PAID, COLLECTED),
             new Transition(PAID, CANCELLED)
 
-    // FULFILLED and CANCELLED have no outgoing transitions (terminal states)
+    // COLLECTED and CANCELLED have no outgoing transitions (terminal states)
     );
 
     /**
@@ -85,7 +70,7 @@ public enum OrderStatus {
     public static boolean isValidTransition(OrderStatus current, OrderStatus target) {
         if (current == target) {
             // Allow self-transitions only for terminal states
-            return current == FULFILLED || current == CANCELLED;
+            return current == COLLECTED || current == CANCELLED;
         }
 
         return VALID_TRANSITIONS.contains(new Transition(current, target));
@@ -117,7 +102,7 @@ public enum OrderStatus {
         Set<OrderStatus> nextStatuses = new HashSet<>();
 
         // Add self-transition for terminal states
-        if (current == FULFILLED || current == CANCELLED) {
+        if (current == COLLECTED || current == CANCELLED) {
             nextStatuses.add(current);
         }
 
@@ -137,27 +122,27 @@ public enum OrderStatus {
      * @return true if terminal state
      */
     public boolean isTerminal() {
-        return this == FULFILLED || this == CANCELLED;
+        return this == COLLECTED || this == CANCELLED;
     }
 
     /**
      * Checks if this status allows inventory deduction.
-     * Only PAID and FULFILLED have deducted inventory.
+     * Only PAID and COLLECTED have deducted inventory.
      *
      * @return true if inventory should be deducted
      */
     public boolean hasDeductedInventory() {
-        return this == PAID || this == FULFILLED;
+        return this == PAID || this == COLLECTED;
     }
 
     /**
      * Checks if this status has reserved inventory.
-     * PENDING_PAYMENT and VERIFIED have reserved inventory.
+     * Only PENDING_PAYMENT has reserved inventory.
      *
      * @return true if inventory is reserved
      */
     public boolean hasReservedInventory() {
-        return this == PENDING_PAYMENT || this == VERIFIED;
+        return this == PENDING_PAYMENT;
     }
 
     // ============================================================================

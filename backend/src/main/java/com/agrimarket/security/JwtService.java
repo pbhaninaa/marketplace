@@ -18,6 +18,14 @@ public class JwtService {
     private final AppProperties appProperties;
 
     public String createToken(long userId, String email, UserRole role, Long providerId) {
+        return createToken(userId, email, role, providerId, false);
+    }
+
+    public String createImpersonationToken(long userId, String email, UserRole role, Long providerId) {
+        return createToken(userId, email, role, providerId, true);
+    }
+
+    private String createToken(long userId, String email, UserRole role, Long providerId, boolean impersonated) {
         long now = System.currentTimeMillis();
         long exp = now + appProperties.jwt().expirationMs();
         var builder = Jwts.builder()
@@ -28,6 +36,9 @@ public class JwtService {
                 .expiration(new Date(exp));
         if (providerId != null) {
             builder.claim("pid", providerId);
+        }
+        if (impersonated) {
+            builder.claim("imp", true);
         }
         return builder.signWith(signingKey()).compact();
     }

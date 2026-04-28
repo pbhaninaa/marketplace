@@ -13,4 +13,8 @@ public record GuestCheckoutRequest(
         @NotBlank String guestPhone,
         @NotBlank String deliveryOrPickup,
         @NotNull PaymentMethod paymentMethod,
-        @DecimalMin(value = "0.0", inclusive = false) BigDecimal deliveryDistanceKm) {}
+        @DecimalMin(value = "0.0", inclusive = false) BigDecimal deliveryDistanceKm,
+        String deliveryAddress,
+        String latitude,
+        String longitude
+) {}

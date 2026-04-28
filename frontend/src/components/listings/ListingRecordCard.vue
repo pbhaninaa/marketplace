@@ -125,7 +125,7 @@ const isGreyed = computed(() => props.greyed || isOutOfStock.value);
 <template>
   <article class="listing-card" :class="{ 'listing-card--greyed': isGreyed }">
     <div class="listing-card__media" :class="{ 'listing-card__media--empty': !firstImageUrl }" @click="openLightbox" role="button" tabindex="0">
-      <img v-if="firstImageUrl" :src="firstImageUrl" :alt="listing.title" loading="lazy" />
+      <img v-if="firstImageUrl" :src="firstImageUrl" :alt="listing.title || 'Listing image'" loading="lazy" />
       <div v-else class="listing-card__media-fallback" aria-hidden="true">No image</div>
     </div>
     <div class="listing-card__top">
@@ -133,11 +133,11 @@ const isGreyed = computed(() => props.greyed || isOutOfStock.value);
       <span class="provider-chip">{{ listing.providerName }}</span>
     </div>
     <h3 class="listing-card__title">
-      <TextWithTooltip :text="listing.title" />
+      <TextWithTooltip :text="listing.title || '—'" />
     </h3>
-    <p class="muted small">📍{{ listing.providerLocation }}</p>
+    <p class="muted small">📍{{ listing.providerLocation || '—' }}</p>
     <p class="listing-card__desc">
-      <TextWithTooltip :text="listing.description" :max-length="100" />
+      <TextWithTooltip :text="listing.description || ''" :max-length="100" />
     </p>
     <ListingPriceSummary :listing="listing" />
 
@@ -195,7 +195,7 @@ const isGreyed = computed(() => props.greyed || isOutOfStock.value);
         </button>
         
         <div class="lightbox-main">
-          <img v-if="currentLightboxImage" :src="currentLightboxImage" :alt="listing.title" class="lightbox-image" />
+          <img v-if="currentLightboxImage" :src="currentLightboxImage" :alt="listing.title || 'Listing image'" class="lightbox-image" />
         </div>
 
         <!-- Navigation Buttons -->

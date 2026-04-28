@@ -140,7 +140,7 @@ public class ProviderStaffService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "NO_RATE",
-                    "Staff member must have an hourly compensation rate greater than zero.");
+                    "Staff member must have a compensation rate greater than zero.");
         }
         if (staff.getStaffRateUnit() == null) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "NO_RATE_UNIT", "Staff member must have a rate unit (hourly/daily/weekly).");

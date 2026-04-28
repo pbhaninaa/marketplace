@@ -19,6 +19,11 @@ public final class ListingSpecifications {
 
     public static Specification<Listing> publicFeed(ListingFilterParams f) {
         return (root, query, cb) -> {
+            // Ensure provider/category are initialized for DTO mapping (avoid LazyInitializationException)
+            if (query.getResultType() == Listing.class) {
+                root.fetch("provider", JoinType.INNER);
+                root.fetch("category", JoinType.INNER);
+            }
             List<Predicate> p = new ArrayList<>();
             p.add(cb.isTrue(root.get("active")));
             Join<Object, Object> provider = root.join("provider", JoinType.INNER);

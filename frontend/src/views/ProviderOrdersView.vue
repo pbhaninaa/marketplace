@@ -105,7 +105,7 @@ async function openDetails(order) {
   // Try to hydrate full order details (items, proof, etc).
   detailsLoading.value = true;
   try {
-    orderItems.value = await providerOrdersApi.getOrderItems(order.id);
+    orderItems.value = tab.value === 'rentals' ? [] : await providerOrdersApi.getOrderItems(order.id);
     const { data } =
       tab.value === 'rentals'
         ? await providerOrdersApi.getRental(order.id)
@@ -143,7 +143,11 @@ async function confirmOrder() {
   actionError.value = '';
 
   try {
-    await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'PAID');
+    if (tab.value === 'rentals') {
+      await providerOrdersApi.updateRentalStatus(selectedOrder.value.id, 'PAID');
+    } else {
+      await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'PAID');
+    }
     await load();
     closeDialog();
   } catch (e) {
@@ -158,7 +162,11 @@ async function fulfillOrder() {
   actionLoading.value = true;
   actionError.value = '';
   try {
-    await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'COLLECTED');
+    if (tab.value === 'rentals') {
+      await providerOrdersApi.updateRentalStatus(selectedOrder.value.id, 'COLLECTED');
+    } else {
+      await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'COLLECTED');
+    }
 
     await load();
     closeDialog();
@@ -174,9 +182,12 @@ async function rejectOrder() {
   actionLoading.value = true;
   actionError.value = '';
   try {
-    await providerOrdersApi.updateStock(orderItems.value.data);
-
-    await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'CANCELLED');
+    if (tab.value === 'rentals') {
+      await providerOrdersApi.updateRentalStatus(selectedOrder.value.id, 'CANCELLED');
+    } else {
+      await providerOrdersApi.updateStock(orderItems.value.data);
+      await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'CANCELLED');
+    }
 
     await load();
     closeDialog();
@@ -199,7 +210,11 @@ async function confirmDeleteOrder() {
   actionLoading.value = true;
   actionError.value = '';
   try {
-    await providerOrdersApi.deletePurchase(selectedOrder.value.id);
+    if (tab.value === 'rentals') {
+      await providerOrdersApi.deleteRental(selectedOrder.value.id);
+    } else {
+      await providerOrdersApi.deletePurchase(selectedOrder.value.id);
+    }
     await load();
     showDeleteConfirm.value = false;
     closeDialog();
@@ -462,7 +477,7 @@ function cancelDeleteOrder() {
             <template v-if="selectedOrder?.status === 'PENDING_PAYMENT'">
 
               <button class="btn btn--danger" @click="rejectOrder" :disabled="actionLoading">
-                {{ actionLoading ? 'Working…' : 'Reject Order' }}
+                {{ actionLoading ? 'Working…' : (tab === 'rentals' ? 'Cancel Booking' : 'Reject Order') }}
               </button>
 
               <button class="btn btn--primary" @click="confirmOrder" :disabled="actionLoading">
@@ -479,7 +494,7 @@ function cancelDeleteOrder() {
             <template v-else-if="selectedOrder?.status === 'PAID'">
 
               <button class="btn btn--primary" @click="fulfillOrder" :disabled="actionLoading">
-                {{ actionLoading ? 'Working…' : 'Fulfil Order' }}
+                {{ actionLoading ? 'Working…' : (tab === 'rentals' ? 'Mark Collected' : 'Fulfil Order') }}
               </button>
 
               <button class="btn btn--ghost" @click="closeDialog">
@@ -492,7 +507,7 @@ function cancelDeleteOrder() {
             <template v-else-if="selectedOrder?.status === 'CANCELLED'">
 
               <button class="btn btn--danger" @click="deleteOrderById" :disabled="actionLoading">
-                {{ actionLoading ? 'Working…' : 'Delete Order' }}
+                {{ actionLoading ? 'Working…' : (tab === 'rentals' ? 'Delete Booking' : 'Delete Order') }}
               </button>
 
               <button class="btn btn--ghost" @click="closeDialog">

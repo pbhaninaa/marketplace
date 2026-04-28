@@ -19,6 +19,10 @@ public interface RentalBookingRepository extends JpaRepository<RentalBooking, Lo
 
     Optional<RentalBooking> findByVerificationCode(String verificationCode);
 
+    java.util.List<RentalBooking> findAllBySessionKey(String sessionKey);
+
+    java.util.List<RentalBooking> findAllByListing_Id(Long listingId);
+
     @Query(
             """
             SELECT COUNT(b) FROM RentalBooking b

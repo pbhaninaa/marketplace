@@ -90,19 +90,17 @@ async function create() {
         <DataTableShell caption="Support users">
           <thead>
             <tr>
-              <th>ID</th>
               <th>Email</th>
               <th>Enabled</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="u in users" :key="u.id">
-              <td>{{ u.id }}</td>
               <td>{{ u.email }}</td>
               <td>{{ u.enabled ? 'Yes' : 'No' }}</td>
             </tr>
             <tr v-if="!(users || []).length">
-              <td colspan="3" class="muted small">No support users yet.</td>
+              <td colspan="2" class="muted small">No support users yet.</td>
             </tr>
           </tbody>
         </DataTableShell>

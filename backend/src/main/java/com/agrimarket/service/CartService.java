@@ -67,7 +67,7 @@ public class CartService {
             }
             var conflictingBookings = rentalBookingRepository.findOverlapping(
                     listing.getId(),
-                    Set.of(BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED),
+                    Set.of(BookingStatus.PENDING_PAYMENT, BookingStatus.PAID),
                     req.rentalStart(),
                     req.rentalEnd());
             if (!conflictingBookings.isEmpty()) {
@@ -300,8 +300,8 @@ public class CartService {
                     lineTotal.setScale(2, RoundingMode.HALF_UP),
                     line.getRentalStart() != null ? line.getRentalStart().toString() : null,
                     line.getRentalEnd() != null ? line.getRentalEnd().toString() : null,
-                    l.getListingType() == ListingType.SALE && l.getStockQuantity() != null
-                            ? ListingStock.availableForSale(l)
+                    (l.getListingType() == ListingType.SALE)
+                            ? (l.getStockQuantity() != null ? ListingStock.availableForSale(l) : null)
                             : l.getStockQuantity()));
         }
         Long pid = cart.getProvider() != null ? cart.getProvider().getId() : null;

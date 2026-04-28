@@ -7,6 +7,7 @@ const ROLE_KEY = 'agri_role';
 const EMAIL_KEY = 'agri_email';
 const DISPLAY_NAME_KEY = 'agri_display_name';
 const PROVIDER_KEY = 'agri_provider_id';
+const SHADOW_BACKUP_KEY = 'agri_shadow_backup';
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem(TOKEN_KEY) || '');
@@ -20,6 +21,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!token.value);
   const isPlatformAdmin = computed(() => role.value === 'PLATFORM_ADMIN');
   const isSupport = computed(() => role.value === 'SUPPORT');
+  const isShadowing = computed(() => !!localStorage.getItem(SHADOW_BACKUP_KEY));
   const isProviderUser = computed(() =>
     ['PROVIDER_OWNER', 'PROVIDER_ADMIN', 'PROVIDER_STAFF', 'PROVIDER_VIEWER'].includes(role.value),
   );
@@ -57,6 +59,34 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  function beginShadow(login) {
+    // Backup the current session once, so the support/admin user can return.
+    if (!localStorage.getItem(SHADOW_BACKUP_KEY)) {
+      localStorage.setItem(
+        SHADOW_BACKUP_KEY,
+        JSON.stringify({
+          token: token.value,
+          role: role.value,
+          email: email.value,
+          displayName: displayName.value,
+          providerId: providerId.value ? Number(providerId.value) : null,
+        }),
+      );
+    }
+    setSession(login);
+  }
+
+  function endShadow() {
+    const raw = localStorage.getItem(SHADOW_BACKUP_KEY);
+    if (!raw) return;
+    try {
+      const prev = JSON.parse(raw);
+      setSession(prev);
+    } finally {
+      localStorage.removeItem(SHADOW_BACKUP_KEY);
+    }
+  }
+
   function logout() {
     applyToken('');
     role.value = '';
@@ -67,6 +97,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(EMAIL_KEY);
     localStorage.removeItem(DISPLAY_NAME_KEY);
     localStorage.removeItem(PROVIDER_KEY);
+    localStorage.removeItem(SHADOW_BACKUP_KEY);
   }
 
   function restoreFromStorage() {
@@ -85,10 +116,13 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isPlatformAdmin,
     isSupport,
+    isShadowing,
     isProviderUser,
     canManageStaff,
     isClientUser,
     setSession,
+    beginShadow,
+    endShadow,
     logout,
     restoreFromStorage,
   };

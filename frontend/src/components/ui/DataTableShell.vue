@@ -1,6 +1,51 @@
 <script setup>
-defineProps({
+import { nextTick, onMounted, onUpdated } from 'vue';
+
+const props = defineProps({
   caption: { type: String, default: '' },
+  /** Max characters allowed to show in a cell before truncation + hover tooltip. */
+  maxChars: { type: Number, default: 22 },
+});
+
+function isSkippableCell(td) {
+  // Don't attach tooltips to action/tooling cells.
+  if (!td) return true;
+  if (td.classList?.contains('cell-actions')) return true;
+  if (td.querySelector?.('.cell-actions')) return true;
+  // Skip cells that contain interactive elements/icons; their textContent isn't meaningful.
+  if (td.querySelector?.('button,a,input,select,textarea,svg,form')) return true;
+  // Skip complex layout cells (e.g. stacks) — we only auto-truncate simple text cells.
+  if (td.children && td.children.length > 0) return true;
+  return false;
+}
+
+function applyAutoTooltips(root) {
+  if (!root || !props.maxChars) return;
+  const max = Number(props.maxChars);
+  if (!Number.isFinite(max) || max <= 0) return;
+  const cells = root.querySelectorAll('td');
+  for (const td of cells) {
+    if (isSkippableCell(td)) continue;
+    if (td.hasAttribute('data-no-tooltip')) continue;
+    const raw = (td.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!raw) continue;
+    if (raw.length <= max) continue;
+    td.setAttribute('title', raw);
+    td.classList.add('cell-auto-tooltipped', 'cell-auto-truncate');
+    td.textContent = raw.substring(0, max) + '…';
+  }
+}
+
+onMounted(async () => {
+  await nextTick();
+  applyAutoTooltips(document?.activeElement?.closest?.('.data-table-wrap') || document.querySelector('.data-table-wrap'));
+});
+
+onUpdated(async () => {
+  await nextTick();
+  // Scope to this component instance by walking from the current script's DOM via querySelector.
+  // Vue doesn't give us a ref here, so we target the nearest table wrapper.
+  applyAutoTooltips(document?.activeElement?.closest?.('.data-table-wrap') || document.querySelector('.data-table-wrap'));
 });
 </script>
 
@@ -27,6 +72,7 @@ defineProps({
   width: 100%;
   border-collapse: collapse;
   font-size: 0.9rem;
+  table-layout: auto;
 }
 
 .data-table :deep(th) {
@@ -47,6 +93,23 @@ defineProps({
   padding: 0.75rem 1rem;
   border-bottom: 1px solid rgba(217, 211, 199, 0.65);
   vertical-align: top;
+  white-space: normal;
+}
+
+/* Default cell text truncation (use with TextWithTooltip). */
+.data-table :deep(.cell-text) {
+  display: inline-block;
+  max-width: 32ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.data-table :deep(.cell-auto-truncate) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .data-table :deep(tr:last-child td) {
@@ -66,10 +129,21 @@ defineProps({
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  white-space: normal;
 }
 
 .data-table :deep(.cell-actions) {
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  overflow: visible;
+}
+
+/* Every button has breathing room */
+.data-table :deep(.btn) {
+  margin: 0.1rem 0;
 }
 
 .sr-only {

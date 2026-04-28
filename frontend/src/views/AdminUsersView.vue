@@ -103,7 +103,6 @@ async function removeAll() {
           <DataTableShell caption="All users">
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Email</th>
                 <th>Role</th>
                 <th>Provider</th>
@@ -113,7 +112,6 @@ async function removeAll() {
             </thead>
             <tbody>
               <tr v-for="u in rows.content" :key="u.id">
-                <td>{{ u.id }}</td>
                 <td>
                   <div class="cell-stack">
                     <strong>{{ u.email }}</strong>
@@ -123,14 +121,14 @@ async function removeAll() {
                 <td>{{ u.role }}</td>
                 <td class="small muted">{{ u.providerName ? `${u.providerName} (#${u.providerId})` : '—' }}</td>
                 <td>{{ u.enabled ? 'Yes' : 'No' }}</td>
-                <td class="col-actions">
+                <td class="cell-actions">
                   <button type="button" class="btn btn-ghost btn-danger" :disabled="!u.enabled" @click="remove(u)">
                     Delete
                   </button>
                 </td>
               </tr>
               <tr v-if="!(rows.content || []).length">
-                <td colspan="6" class="muted small">No users.</td>
+                <td colspan="5" class="muted small">No users.</td>
               </tr>
             </tbody>
           </DataTableShell>

@@ -3,18 +3,11 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { supportApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
-import FormField from '../components/ui/FormField.vue';
-import DataTableShell from '../components/ui/DataTableShell.vue';
-import { isNonEmptyString } from '../utils/validation';
 
 const router = useRouter();
 const auth = useAuthStore();
 
 const overview = ref(null);
-const users = ref([]);
-const tickets = ref([]);
-const q = ref('');
-const otpTarget = ref('');
 
 const error = ref('');
 const message = ref('');
@@ -31,40 +24,10 @@ onMounted(async () => {
 async function refreshAll() {
   error.value = '';
   try {
-    const [o, t, u] = await Promise.all([
+    const [o] = await Promise.all([
       supportApi.getOverview(),
-      supportApi.getTickets(),
-      supportApi.getUsers(),
     ]);
     overview.value = o.data;
-    tickets.value = t.data;
-    users.value = u.data;
-  } catch (e) {
-    error.value = e.response?.data?.message || e.message;
-  }
-}
-
-async function searchUsers() {
-  message.value = '';
-  error.value = '';
-  try {
-    const { data } = await supportApi.searchUsers({ q: q.value });
-    users.value = data;
-  } catch (e) {
-    error.value = e.response?.data?.message || e.message;
-  }
-}
-
-async function resendOtp() {
-  message.value = '';
-  error.value = '';
-  if (!isNonEmptyString(otpTarget.value)) {
-    error.value = 'Please enter a client email or phone.';
-    return;
-  }
-  try {
-    await supportApi.resendClientOtp({ target: otpTarget.value.trim() });
-    message.value = 'OTP re-issued (check logs in local dev).';
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
   }
@@ -76,7 +39,7 @@ async function resendOtp() {
     <header class="page-hero">
       <p class="page-hero__eyebrow">Support</p>
       <h1 class="page-hero__title">Dashboard</h1>
-      <p class="page-hero__lead">Read-only tools, plus client OTP resend.</p>
+      <p class="page-hero__lead">Progress overview and quick links to support tools.</p>
     </header>
 
     <p v-if="error" class="err-toast">{{ error }}</p>
@@ -94,62 +57,47 @@ async function resendOtp() {
     </section>
 
     <section class="surface-panel admin-panel">
-      <h2>Resend client OTP</h2>
-      <FormField label="Client email / phone">
-        <input v-model="otpTarget" type="text" />
-      </FormField>
-      <button type="button" class="btn btn-primary" @click="resendOtp">Resend OTP</button>
+      <h2>Progress</h2>
+      <div class="progress-grid">
+        <div class="progress-card">
+          <div class="progress-card__top">
+            <strong>Ticket load</strong>
+            <span class="muted small">{{ (overview?.openTickets ?? 0) }} open</span>
+          </div>
+          <div class="bar">
+            <div class="bar__fill bar__fill--warn" :style="{ width: `${Math.min(100, (Number(overview?.openTickets ?? 0) / 50) * 100)}%` }" />
+          </div>
+          <p class="muted small">Scale is relative (0–50 open tickets).</p>
+        </div>
+        <div class="progress-card">
+          <div class="progress-card__top">
+            <strong>Shadow sessions</strong>
+            <span class="muted small">{{ auth.isShadowing ? 'Active' : 'Idle' }}</span>
+          </div>
+          <div class="bar">
+            <div class="bar__fill" :style="{ width: `${auth.isShadowing ? 100 : 25}%` }" />
+          </div>
+          <p class="muted small">Shadow a provider to support from their perspective.</p>
+        </div>
+      </div>
     </section>
 
     <section class="surface-panel admin-panel">
-      <h2>User search</h2>
-      <FormField label="Search by email">
-        <input v-model="q" type="text" placeholder="e.g. @gmail.com" />
-      </FormField>
-      <button type="button" class="btn btn-primary" @click="searchUsers">Search</button>
-
-      <DataTableShell caption="Users">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Enabled</th>
-            <th>Provider</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="u in users" :key="u.id">
-            <td>{{ u.id }}</td>
-            <td>{{ u.email }}</td>
-            <td>{{ u.role }}</td>
-            <td>{{ u.enabled ? 'Yes' : 'No' }}</td>
-            <td>{{ u.providerId ?? '—' }}</td>
-          </tr>
-        </tbody>
-      </DataTableShell>
-    </section>
-
-    <section class="surface-panel admin-panel">
-      <h2>Tickets</h2>
-      <DataTableShell caption="Tickets">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Status</th>
-            <th>Subject</th>
-            <th>Created</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="t in tickets" :key="t.id">
-            <td>{{ t.id }}</td>
-            <td>{{ t.status }}</td>
-            <td>{{ t.subject }}</td>
-            <td class="small muted">{{ t.createdAt?.slice(0, 19) }}</td>
-          </tr>
-        </tbody>
-      </DataTableShell>
+      <h2>Support tools</h2>
+      <div class="tools-grid">
+        <router-link to="/support/users" class="tool-card">
+          <strong>Users</strong>
+          <span class="muted small">Search users & shadow providers</span>
+        </router-link>
+        <router-link to="/support/tickets" class="tool-card">
+          <strong>Tickets</strong>
+          <span class="muted small">Review support tickets</span>
+        </router-link>
+        <router-link to="/support/otp" class="tool-card">
+          <strong>Client OTP</strong>
+          <span class="muted small">Resend OTP to client</span>
+        </router-link>
+      </div>
     </section>
   </div>
 </template>
@@ -184,9 +132,81 @@ async function resendOtp() {
   gap: 0.25rem;
 }
 
+.progress-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.progress-card {
+  border: 1px solid rgba(21, 74, 122, 0.12);
+  background: rgba(21, 74, 122, 0.04);
+  border-radius: var(--radius-lg);
+  padding: 0.9rem 0.95rem;
+}
+
+.progress-card__top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(21, 74, 122, 0.1);
+  overflow: hidden;
+  border: 1px solid rgba(21, 74, 122, 0.12);
+}
+
+.bar__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-sale) 0%, var(--color-info-text) 100%);
+  transition: width 0.25s var(--ease-out);
+}
+
+.bar__fill--warn {
+  background: linear-gradient(90deg, var(--color-wheat) 0%, var(--color-earth) 100%);
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.tool-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  background: var(--color-surface-elevated);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: var(--color-canopy);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tool-card:hover {
+  border-color: rgba(61, 122, 102, 0.28);
+  box-shadow: var(--shadow-md);
+}
+
 @media (max-width: 900px) {
   .kv-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .progress-grid {
+    grid-template-columns: 1fr;
+  }
+  .tools-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

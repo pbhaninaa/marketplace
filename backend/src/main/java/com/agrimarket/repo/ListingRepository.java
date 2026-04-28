@@ -14,7 +14,7 @@ import org.springframework.data.repository.query.Param;
 public interface ListingRepository extends JpaRepository<Listing, Long>, JpaSpecificationExecutor<Listing> {
     List<Listing> findAllByProvider_Id(Long providerId);
     void deleteByIdAndProvider_Id(Long id, Long providerId);
-
+    Optional<Listing> findById(Long id);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT l FROM Listing l WHERE l.id = :id")
     Optional<Listing> findByIdWithLock(@Param("id") Long id);

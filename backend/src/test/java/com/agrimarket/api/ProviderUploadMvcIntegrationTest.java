@@ -12,6 +12,7 @@ import com.agrimarket.domain.UserRole;
 import com.agrimarket.repo.ProviderRepository;
 import com.agrimarket.repo.UserAccountRepository;
 import com.agrimarket.security.JwtService;
+import com.agrimarket.support.TestFixtures;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,9 @@ class ProviderUploadMvcIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private ProviderRepository providerRepository;
 
+    @Autowired
+    private TestFixtures fixtures;
+
     @AfterEach
     void cleanup() throws Exception {
         // no-op (DB-backed images)
@@ -48,6 +52,7 @@ class ProviderUploadMvcIntegrationTest extends AbstractIntegrationTest {
         Provider p = new Provider("Upload Provider", "upload-provider", "Test", "Cape Town");
         p.setStatus(ProviderStatus.ACTIVE);
         p = providerRepository.save(p);
+        fixtures.saveActiveSubscription(p);
 
         String email = "provider-upload-" + UUID.randomUUID() + "@integration.test";
         UserAccount u = new UserAccount(email, passwordEncoder.encode("irrelevant"), UserRole.PROVIDER_OWNER, p);

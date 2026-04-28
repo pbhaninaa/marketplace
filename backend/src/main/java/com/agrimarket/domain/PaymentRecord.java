@@ -5,6 +5,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.ConstraintMode;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -33,8 +35,8 @@ public class PaymentRecord {
     private Provider provider;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "purchase_order_id")
-    private Order Order;
+    @JoinColumn(name = "purchase_order_id", foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    private Order order;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "rental_booking_id")
@@ -46,7 +48,7 @@ public class PaymentRecord {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private PaymentStatus status = PaymentStatus.PENDING;
+    private PaymentRecordStatus status = PaymentRecordStatus.PENDING_PAYMENT;
 
     @Column(nullable = false, precision = 14, scale = 2)
     private BigDecimal amount;

@@ -1,5 +1,6 @@
 package com.agrimarket.api.dto;
 
+import com.agrimarket.domain.Listing;
 import com.agrimarket.domain.ListingType;
 import java.math.BigDecimal;
 
@@ -19,4 +20,6 @@ public record ListingResponse(
         BigDecimal rentPriceHourly,
         BigDecimal rentPriceDaily,
         BigDecimal rentPriceWeekly,
-        boolean active) {}
+        boolean active) {
+
+}
