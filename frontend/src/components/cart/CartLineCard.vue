@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import TextWithTooltip from '../ui/TextWithTooltip.vue';
 import { formatRentalInclusiveRange } from '../../utils/rentalPricing';
 
 const props = defineProps({
@@ -44,7 +45,7 @@ const rentalLabel = computed(() =>
 <template>
   <article class="cart-line-card">
     <div class="cart-line-card__head">
-      <strong class="cart-line-card__title">{{ line.title }}</strong>
+      <TextWithTooltip :text="line.title" tag="strong" class="cart-line-card__title" />
       <span class="badge-type">{{ line.listingType }}</span>
     </div>
 

@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
 import FormField from '../components/ui/FormField.vue';
+import TextWithTooltip from '../components/ui/TextWithTooltip.vue';
 const router = useRouter();
 const auth = useAuthStore();
 
@@ -318,11 +319,15 @@ function cancelDeleteOrder() {
                 <h3 class="section-title">Guest</h3>
                 <div class="info-row">
                   <span class="label">Name:</span>
-                  <span class="value">{{ o.guestName || '—' }}</span>
+                  <span class="value">
+                    <TextWithTooltip :text="o.guestName || '—'" />
+                  </span>
                 </div>
                 <div class="info-row">
                   <span class="label">Email:</span>
-                  <span class="value">{{ o.guestEmail || '—' }}</span>
+                  <span class="value">
+                    <TextWithTooltip :text="o.guestEmail || '—'" />
+                  </span>
                 </div>
                 <div class="info-row">
                   <span class="label">Phone:</span>
@@ -343,7 +348,9 @@ function cancelDeleteOrder() {
                 </div>
                 <div v-if="o.includesDelivery == 'DELIVERY'" class="info-row">
                   <span class="label">Address:</span>
-                  <span class="value">{{ o.deliveryAddress || 'Call : ' + o.guestPhone }}</span>
+                  <span class="value">
+                    <TextWithTooltip :text="o.deliveryAddress || 'Call : ' + o.guestPhone" />
+                  </span>
                 </div>
                 <div class="info-row">
                   <span class="label">Total:</span>

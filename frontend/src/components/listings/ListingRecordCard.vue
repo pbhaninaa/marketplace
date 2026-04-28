@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import ListingTypeBadge from './ListingTypeBadge.vue';
 import ListingPriceSummary from './ListingPriceSummary.vue';
+import TextWithTooltip from '../ui/TextWithTooltip.vue';
 import { isLargeLivestockCategoryName } from '../../constants/listingCategories';
 import { countInclusiveRentalDays, estimateRentalAmount } from '../../utils/rentalPricing';
 
@@ -131,9 +132,13 @@ const isGreyed = computed(() => props.greyed || isOutOfStock.value);
       <ListingTypeBadge :listing-type="listing.listingType" />
       <span class="provider-chip">{{ listing.providerName }}</span>
     </div>
-    <h3 class="listing-card__title">{{ listing.title }}</h3>
+    <h3 class="listing-card__title">
+      <TextWithTooltip :text="listing.title" />
+    </h3>
     <p class="muted small">📍{{ listing.providerLocation }}</p>
-    <p class="listing-card__desc">{{ listing.description }}</p>
+    <p class="listing-card__desc">
+      <TextWithTooltip :text="listing.description" :max-length="100" />
+    </p>
     <ListingPriceSummary :listing="listing" />
 
     <p v-if="isOutOfStock" class="stock-pill">Out of stock</p>

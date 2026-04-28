@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { adminUsersApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DataTableShell from '../components/ui/DataTableShell.vue';
+import TextWithTooltip from '../components/ui/TextWithTooltip.vue';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
 
 const router = useRouter();
@@ -137,10 +138,14 @@ async function removeAll() {
         <template #mobile>
           <div class="cards">
             <article v-for="u in rows.content" :key="u.id" class="record-card">
-              <strong class="title">{{ u.email }}</strong>
-              <span class="meta">{{ u.displayName || '—' }}</span>
+              <strong class="title">
+                <TextWithTooltip :text="u.email" />
+              </strong>
+              <span class="meta">
+                <TextWithTooltip :text="u.displayName || '—'" />
+              </span>
               <span class="meta">Role: {{ u.role }}</span>
-              <span class="meta">Provider: {{ u.providerName ? `${u.providerName} (#${u.providerId})` : '—' }}</span>
+              <span class="meta">Provider: <TextWithTooltip :text="u.providerName ? `${u.providerName} (#${u.providerId})` : '—'" /></span>
               <span class="meta">{{ u.enabled ? 'Enabled' : 'Disabled' }}</span>
               <button type="button" class="btn btn-ghost btn-danger" :disabled="!u.enabled" @click="remove(u)">
                 Delete

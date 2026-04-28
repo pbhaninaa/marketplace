@@ -5,6 +5,7 @@ import { adminListingsApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DataTableShell from '../components/ui/DataTableShell.vue';
 import FormField from '../components/ui/FormField.vue';
+import TextWithTooltip from '../components/ui/TextWithTooltip.vue';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
 
 const router = useRouter();
@@ -165,10 +166,12 @@ async function removeAll() {
         <template #mobile>
           <div class="cards">
             <article v-for="l in rows.content" :key="l.id" class="record-card">
-              <strong>{{ l.title }}</strong>
+              <strong>
+                <TextWithTooltip :text="l.title" />
+              </strong>
               <span class="meta">#{{ l.id }} · {{ l.listingType }} · {{ l.active ? 'Active' : 'Draft' }}</span>
-              <span class="meta">Provider: {{ l.providerName }} (#{{ l.providerId }})</span>
-              <span class="meta">Category: {{ l.categoryName }}</span>
+              <span class="meta">Provider: <TextWithTooltip :text="`${l.providerName} (#${l.providerId})`" /></span>
+              <span class="meta">Category: <TextWithTooltip :text="l.categoryName" /></span>
               <span class="meta tiny clamp">Images: {{ l.imageUrls || '—' }}</span>
               <div class="card-actions">
                 <button v-if="l.active" type="button" class="btn btn-ghost" @click="setActive(l, false)">Unpublish</button>
