@@ -26,11 +26,12 @@ watch(
   },
 );
 
-/** For sale only: show qty except Large livestock (one animal per listing). */
-const showSaleQuantity = computed(
-  () =>
-    props.listing.listingType === 'SALE' && !isLargeLivestockCategoryName(props.listing.categoryName),
+const isLargeLivestockSale = computed(
+  () => props.listing.listingType === 'SALE' && isLargeLivestockCategoryName(props.listing.categoryName),
 );
+
+/** For sale only: always show qty (Large livestock stays fixed at 1). */
+const showSaleQuantity = computed(() => props.listing.listingType === 'SALE');
 
 const maxSaleQty = computed(() => {
   const s = props.listing.stockQuantity;
@@ -39,7 +40,13 @@ const maxSaleQty = computed(() => {
   return Number.isFinite(n) && n > 0 ? Math.min(Math.floor(n), 9999) : 9999;
 });
 
+const saleQtyDisabled = computed(() => isGreyed.value || isLargeLivestockSale.value);
+
 function clampQty() {
+  if (isLargeLivestockSale.value) {
+    quantity.value = 1;
+    return;
+  }
   let q = Math.floor(Number(quantity.value) || 1);
   if (q < 1) q = 1;
   if (q > maxSaleQty.value) q = maxSaleQty.value;
@@ -48,6 +55,10 @@ function clampQty() {
 
 function onAddToCart() {
   if (props.listing.listingType === 'RENT') {
+    emit('add-to-cart', 1);
+    return;
+  }
+  if (isLargeLivestockSale.value) {
     emit('add-to-cart', 1);
     return;
   }
@@ -120,6 +131,12 @@ const isOutOfStock = computed(() => {
 });
 
 const isGreyed = computed(() => props.greyed || isOutOfStock.value);
+
+const displayDescription = computed(() => {
+  const raw = props.listing?.description;
+  const s = raw == null ? '' : String(raw).trim();
+  return s ? s : 'Not Specified';
+});
 </script>
 
 <template>
@@ -135,9 +152,11 @@ const isGreyed = computed(() => props.greyed || isOutOfStock.value);
     <h3 class="listing-card__title">
       <TextWithTooltip :text="listing.title || '—'" />
     </h3>
-    <p class="muted small">📍{{ listing.providerLocation || '—' }}</p>
+    <p class="muted small">
+      📍<TextWithTooltip :text="listing.providerLocation || '—'" :max-length="50" tag="span" />
+    </p>
     <p class="listing-card__desc">
-      <TextWithTooltip :text="listing.description || ''" :max-length="100" />
+      <TextWithTooltip :text="displayDescription" :max-length="40" />
     </p>
     <ListingPriceSummary :listing="listing" />
 
@@ -150,12 +169,13 @@ const isGreyed = computed(() => props.greyed || isOutOfStock.value);
         v-model.number="quantity"
         type="number"
         min="1"
-        :max="maxSaleQty"
+        :max="isLargeLivestockSale ? 1 : maxSaleQty"
         class="field qty-input"
-        :disabled="isGreyed"
+        :disabled="saleQtyDisabled"
         @change="clampQty"
       />
-      <p v-if="listing.stockQuantity != null" class="muted tiny">Up to {{ maxSaleQty }} in stock</p>
+      <p v-if="isLargeLivestockSale" class="muted tiny">Large livestock items are sold individually.</p>
+      <p v-else-if="listing.stockQuantity != null" class="muted tiny">Up to {{ maxSaleQty }} in stock</p>
     </div>
 
     <div v-if="listing.listingType === 'RENT'" class="rent-inputs">

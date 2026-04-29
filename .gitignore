@@ -8,6 +8,8 @@ frontend/node_modules/.vite/
 frontend/dist/
 **/dist/
 
+.env.prod
+
 .idea/
 **/.idea/
 .vscode/
