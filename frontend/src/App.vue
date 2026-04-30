@@ -79,6 +79,7 @@ onMounted(async () => {
       <!-- Logged out: top navigation only -->
       <nav v-if="!auth.isAuthenticated" class="nav-links" aria-label="Main">
         <router-link to="/">Browse</router-link>
+        <router-link to="/help/client">Help</router-link>
         <router-link to="/order-invoice">Order invoice</router-link>
         <router-link to="/checkout" class="nav-cart-link">
           Cart
@@ -136,6 +137,7 @@ onMounted(async () => {
           <router-link to="/provider" class="side-link" @click="closeMobileMenu">Dashboard</router-link>
           <router-link to="/provider/settings" class="side-link" @click="closeMobileMenu">Settings</router-link>
           <router-link to="/provider/subscription" class="side-link" @click="closeMobileMenu">Subscription</router-link>
+          <router-link to="/provider/help" class="side-link" @click="closeMobileMenu">Help</router-link>
           <router-link to="/provider/orders" class="side-link" @click="closeMobileMenu">Orders</router-link>
           <router-link
             v-if="auth.canManageStaff && auth.isPremiumPlan"
@@ -151,6 +153,14 @@ onMounted(async () => {
           >Staff payments</router-link>
           <!-- Listings UI will live at /provider/listings -->
           <router-link to="/provider/listings" class="side-link" @click="closeMobileMenu">Listings</router-link>
+        </div>
+
+        <div v-if="auth.isClientUser" class="side-nav__group">
+          <p class="side-nav__title">Customer</p>
+          <router-link to="/" class="side-link" @click="closeMobileMenu">Browse</router-link>
+          <router-link to="/help/client" class="side-link" @click="closeMobileMenu">Help</router-link>
+          <router-link to="/order-invoice" class="side-link" @click="closeMobileMenu">Order invoice</router-link>
+          <router-link to="/checkout" class="side-link" @click="closeMobileMenu">Checkout</router-link>
         </div>
 
         <div v-if="auth.isSupport && !auth.isPlatformAdmin" class="side-nav__group">

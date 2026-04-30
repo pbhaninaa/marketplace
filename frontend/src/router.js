@@ -31,12 +31,15 @@ import ProviderOrdersView from './views/ProviderOrdersView.vue';
 import ProviderDashboardView from './views/ProviderDashboardView.vue';
 import ProviderStaffPaymentsView from './views/ProviderStaffPaymentsView.vue';
 import ProviderSubscriptionView from './views/ProviderSubscriptionView.vue';
+import ProviderHelpView from './views/ProviderHelpView.vue';
+import ClientHelpView from './views/ClientHelpView.vue';
 import { providerSubscriptionApi } from './services/marketplaceApi';
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', name: 'market', component: MarketplaceView },
+    { path: '/help/client', name: 'help-client', component: ClientHelpView, meta: { title: 'Help' } },
     { path: '/order-invoice', name: 'order-invoice', component: OrderInvoiceLookupView, meta: { title: 'Order invoice' } },
     { path: '/checkout', name: 'checkout', component: CheckoutView },
     { path: '/setup', name: 'setup', component: SetupView, meta: { title: 'Setup' } },
@@ -74,6 +77,7 @@ const router = createRouter({
     { path: '/provider/listings', name: 'provider-listings', component: ProviderListingsView, meta: { requiresAuth: true } },
     { path: '/provider/orders', name: 'provider-orders', component: ProviderOrdersView, meta: { requiresAuth: true } },
     { path: '/provider/subscription', name: 'provider-subscription', component: ProviderSubscriptionView, meta: { requiresAuth: true } },
+    { path: '/provider/help', name: 'provider-help', component: ProviderHelpView, meta: { requiresAuth: true } },
   ],
 });
 
@@ -99,7 +103,8 @@ router.beforeEach(async (to) => {
     auth.isProviderUser &&
     typeof to.path === 'string' &&
     to.path.startsWith('/provider') &&
-    to.name !== 'provider-subscription'
+    to.name !== 'provider-subscription' &&
+    to.name !== 'provider-help'
   ) {
     try {
       const { data } = await providerSubscriptionApi.status();
