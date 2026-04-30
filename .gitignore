@@ -4,14 +4,37 @@ backend/target/
 frontend/node_modules/
 **/node_modules/
 frontend/node_modules/.vite/
+**/.vite/
 
 frontend/dist/
 **/dist/
 
 .env.prod
+.env
+.env.*
+!.env.example
 
 .idea/
 **/.idea/
 .vscode/
 *.iml
+
+# Logs
+*.log
+logs/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Test/coverage outputs
+coverage/
+**/coverage/
+.nyc_output/
+
+# Package manager caches
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 

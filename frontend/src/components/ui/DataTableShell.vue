@@ -70,7 +70,8 @@ onUpdated(async () => {
 
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.9rem;
   table-layout: auto;
 }
@@ -78,22 +79,30 @@ onUpdated(async () => {
 .data-table :deep(th) {
   text-align: left;
   padding: 0.75rem 1rem;
-  background: linear-gradient(180deg, #f0f5f2 0%, #e4ebe6 100%);
+  background: var(--color-sage-soft);
   font-family: var(--font-ui);
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-canopy);
-  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text);
+  border-bottom: none;
   white-space: nowrap;
 }
 
 .data-table :deep(td) {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(217, 211, 199, 0.65);
+  border-bottom: none;
   vertical-align: top;
   white-space: normal;
+}
+
+.data-table :deep(tbody tr:nth-child(even) td) {
+  background: rgba(99, 183, 156, 0.06);
+}
+
+.data-table :deep(tbody tr:hover td) {
+  background: var(--color-sage-soft);
 }
 
 /* Default cell text truncation (use with TextWithTooltip). */

@@ -119,6 +119,15 @@ export const providerListingsApi = {
   },
 };
 
+function triggerBlobDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export const providerOrdersApi = {
   listPurchases(params) {
     return api.get('/api/provider/me/orders/purchases', { params });
@@ -171,6 +180,42 @@ export const providerOrdersApi = {
   deleteAllRentals() {
     return api.delete('/api/provider/me/orders/rentals');
   },
+  async downloadPurchaseInvoice(orderId) {
+    const res = await api.get(`/api/provider/me/orders/purchases/${orderId}/invoice`, { responseType: 'blob' });
+    triggerBlobDownload(res.data, `invoice-order-${orderId}.pdf`);
+  },
+  async downloadRentalInvoice(rentalId) {
+    const res = await api.get(`/api/provider/me/orders/rentals/${rentalId}/invoice`, { responseType: 'blob' });
+    triggerBlobDownload(res.data, `invoice-rental-${rentalId}.pdf`);
+  },
+};
+
+/** Guest: numeric order id + email, or verification code (optional email must match if provided). */
+export const publicOrderInvoiceApi = {
+  async download({ orderRef, email }) {
+    const res = await api.get('/api/public/order-invoice', {
+      params: { orderRef, ...(email ? { email } : {}) },
+      responseType: 'blob',
+    });
+    const safe = String(orderRef || 'order').replace(/[^a-zA-Z0-9_-]/g, '') || 'order';
+    triggerBlobDownload(res.data, `invoice-${safe}.pdf`);
+  },
+};
+
+export const adminOrderInvoiceApi = {
+  async download(orderRef) {
+    const res = await api.get('/api/admin/orders/invoice', { params: { orderRef }, responseType: 'blob' });
+    const safe = String(orderRef || 'order').replace(/[^a-zA-Z0-9_-]/g, '') || 'order';
+    triggerBlobDownload(res.data, `invoice-${safe}.pdf`);
+  },
+};
+
+export const supportOrderInvoiceApi = {
+  async download(orderRef) {
+    const res = await api.get('/api/support/orders/invoice', { params: { orderRef }, responseType: 'blob' });
+    const safe = String(orderRef || 'order').replace(/[^a-zA-Z0-9_-]/g, '') || 'order';
+    triggerBlobDownload(res.data, `invoice-${safe}.pdf`);
+  },
 };
 
 export const providerDashboardApi = {
@@ -184,9 +229,23 @@ export const providerSubscriptionApi = {
     return api.get('/api/provider/me/subscription/status').catch((e) => {
       // Backend may not have subscription module enabled yet.
       if (e?.response?.status === 404) {
-        return { data: { valid: false, plan: null, billingCycle: null, status: null, expiresAt: null } };
+        return { data: { valid: false, plan: null, billingCycle: null, status: null, expiresAt: null, amountDue: null, paymentReference: null } };
       }
       throw e;
+    });
+  },
+  bankDetails() {
+    return api.get('/api/provider/me/subscription/bank-details');
+  },
+  quote(plan) {
+    return api.get('/api/provider/me/subscription/quote', { params: { plan } });
+  },
+  uploadProof({ file, intentId }) {
+    const form = new FormData();
+    form.append('intentId', String(intentId));
+    form.append('file', file);
+    return api.post('/api/provider/me/subscription/proof', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
   select(body) {
@@ -197,6 +256,31 @@ export const providerSubscriptionApi = {
 export const adminDashboardApi = {
   stats(params) {
     return api.get('/api/admin/dashboard/stats', { params });
+  },
+};
+
+export const adminSubscriptionProofsApi = {
+  pending() {
+    return api.get('/api/admin/subscription-proofs/pending');
+  },
+  async openFile(proofId) {
+    const res = await api.get(`/api/admin/subscription-proofs/${proofId}/file`, { responseType: 'blob' });
+    const url = URL.createObjectURL(res.data);
+    window.open(url, '_blank', 'noopener,noreferrer');
+    // let the browser load the blob URL first
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+  },
+  decide(proofId, body) {
+    return api.post(`/api/admin/subscription-proofs/${proofId}/decide`, body);
+  },
+};
+
+export const adminSettingsApi = {
+  get() {
+    return api.get('/api/admin/settings');
+  },
+  update(body) {
+    return api.put('/api/admin/settings', body);
   },
 };
 

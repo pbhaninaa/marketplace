@@ -17,7 +17,9 @@ import AdminUsersView from './views/AdminUsersView.vue';
 import AdminProviderSupportView from './views/AdminProviderSupportView.vue';
 import AdminSupportUsersView from './views/AdminSupportUsersView.vue';
 import AdminPasswordView from './views/AdminPasswordView.vue';
-import AdminMaintenanceView from './views/AdminMaintenanceView.vue';
+import AdminSettingsView from './views/AdminSettingsView.vue';
+import AdminManualVerificationsView from './views/AdminManualVerificationsView.vue';
+import OrderInvoiceLookupView from './views/OrderInvoiceLookupView.vue';
 import SupportDashboardView from './views/SupportDashboardView.vue';
 import SupportUsersView from './views/SupportUsersView.vue';
 import SupportTicketsView from './views/SupportTicketsView.vue';
@@ -35,6 +37,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', name: 'market', component: MarketplaceView },
+    { path: '/order-invoice', name: 'order-invoice', component: OrderInvoiceLookupView, meta: { title: 'Order invoice' } },
     { path: '/checkout', name: 'checkout', component: CheckoutView },
     { path: '/setup', name: 'setup', component: SetupView, meta: { title: 'Setup' } },
     { path: '/login', name: 'login', component: LoginView, meta: { title: 'Login' } },
@@ -46,16 +49,24 @@ const router = createRouter({
     {      path: '/admin',      name: 'admin',      component: AdminDashboardView,      meta: { requiresAdmin: true },
     },
     { path: '/admin/providers', name: 'admin-providers', component: AdminProvidersView, meta: { requiresAdmin: true } },
+    { path: '/admin/settings', name: 'admin-settings', component: AdminSettingsView, meta: { requiresAdmin: true } },
     { path: '/admin/listings', name: 'admin-listings', component: AdminListingsView, meta: { requiresAdmin: true } },
     { path: '/admin/users', name: 'admin-users', component: AdminUsersView, meta: { requiresAdmin: true } },
     { path: '/admin/providers/:id', name: 'admin-provider-support', component: AdminProviderSupportView, meta: { requiresAdmin: true } },
     { path: '/admin/support-users', name: 'admin-support-users', component: AdminSupportUsersView, meta: { requiresAdmin: true } },
+    { path: '/admin/manual-verifications', name: 'admin-manual-verifications', component: AdminManualVerificationsView, meta: { requiresAdmin: true, title: 'Manual verifications' } },
     { path: '/admin/password', name: 'admin-password', component: AdminPasswordView, meta: { requiresAdmin: true } },
-    { path: '/admin/maintenance', name: 'admin-maintenance', component: AdminMaintenanceView, meta: { requiresAdmin: true } },
+    { path: '/admin/maintenance', redirect: { name: 'admin-settings', hash: '#maintenance' } },
     { path: '/support', name: 'support', component: SupportDashboardView, meta: { requiresSupport: true } },
     { path: '/support/users', name: 'support-users', component: SupportUsersView, meta: { requiresSupport: true } },
     { path: '/support/tickets', name: 'support-tickets', component: SupportTicketsView, meta: { requiresSupport: true } },
     { path: '/support/otp', name: 'support-otp', component: SupportOtpView, meta: { requiresSupport: true } },
+    {
+      path: '/support/order-invoice',
+      name: 'support-order-invoice',
+      component: OrderInvoiceLookupView,
+      meta: { requiresSupport: true, title: 'Order invoice' },
+    },
     { path: '/provider', name: 'provider-home', component: ProviderDashboardView, meta: { requiresAuth: true } },
     {      path: '/provider/team',      name: 'provider-team',      component: ProviderTeamView,      meta: { requiresAuth: true },    },
     { path: '/provider/staff-payments', name: 'provider-staff-payments', component: ProviderStaffPaymentsView, meta: { requiresAuth: true } },

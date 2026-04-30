@@ -13,6 +13,7 @@ import com.agrimarket.repo.ListingRepository;
 import com.agrimarket.repo.OrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
 import com.agrimarket.security.MarketUserPrincipal;
+import com.agrimarket.service.OrderInvoiceService;
 import com.agrimarket.service.OrderManagementService;
 import com.agrimarket.service.TenantAccess;
 import jakarta.validation.Valid;
@@ -34,6 +35,10 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -45,6 +50,7 @@ public class ProviderMeOrdersController {
     private final OrderRepository orderRepository;
     private final RentalBookingRepository rentalBookingRepository;
     private final ListingRepository listingRepository;
+    private final OrderInvoiceService orderInvoiceService;
 
     public record OrderItemResponse(Long listingId, String listingName, int quantity) {}
 
@@ -92,6 +98,36 @@ public class ProviderMeOrdersController {
             throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not your booking");
         }
         return b;
+    }
+
+    @GetMapping("/orders/purchases/{orderId}/invoice")
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> downloadPurchaseInvoice(
+            @AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable Long orderId) {
+        TenantAccess.requireProviderUser(actor);
+        byte[] body = orderInvoiceService.buildPurchaseInvoicePdf(actor.getProviderId(), orderId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDisposition(
+                ContentDisposition.attachment()
+                        .filename("invoice-order-" + orderId + ".pdf")
+                        .build());
+        return ResponseEntity.ok().headers(headers).body(body);
+    }
+
+    @GetMapping("/orders/rentals/{rentalId}/invoice")
+    @Transactional(readOnly = true)
+    public ResponseEntity<byte[]> downloadRentalInvoice(
+            @AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable Long rentalId) {
+        TenantAccess.requireProviderUser(actor);
+        byte[] body = orderInvoiceService.buildRentalInvoicePdf(actor.getProviderId(), rentalId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        headers.setContentDisposition(
+                ContentDisposition.attachment()
+                        .filename("invoice-rental-" + rentalId + ".pdf")
+                        .build());
+        return ResponseEntity.ok().headers(headers).body(body);
     }
 
     @GetMapping("/orders/purchases/{orderId}/items")

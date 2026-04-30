@@ -5,6 +5,7 @@ import { useSessionStore } from './stores/session';
 import { useSetupStore } from './stores/setup';
 import { useAuthStore } from './stores/auth';
 import { useCartStore } from './stores/cart';
+import { useThemeStore } from './stores/theme';
 import { useDialog } from './composables/useDialog';
 import DialogModal from './components/ui/DialogModal.vue';
 
@@ -13,6 +14,7 @@ const session = useSessionStore();
 const setup = useSetupStore();
 const auth = useAuthStore();
 const cart = useCartStore();
+const theme = useThemeStore();
 const { dialogState } = useDialog();
 
 const mobileMenuOpen = ref(false);
@@ -37,6 +39,7 @@ const brandHome = computed(() => {
 });
 
 onMounted(async () => {
+  theme.init();
   await session.ensureSession();
   try {
     await setup.fetchStatus();
@@ -76,6 +79,7 @@ onMounted(async () => {
       <!-- Logged out: top navigation only -->
       <nav v-if="!auth.isAuthenticated" class="nav-links" aria-label="Main">
         <router-link to="/">Browse</router-link>
+        <router-link to="/order-invoice">Order invoice</router-link>
         <router-link to="/checkout" class="nav-cart-link">
           Cart
           <span
@@ -86,6 +90,14 @@ onMounted(async () => {
         </router-link>
         <router-link v-if="setup.needsFirstAdmin === true" to="/setup" class="nav-highlight">Setup</router-link>
         <router-link to="/login">Login</router-link>
+        <button
+          type="button"
+          class="theme-toggle"
+          :aria-label="theme.resolvedMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+          @click="theme.toggle()"
+        >
+          <span aria-hidden="true">{{ theme.resolvedMode === 'dark' ? 'Light' : 'Dark' }}</span>
+        </button>
       </nav>
 
       <!-- Logged in: compact user strip in top bar -->
@@ -102,6 +114,14 @@ onMounted(async () => {
           <span class="hamburger__line"></span>
         </button>
         <span class="nav-user" :title="auth.email">{{ auth.displayLabel }}</span>
+        <button
+          type="button"
+          class="theme-toggle"
+          :aria-label="theme.resolvedMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+          @click="theme.toggle()"
+        >
+          <span aria-hidden="true">{{ theme.resolvedMode === 'dark' ? 'Light' : 'Dark' }}</span>
+        </button>
         <button type="button" class="nav-signout" @click="auth.logout()">Sign out</button>
       </div>
 
@@ -129,18 +149,20 @@ onMounted(async () => {
           <router-link to="/support/users" class="side-link" @click="closeMobileMenu">Users</router-link>
           <router-link to="/support/tickets" class="side-link" @click="closeMobileMenu">Tickets</router-link>
           <router-link to="/support/otp" class="side-link" @click="closeMobileMenu">Client OTP</router-link>
+          <router-link to="/support/order-invoice" class="side-link" @click="closeMobileMenu">Order invoice</router-link>
         </div>
 
         <div v-if="auth.isPlatformAdmin" class="side-nav__group">
           <p class="side-nav__title">Admin</p>
           <router-link to="/admin" class="side-link" @click="closeMobileMenu">Dashboard</router-link>
+          <router-link to="/admin/settings" class="side-link" @click="closeMobileMenu">Settings</router-link>
+          <router-link to="/admin/manual-verifications" class="side-link" @click="closeMobileMenu">Manual verifications</router-link>
           <router-link to="/admin/providers" class="side-link" @click="closeMobileMenu">Providers</router-link>
           <router-link to="/admin/listings" class="side-link" @click="closeMobileMenu">Listings</router-link>
           <router-link to="/admin/users" class="side-link" @click="closeMobileMenu">Users</router-link>
           <router-link to="/support" class="side-link" @click="closeMobileMenu">Support</router-link>
           <router-link to="/admin/support-users" class="side-link" @click="closeMobileMenu">Support users</router-link>
           <router-link to="/admin/password" class="side-link" @click="closeMobileMenu">Password</router-link>
-          <router-link to="/admin/maintenance" class="side-link" @click="closeMobileMenu">Maintenance</router-link>
         </div>
       </aside>
 

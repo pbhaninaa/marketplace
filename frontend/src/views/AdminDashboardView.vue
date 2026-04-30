@@ -82,9 +82,17 @@ const activityScore = computed(() => {
     <section class="surface-panel admin-panel admin-panel--wide">
       <h2>Admin tools</h2>
       <div class="tools-grid">
+        <router-link to="/admin/settings" class="tool-card">
+          <strong>Settings</strong>
+          <span class="muted small">Name, pricing, usage %, bank details</span>
+        </router-link>
         <router-link to="/admin/providers" class="tool-card">
           <strong>Providers</strong>
           <span class="muted small">Approve & support providers</span>
+        </router-link>
+        <router-link to="/admin/manual-verifications" class="tool-card">
+          <strong>Manual verifications</strong>
+          <span class="muted small">Approve/reject subscription payment proofs</span>
         </router-link>
         <router-link to="/admin/listings" class="tool-card">
           <strong>Listings</strong>
@@ -101,10 +109,6 @@ const activityScore = computed(() => {
         <router-link to="/admin/password" class="tool-card">
           <strong>Password</strong>
           <span class="muted small">Change your admin password</span>
-        </router-link>
-        <router-link to="/admin/maintenance" class="tool-card tool-card--danger">
-          <strong>Maintenance</strong>
-          <span class="muted small">Danger zone operations</span>
         </router-link>
       </div>
     </section>

@@ -77,13 +77,17 @@ defineEmits(['row-click']);
 
 .base-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.95rem;
+  background: var(--color-surface-elevated);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 
 .base-table thead {
-  background: var(--color-canopy);
-  color: white;
+  background: var(--color-sage-soft);
+  color: var(--color-text);
 }
 
 .base-table thead th {
@@ -93,11 +97,11 @@ defineEmits(['row-click']);
   font-size: 0.9rem;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  border-bottom: 2px solid var(--color-canopy-mid);
+  border-bottom: none;
 }
 
 .base-table tbody tr {
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: none;
 }
 
 .base-table tbody td {
@@ -107,15 +111,15 @@ defineEmits(['row-click']);
 
 /* ==================== VARIANTS ==================== */
 .base-table--striped tbody tr:nth-child(odd) {
-  background: var(--color-bg);
+  background: transparent;
 }
 
 .base-table--striped tbody tr:nth-child(even) {
-  background: var(--color-surface-elevated);
+  background: rgba(99, 183, 156, 0.06);
 }
 
 .base-table--hoverable tbody tr:hover {
-  background: rgba(61, 122, 102, 0.05);
+  background: var(--color-sage-soft);
   cursor: pointer;
 }
 

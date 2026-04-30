@@ -97,6 +97,10 @@ async function refreshAll() {
           <strong>Client OTP</strong>
           <span class="muted small">Resend OTP to client</span>
         </router-link>
+        <router-link to="/support/order-invoice" class="tool-card">
+          <strong>Order invoice</strong>
+          <span class="muted small">Download by order id or verification code</span>
+        </router-link>
       </div>
     </section>
   </div>

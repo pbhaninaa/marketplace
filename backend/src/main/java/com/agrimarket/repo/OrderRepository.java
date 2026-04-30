@@ -1,6 +1,7 @@
 package com.agrimarket.repo;
 
 import com.agrimarket.domain.Order;
+import com.agrimarket.domain.PaymentStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Optional;
@@ -19,6 +20,24 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Optional<Order> findByVerificationCode(String verificationCode);
 
     Optional<Order> findBySessionKey(String sessionKey);
+
+    @Query(
+            """
+            SELECT DISTINCT o FROM Order o
+            LEFT JOIN FETCH o.lines l
+            LEFT JOIN FETCH l.listing
+            WHERE o.id = :id
+            """)
+    Optional<Order> findWithLinesById(@Param("id") Long id);
+
+    @Query(
+            """
+            SELECT DISTINCT o FROM Order o
+            LEFT JOIN FETCH o.lines l
+            LEFT JOIN FETCH l.listing
+            WHERE o.verificationCode = :code
+            """)
+    Optional<Order> findWithLinesByVerificationCode(@Param("code") String verificationCode);
 
     @Query(
             """
@@ -57,6 +76,33 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     BigDecimal sumTotalBetween(@Param("from") Instant from, @Param("to") Instant to);
 
     java.util.List<Order> findByProvider_IdAndStatusIn(
-            Long providerId,
-            java.util.Collection<com.agrimarket.domain.OrderStatus> statuses);
+            Long providerId, java.util.Collection<com.agrimarket.domain.OrderStatus> statuses);
+
+    @Query(
+            """
+            SELECT COUNT(o) FROM Order o
+            WHERE o.provider.id = :providerId
+            AND o.paymentStatus = :paymentStatus
+            AND o.createdAt >= :from
+            AND o.createdAt <= :toInclusive
+            """)
+    long countPaidTransactionsForProviderBetweenInclusive(
+            @Param("providerId") Long providerId,
+            @Param("paymentStatus") PaymentStatus paymentStatus,
+            @Param("from") Instant from,
+            @Param("toInclusive") Instant toInclusive);
+
+    @Query(
+            """
+            SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o
+            WHERE o.provider.id = :providerId
+            AND o.paymentStatus = :paymentStatus
+            AND o.createdAt >= :from
+            AND o.createdAt <= :toInclusive
+            """)
+    BigDecimal sumPaidOrderTotalsForProviderBetweenInclusive(
+            @Param("providerId") Long providerId,
+            @Param("paymentStatus") PaymentStatus paymentStatus,
+            @Param("from") Instant from,
+            @Param("toInclusive") Instant toInclusive);
 }

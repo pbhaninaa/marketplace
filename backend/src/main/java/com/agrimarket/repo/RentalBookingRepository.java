@@ -13,6 +13,15 @@ import org.springframework.data.repository.query.Param;
 
 public interface RentalBookingRepository extends JpaRepository<RentalBooking, Long> {
 
+    @Query(
+            """
+            SELECT DISTINCT b FROM RentalBooking b
+            JOIN FETCH b.listing
+            JOIN FETCH b.provider
+            WHERE b.id = :id
+            """)
+    Optional<RentalBooking> findWithDetailsById(@Param("id") Long id);
+
     Page<RentalBooking> findByProvider_IdOrderByCreatedAtDesc(Long providerId, Pageable pageable);
 
     boolean existsByListing_Id(Long listingId);

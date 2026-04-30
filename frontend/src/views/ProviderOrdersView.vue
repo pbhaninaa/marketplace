@@ -32,6 +32,7 @@ const detailsError = ref('');
 /* ================= STATE: CONFIRMATION DIALOGS ================= */
 const showDeleteConfirm = ref(false);
 const deleteConfirmPending = ref(false);
+const invoiceDownloading = ref(false);
 
 
 /* ================= DATA ================= */
@@ -125,6 +126,24 @@ function closeDialog() {
   actionError.value = '';
   detailsLoading.value = false;
   detailsError.value = '';
+  invoiceDownloading.value = false;
+}
+
+async function downloadOrderInvoice() {
+  if (!selectedOrder.value) return;
+  invoiceDownloading.value = true;
+  actionError.value = '';
+  try {
+    if (tab.value === 'rentals') {
+      await providerOrdersApi.downloadRentalInvoice(selectedOrder.value.id);
+    } else {
+      await providerOrdersApi.downloadPurchaseInvoice(selectedOrder.value.id);
+    }
+  } catch (e) {
+    actionError.value = e.response?.data?.message || e.message || 'Could not download invoice.';
+  } finally {
+    invoiceDownloading.value = false;
+  }
 }
 
 async function confirmOrder() {
@@ -418,12 +437,23 @@ function cancelDeleteOrder() {
             <p v-if="detailsLoading" class="muted small">Loading full order details…</p>
             <p v-else-if="detailsError" class="muted small">Some details could not be loaded. Showing summary.</p>
 
-            <div style="margin-top: 0.75rem;">
+            <div v-if="tab === 'purchases' && orderItems.length" style="margin-top: 0.75rem;">
               <ol style="padding-left: 1.2rem;">
-                <li v-for="(orderItem, index) in orderItems.data" :key="index">
+                <li v-for="(orderItem, index) in orderItems" :key="index">
                   {{ orderItem.quantity }} {{ orderItem.listingName }}{{ orderItem.quantity > 1 ? 's' : '' }}
                 </li>
               </ol>
+            </div>
+
+            <div v-if="selectedOrder" style="margin-top: 0.85rem;">
+              <button
+                type="button"
+                class="btn btn-ghost"
+                :disabled="invoiceDownloading"
+                @click="downloadOrderInvoice"
+              >
+                {{ invoiceDownloading ? 'Preparing…' : 'Download invoice (PDF)' }}
+              </button>
             </div>
 
             <div v-if="isPendingPayment && paymentProofUrl" style="margin-top: 0.75rem;">

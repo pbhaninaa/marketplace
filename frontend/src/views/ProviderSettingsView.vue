@@ -225,7 +225,9 @@ async function save() {
       <!-- FULL WIDTH ACTION -->
       <div class="full">
         <div class="actions">
-          <button class="btn" background="primary" :disabled="!canEdit" @click="save">Save Changes</button>
+          <button type="button" class="btn btn-primary" :disabled="!canEdit" @click="save">
+            Save Changes
+          </button>
         </div>
       </div>  
 
@@ -233,7 +235,9 @@ async function save() {
       <div class="full">
         <section class="card danger">
           <h2>⚠ Danger Zone</h2>
-          <button class="danger-btn" :disabled="!canEdit" @click="deactivateAccount">Deactivate Account</button>
+          <button type="button" class="btn btn-ghost danger-btn" :disabled="!canEdit" @click="deactivateAccount">
+            Deactivate Account
+          </button>
         </section>
       </div>
 
@@ -243,8 +247,7 @@ async function save() {
 
 <style scoped>
 .provider-settings-page {
-  max-width: 1100px;
-  margin: auto;
+  margin: 0 auto;
 }
 
 /* HERO */
@@ -273,9 +276,9 @@ async function save() {
 .card {
   padding: 1.2rem;
   border-radius: 14px;
-  border: 1px solid #eee;
-  background: white;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
 }
 
 /* PAYMENT */
@@ -287,16 +290,22 @@ async function save() {
 .check-card {
   flex: 1;
   padding: 0.6rem;
-  border: 1px solid #ddd;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   cursor: pointer;
+  background: var(--color-surface-elevated);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.check-card:hover {
+  background: var(--color-sage-soft);
+  border-color: var(--color-border-strong);
 }
 
 /* DELIVERY */
 .delivery-box {
   margin-top: 0.6rem;
   padding: 0.6rem;
-  border: 1px dashed #3b82f6;
+  border: 1px dashed var(--color-info-text);
   border-radius: 10px;
 }
 
@@ -306,33 +315,32 @@ async function save() {
   justify-content: flex-end;
 }
 
-.btn {
-  padding: 0.6rem 1.2rem;
-  background: #2563eb;
-  color: white;
-  border-radius: 8px;
-  border: none;
-}
-
 /* DANGER */
 .danger {
-  border-color: #fca5a5;
+  border-color: rgba(248, 113, 113, 0.45);
 }
 
 .danger-btn {
-  background: #fee2e2;
-  padding: 0.6rem;
-  border-radius: 8px;
+  border-color: rgba(248, 113, 113, 0.45);
+  color: var(--color-danger-text);
 }
 
 /* TOAST */
 .toast {
   padding: 0.6rem;
   margin-bottom: 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
 }
 
-.error { background: #fee2e2; }
-.success { background: #dcfce7; }
+.error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+.success {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
 
 /* SWITCH */
 .switch {
@@ -352,7 +360,7 @@ async function save() {
   position: absolute;
   cursor: pointer;
   inset: 0;
-  background-color: #ccc;
+  background-color: var(--color-border-strong);
   transition: 0.3s;
   border-radius: 24px;
 }
@@ -364,13 +372,13 @@ async function save() {
   width: 18px;
   left: 3px;
   bottom: 3px;
-  background-color: white;
+  background-color: var(--color-surface-elevated);
   transition: 0.3s;
   border-radius: 50%;
 }
 
 input:checked + .slider {
-  background-color: #2563eb;
+  background-color: var(--color-sage);
 }
 
 input:checked + .slider:before {

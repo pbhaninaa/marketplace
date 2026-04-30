@@ -11,6 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.Instant;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -43,7 +44,15 @@ public class Subscription {
     @Column(nullable = false)
     private SubscriptionStatus status = SubscriptionStatus.ACTIVE;
 
-    @Column(name = "expires_at", nullable = false)
+    /** Auto-generated reference providers must use on EFT payments. */
+    @Column(name = "payment_reference", length = 80)
+    private String paymentReference;
+
+    /** Expected amount due (monthly) for auto verification. */
+    @Column(name = "amount_due", precision = 14, scale = 2)
+    private BigDecimal amountDue;
+
+    @Column(name = "expires_at")
     private Instant expiresAt;
 
     @Column(name = "created_at", nullable = false)
