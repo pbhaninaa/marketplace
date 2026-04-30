@@ -121,7 +121,6 @@ const activityScore = computed(() => {
 }
 
 .admin-panel {
-  max-width: 560px;
   margin: 0 auto 1.35rem;
   display: flex;
   flex-direction: column;
@@ -129,7 +128,7 @@ const activityScore = computed(() => {
 }
 
 .admin-panel--wide {
-  max-width: 980px;
+  max-width: none;
 }
 
 .panel-head {
