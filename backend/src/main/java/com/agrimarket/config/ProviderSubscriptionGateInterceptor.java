@@ -1,20 +1,23 @@
 package com.agrimarket.config;
 
 import com.agrimarket.api.error.ApiException;
+import com.agrimarket.domain.SubscriptionPlan;
 import com.agrimarket.security.MarketUserPrincipal;
 import com.agrimarket.service.SubscriptionService;
 import java.time.Instant;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 @Component
-@RequiredArgsConstructor
 public class ProviderSubscriptionGateInterceptor implements HandlerInterceptor {
 
     private final SubscriptionService subscriptionService;
+
+    public ProviderSubscriptionGateInterceptor(SubscriptionService subscriptionService) {
+        this.subscriptionService = subscriptionService;
+    }
 
     @Override
     public boolean preHandle(
@@ -32,10 +35,11 @@ public class ProviderSubscriptionGateInterceptor implements HandlerInterceptor {
         if (uri.startsWith("/api/provider/me/subscription")) return true;
 
         // If unauthenticated, let normal security handle it.
-        var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !(auth.getPrincipal() instanceof MarketUserPrincipal p)) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof MarketUserPrincipal)) {
             return true;
         }
+        MarketUserPrincipal p = (MarketUserPrincipal) authentication.getPrincipal();
         if (p.getProviderId() == null) {
             return true;
         }
@@ -48,7 +52,26 @@ public class ProviderSubscriptionGateInterceptor implements HandlerInterceptor {
                     "SUBSCRIPTION_INACTIVE",
                     "Subscription required. Please choose a plan to continue.");
         }
+
+        // Plan feature gate (Premium-only provider tools).
+        if (requiresPremium(uri)) {
+            SubscriptionPlan plan = active.getPlan() == null ? SubscriptionPlan.BASIC : active.getPlan();
+            if (plan != SubscriptionPlan.PREMIUM) {
+                throw new ApiException(
+                        HttpStatus.PAYMENT_REQUIRED,
+                        "PLAN_UPGRADE_REQUIRED",
+                        "Your current plan doesn't include this feature. Upgrade to Premium to continue.");
+            }
+        }
         return true;
+    }
+
+    private static boolean requiresPremium(String uri) {
+        if (uri == null) return false;
+        // Premium provider tools (team management + payroll).
+        return uri.startsWith("/api/provider/me/staff")
+                || uri.startsWith("/api/provider/me/payroll-entries")
+                || uri.contains("/payroll");
     }
 }
 

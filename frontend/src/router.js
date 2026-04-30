@@ -68,8 +68,8 @@ const router = createRouter({
       meta: { requiresSupport: true, title: 'Order invoice' },
     },
     { path: '/provider', name: 'provider-home', component: ProviderDashboardView, meta: { requiresAuth: true } },
-    {      path: '/provider/team',      name: 'provider-team',      component: ProviderTeamView,      meta: { requiresAuth: true },    },
-    { path: '/provider/staff-payments', name: 'provider-staff-payments', component: ProviderStaffPaymentsView, meta: { requiresAuth: true } },
+    { path: '/provider/team', name: 'provider-team', component: ProviderTeamView, meta: { requiresAuth: true, requiresPremium: true } },
+    { path: '/provider/staff-payments', name: 'provider-staff-payments', component: ProviderStaffPaymentsView, meta: { requiresAuth: true, requiresPremium: true } },
     { path: '/provider/settings', name: 'provider-settings', component: ProviderSettingsView, meta: { requiresAuth: true } },
     { path: '/provider/listings', name: 'provider-listings', component: ProviderListingsView, meta: { requiresAuth: true } },
     { path: '/provider/orders', name: 'provider-orders', component: ProviderOrdersView, meta: { requiresAuth: true } },
@@ -104,8 +104,12 @@ router.beforeEach(async (to) => {
     try {
       const { data } = await providerSubscriptionApi.status();
       const active = !!data?.valid;
+      auth.setProviderSubscriptionStatus(data);
       if (!active) {
         return { path: '/provider/subscription', query: { redirect: to.fullPath } };
+      }
+      if (to.meta.requiresPremium && String(data?.plan || '').toUpperCase() !== 'PREMIUM') {
+        return { path: '/provider/subscription', query: { redirect: to.fullPath, upgrade: 'premium' } };
       }
     } catch {
       // If status fails, be safe and keep provider on subscription.
@@ -117,10 +121,10 @@ router.beforeEach(async (to) => {
     if (auth.isSupport && !auth.isPlatformAdmin) return { path: '/support' };
     if (auth.isProviderUser) return { path: '/provider' };
   }
-  if (to.name === 'provider-team' && auth.isAuthenticated && !auth.canManageStaff) {
+  if (to.name === 'provider-team' && auth.isAuthenticated && (!auth.canManageStaff || !auth.isPremiumPlan)) {
     return { path: '/provider' };
   }
-  if (to.name === 'provider-staff-payments' && auth.isAuthenticated && !auth.canManageStaff) {
+  if (to.name === 'provider-staff-payments' && auth.isAuthenticated && (!auth.canManageStaff || !auth.isPremiumPlan)) {
     return { path: '/provider' };
   }
   if (to.name === 'setup') {

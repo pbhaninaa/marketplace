@@ -58,6 +58,9 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --transition-fast: 0.15s var(--ease-out);
 
+  /* Layout */
+  --page-max: 1500px;
+
   /* Legacy aliases used in older scoped styles */
   --bg: var(--color-bg);
   --surface: var(--color-surface-elevated);
@@ -462,12 +465,12 @@ a:hover {
 
 /* —— Document pages (checkout, login, admin, …) —— */
 .page-document {
-  max-width: 1500px;
+  max-width: var(--page-max);
   margin: 0 auto;
 }
 
 .page-document--wide {
-  max-width: 1500px;
+  max-width: var(--page-max);
 }
 
 .page-hero {

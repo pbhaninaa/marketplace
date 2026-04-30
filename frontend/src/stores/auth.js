@@ -8,6 +8,8 @@ const EMAIL_KEY = 'agri_email';
 const DISPLAY_NAME_KEY = 'agri_display_name';
 const PROVIDER_KEY = 'agri_provider_id';
 const SHADOW_BACKUP_KEY = 'agri_shadow_backup';
+const PROVIDER_PLAN_KEY = 'agri_provider_plan';
+const PROVIDER_SUB_VALID_KEY = 'agri_provider_sub_valid';
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem(TOKEN_KEY) || '');
@@ -15,6 +17,8 @@ export const useAuthStore = defineStore('auth', () => {
   const email = ref(localStorage.getItem(EMAIL_KEY) || '');
   const displayName = ref(localStorage.getItem(DISPLAY_NAME_KEY) || '');
   const providerId = ref(localStorage.getItem(PROVIDER_KEY) || '');
+  const providerPlan = ref(localStorage.getItem(PROVIDER_PLAN_KEY) || '');
+  const providerSubValid = ref(localStorage.getItem(PROVIDER_SUB_VALID_KEY) === 'true');
 
   const displayLabel = computed(() => displayName.value?.trim() || email.value || '');
 
@@ -27,6 +31,7 @@ export const useAuthStore = defineStore('auth', () => {
   );
   const canManageStaff = computed(() => role.value === 'PROVIDER_OWNER' || role.value === 'PROVIDER_ADMIN');
   const isClientUser = computed(() => role.value === 'CLIENT');
+  const isPremiumPlan = computed(() => String(providerPlan.value || '').toUpperCase() === 'PREMIUM');
 
   function applyToken(t) {
     token.value = t;
@@ -93,17 +98,33 @@ export const useAuthStore = defineStore('auth', () => {
     email.value = '';
     displayName.value = '';
     providerId.value = '';
+    providerPlan.value = '';
+    providerSubValid.value = false;
     localStorage.removeItem(ROLE_KEY);
     localStorage.removeItem(EMAIL_KEY);
     localStorage.removeItem(DISPLAY_NAME_KEY);
     localStorage.removeItem(PROVIDER_KEY);
     localStorage.removeItem(SHADOW_BACKUP_KEY);
+    localStorage.removeItem(PROVIDER_PLAN_KEY);
+    localStorage.removeItem(PROVIDER_SUB_VALID_KEY);
   }
 
   function restoreFromStorage() {
     if (token.value) {
       setAuthToken(token.value);
     }
+  }
+
+  function setProviderSubscriptionStatus(status) {
+    // status is from /api/provider/me/subscription/status
+    providerPlan.value = status?.plan ? String(status.plan) : '';
+    providerSubValid.value = !!status?.valid;
+    if (providerPlan.value) {
+      localStorage.setItem(PROVIDER_PLAN_KEY, providerPlan.value);
+    } else {
+      localStorage.removeItem(PROVIDER_PLAN_KEY);
+    }
+    localStorage.setItem(PROVIDER_SUB_VALID_KEY, providerSubValid.value ? 'true' : 'false');
   }
 
   return {
@@ -113,6 +134,8 @@ export const useAuthStore = defineStore('auth', () => {
     displayName,
     displayLabel,
     providerId,
+    providerPlan,
+    providerSubValid,
     isAuthenticated,
     isPlatformAdmin,
     isSupport,
@@ -120,10 +143,12 @@ export const useAuthStore = defineStore('auth', () => {
     isProviderUser,
     canManageStaff,
     isClientUser,
+    isPremiumPlan,
     setSession,
     beginShadow,
     endShadow,
     logout,
     restoreFromStorage,
+    setProviderSubscriptionStatus,
   };
 });

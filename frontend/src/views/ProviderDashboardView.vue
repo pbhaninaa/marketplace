@@ -16,6 +16,9 @@ const stats = ref(null);
 const range = ref({ preset: 'LAST_7', from: '', to: '' });
 const subLoading = ref(false);
 const subscription = ref(null);
+const canManagePremium = computed(
+  () => canManage.value && String(subscription.value?.plan || '').toUpperCase() === 'PREMIUM',
+);
 
 onMounted(() => {
   auth.restoreFromStorage();
@@ -196,11 +199,11 @@ watch(
           <strong>Profile & settings</strong>
           <span class="muted small">Location, banking, payment methods</span>
         </router-link>
-        <router-link v-if="canManage" to="/provider/team" class="dash-card">
+        <router-link v-if="canManagePremium" to="/provider/team" class="dash-card">
           <strong>Team & payroll</strong>
           <span class="muted small">Staff, permissions, payroll</span>
         </router-link>
-        <router-link v-if="canManage" to="/provider/staff-payments" class="dash-card">
+        <router-link v-if="canManagePremium" to="/provider/staff-payments" class="dash-card">
           <strong>Staff payments</strong>
           <span class="muted small">Expected payouts from rate × units</span>
         </router-link>
@@ -210,11 +213,9 @@ watch(
 </template>
 
 <style scoped>
-.provider-dash {
-  padding-bottom: 2rem;
-}
+
 .dash-top {
-  max-width: 840px;
+  max-width: 1500px;
   margin: 0 auto 1rem;
   display: grid;
   grid-template-columns: 1fr;
@@ -248,7 +249,7 @@ watch(
   color: var(--color-muted);
 }
 .dash-panel {
-  max-width: 840px;
+  max-width: 1500px;
   margin: 0 auto;
 }
 

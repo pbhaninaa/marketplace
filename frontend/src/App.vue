@@ -137,8 +137,18 @@ onMounted(async () => {
           <router-link to="/provider/settings" class="side-link" @click="closeMobileMenu">Settings</router-link>
           <router-link to="/provider/subscription" class="side-link" @click="closeMobileMenu">Subscription</router-link>
           <router-link to="/provider/orders" class="side-link" @click="closeMobileMenu">Orders</router-link>
-          <!-- <router-link v-if="auth.canManageStaff" to="/provider/team" class="side-link">Team & payroll</router-link> -->
-          <!-- <router-link v-if="auth.canManageStaff" to="/provider/staff-payments" class="side-link">Staff payments</router-link> -->
+          <router-link
+            v-if="auth.canManageStaff && auth.isPremiumPlan"
+            to="/provider/team"
+            class="side-link"
+            @click="closeMobileMenu"
+          >Team & payroll</router-link>
+          <router-link
+            v-if="auth.canManageStaff && auth.isPremiumPlan"
+            to="/provider/staff-payments"
+            class="side-link"
+            @click="closeMobileMenu"
+          >Staff payments</router-link>
           <!-- Listings UI will live at /provider/listings -->
           <router-link to="/provider/listings" class="side-link" @click="closeMobileMenu">Listings</router-link>
         </div>
