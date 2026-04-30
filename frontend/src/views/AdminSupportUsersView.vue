@@ -79,7 +79,7 @@ async function create() {
             <input v-model="form.password" type="password" minlength="8" maxlength="100" />
           </FormField>
         </div>
-        <button type="button" class="btn btn-primary" @click="create">Create</button>
+        <button type="button" class="btn btn-primary create-btn" @click="create">Create</button>
       </section>
 
       <section class="surface-panel admin-panel">
@@ -114,6 +114,9 @@ async function create() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1rem;
+}
+.create-btn {
+  margin-top: var(--space-4);
 }
 .toolbar {
   display: flex;
