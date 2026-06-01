@@ -19,7 +19,8 @@ Agricultural Marketplace Platform - Connecting agricultural providers with clien
 
 ## Documentation
 
-See [USER_MANUAL.md](USER_MANUAL.md) for complete documentation.
+See [USER_MANUAL.md](USER_MANUAL.md) for complete documentation.  
+Deployment: [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Technology Stack
 
