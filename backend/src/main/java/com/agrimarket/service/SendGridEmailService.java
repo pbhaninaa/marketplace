@@ -27,7 +27,7 @@ public class SendGridEmailService implements EmailService {
 
         // In local/dev we often run without configured SendGrid.
         if (!props.isEnabled()) {
-            log.info("[email disabled] to={} subject={}\n{}", to, subject, plainTextBody);
+            log.info("[email disabled] to={} subject={}", to, subject);
             return;
         }
 

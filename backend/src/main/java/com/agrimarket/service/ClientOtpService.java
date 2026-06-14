@@ -13,6 +13,7 @@ import java.time.temporal.ChronoUnit;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,8 @@ public class ClientOtpService {
     private final ClientOtpChallengeRepository repo;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final EmailService emailService;
+    private final Environment environment;
 
     /** Always returns 204 to avoid target enumeration. */
     @Transactional
@@ -47,8 +50,14 @@ public class ClientOtpService {
         c.setAttempts(0);
         repo.save(c);
 
-        // local/dev delivery mechanism: server log
-        log.info("Client OTP for {}: {}", target, code);
+        if (isDevDeliveryProfile()) {
+            log.info("Client OTP for {}: {}", target, code);
+        } else {
+            String subject = "Your verification code";
+            String plain = "Your verification code is: " + code + "\n\nIt expires in "
+                    + appProperties.otp().ttlMinutes() + " minutes.";
+            emailService.send(target, subject, plain, "<p>Your verification code is <strong>" + code + "</strong>.</p>");
+        }
     }
 
     @Transactional
@@ -88,6 +97,15 @@ public class ClientOtpService {
     private String normalizeTarget(String raw) {
         if (raw == null) return "";
         return raw.trim().toLowerCase();
+    }
+
+    private boolean isDevDeliveryProfile() {
+        for (String p : environment.getActiveProfiles()) {
+            if ("local".equalsIgnoreCase(p) || "test".equalsIgnoreCase(p) || "sit".equalsIgnoreCase(p)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
 

@@ -4,60 +4,74 @@
 
 Agricultural marketplace: **Spring Boot** API (`backend/`) + **Vue** frontend (`frontend/`).
 
-## Source control: SIT, UAT, PROD
+## Branches
 
 | Branch | Purpose |
 |--------|---------|
-| `SIT` | Local / integration |
-| `UAT` | Staging |
-| `PROD` | Production |
+| `SIT` | Local / integration (H2) |
+| `UAT` | Staging (PostgreSQL) |
+| `PROD` | Production (PostgreSQL) |
 
-## Components
+## Stack
 
-| Component | Stack | Hosting |
-|-----------|-------|---------|
-| API | Spring Boot, PostgreSQL | Railway (recommended) |
-| Web | Vue 3, Vite | Vercel or same domain as API |
+| Component | UAT / PROD | Local dev |
+|-----------|------------|-----------|
+| API | Spring Boot 17, PostgreSQL | MySQL (`local` profile) |
+| Web | Vue 3 + Vite | `npm run dev` |
 
-Backend profiles: `application-sit.properties`, `application-uat.properties`, `application-prod.properties`.
+Full variable reference: **[ENV.md](ENV.md)**
 
-## Pre-deployment checklist
+## Pre-deploy checklist
 
-- [ ] PostgreSQL database per environment
-- [ ] `APP_JWT_SECRET` — strong random secret (32+ chars)
-- [ ] `PUBLIC_APP_BASE_URL` — public frontend URL (password-reset links)
-- [ ] `PROD_CORS_ORIGINS` (or UAT equivalent) includes frontend origin(s)
-- [ ] Bank / subscription env vars set if using provider billing (see `.env.prod.example`)
-- [ ] Payment provider configured (`PROD_PAYMENT_PROVIDER`, Stripe/Paystack keys as implemented)
-- [ ] `app.seed-demo-data=false` in production
+- [ ] PostgreSQL provisioned per environment
+- [ ] `SPRING_PROFILES_ACTIVE` = `uat` or `prod`
+- [ ] `APP_JWT_SECRET` — 32+ random characters
+- [ ] `PUBLIC_APP_BASE_URL` + `UAT_CORS_ORIGINS` / `PROD_CORS_ORIGINS`
+- [ ] `SENDGRID_API_KEY` + `EMAIL_FROM` (verified sender)
+- [ ] `VITE_API_BASE` on frontend build (split hosting)
+- [ ] First admin created via setup UI after deploy
+- [ ] `app.seed-demo-data=false` (default on UAT/PROD)
 
-## Railway (backend — `backend/`)
+## Railway — backend (`backend/`)
 
-| Variable | Description |
-|----------|-------------|
-| `SPRING_PROFILES_ACTIVE` | `prod` / `uat` / `sit` |
-| `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD` | Railway Postgres (auto-injected) or `PROD_DB_*` overrides |
-| `APP_JWT_SECRET` | JWT signing secret |
-| `PUBLIC_APP_BASE_URL` | e.g. `https://your-app.vercel.app` |
-| `PROD_CORS_ORIGINS` | Comma-separated allowed origins |
-| `PROD_PAYMENT_PROVIDER` | e.g. `stripe` |
-| `APP_BANK_*` | EFT bank details for providers (optional) |
+- Root directory: **`backend`**
+- Branch: **`UAT`** or **`PROD`**
+- Builder: **Dockerfile** (see `backend/railway.toml`)
+- Health check: **`/actuator/health`**
+- Add **PostgreSQL** in the same project
 
-## Vercel (frontend — `frontend/`)
+Startup **fails fast** if JWT, CORS, public URL, or SendGrid are misconfigured (`DeployedProfileValidator`).
 
-| Variable | Description |
-|----------|-------------|
-| `VITE_APP_ENV` | `PROD` / `UAT` / `SIT` |
-| `VITE_API_BASE` | Backend base URL (no trailing slash), e.g. `https://api.up.railway.app` |
+## Railway / Vercel — frontend (`frontend/`)
 
-Redeploy after changing env vars.
+| Variable | Example |
+|----------|---------|
+| `VITE_APP_ENV` | `UAT` or `PROD` |
+| `VITE_API_BASE` | `https://your-backend.up.railway.app` (no `/api`) |
 
-## Local reference
+Build: `npm run build:uat` or `npm run build:prod`
 
-Copy [.env.prod.example](.env.prod.example) to `.env.prod` for a variable checklist (do not commit secrets).
+Docker build args: `VITE_API_BASE`, `VITE_APP_ENV`
+
+## Docker Compose (single server)
+
+```bash
+cp .env.prod.example .env.prod
+# fill values
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Uses Postgres + backend + nginx frontend on port **80**.
+
+## Tests before promote
+
+```bash
+cd backend && mvn test
+cd frontend && npm run test:run
+```
 
 ## Rollback
 
-Redeploy previous Railway/Vercel builds. Avoid DB rollback without a backup if Hibernate `ddl-auto=update` has already applied schema changes.
+Redeploy previous Railway build. Avoid DB rollback without backup when `ddl-auto=update` has run.
 
 See [README.md](README.md) and [USER_MANUAL.md](USER_MANUAL.md).

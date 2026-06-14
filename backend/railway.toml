@@ -1,0 +1,11 @@
+# Railway: set Root Directory = backend
+# Do not override Start Command — Dockerfile ENTRYPOINT runs the JAR.
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/actuator/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"

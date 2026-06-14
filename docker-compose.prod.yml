@@ -26,7 +26,16 @@ services:
       APP_JWT_SECRET: ${APP_JWT_SECRET}
       PROD_CORS_ORIGINS: ${PUBLIC_APP_BASE_URL}
       PUBLIC_APP_BASE_URL: ${PUBLIC_APP_BASE_URL}
-      PROD_PAYMENT_PROVIDER: ${PROD_PAYMENT_PROVIDER:-stripe}
+      PROD_PAYMENT_PROVIDER: ${PROD_PAYMENT_PROVIDER:-stub}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      APP_BANK_NAME: ${APP_BANK_NAME:-}
+      APP_BANK_ACCOUNT_NAME: ${APP_BANK_ACCOUNT_NAME:-}
+      APP_BANK_ACCOUNT_NUMBER: ${APP_BANK_ACCOUNT_NUMBER:-}
+      APP_BANK_BRANCH_CODE: ${APP_BANK_BRANCH_CODE:-}
+      APP_BANK_REFERENCE_HINT: ${APP_BANK_REFERENCE_HINT:-Use your Provider Name as reference}
+      APP_SUBSCRIPTION_BASIC_MONTHLY: ${APP_SUBSCRIPTION_BASIC_MONTHLY:-199}
+      APP_SUBSCRIPTION_PREMIUM_MONTHLY: ${APP_SUBSCRIPTION_PREMIUM_MONTHLY:-499}
     depends_on:
       db:
         condition: service_healthy
@@ -41,6 +50,9 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-}
+        VITE_APP_ENV: PROD
     depends_on:
       backend:
         condition: service_healthy
@@ -49,4 +61,3 @@ services:
 
 volumes:
   db_data:
-

@@ -1,0 +1,43 @@
+# Railway UAT / PROD — copy variable names only; fill values in the dashboard.
+
+# ========== PROFILE ==========
+SPRING_PROFILES_ACTIVE=
+
+# ========== DATABASE (PostgreSQL) ==========
+UAT_DB_HOST=
+UAT_DB_PORT=
+UAT_DB_NAME=
+UAT_DB_USER=
+UAT_DB_PASSWORD=
+
+# ========== SECURITY (JWT) ==========
+APP_JWT_SECRET=
+
+# ========== FRONTEND URLS ==========
+PUBLIC_APP_BASE_URL=
+UAT_CORS_ORIGINS=
+APP_FRONTEND_URL=
+
+# ========== EMAIL (SendGrid) ==========
+SENDGRID_API_KEY=
+EMAIL_FROM=
+
+# ========== PAYMENTS (label only — EFT/CASH in-app) ==========
+UAT_PAYMENT_PROVIDER=
+
+# ========== PLATFORM BANK (subscription EFT) ==========
+APP_BANK_NAME=
+APP_BANK_ACCOUNT_NAME=
+APP_BANK_ACCOUNT_NUMBER=
+APP_BANK_BRANCH_CODE=
+APP_BANK_REFERENCE_HINT=
+
+# ========== SUBSCRIPTION PRICING (ZAR / month) ==========
+APP_SUBSCRIPTION_BASIC_MONTHLY=
+APP_SUBSCRIPTION_PREMIUM_MONTHLY=
+
+# --- PROD: replace UAT_* with PROD_* / PROD_CORS_ORIGINS / SPRING_PROFILES_ACTIVE=prod ---
+
+# ========== FRONTEND SERVICE (separate Railway service) ==========
+VITE_APP_ENV=
+VITE_API_BASE=

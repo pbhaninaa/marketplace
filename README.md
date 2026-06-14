@@ -20,14 +20,14 @@ Agricultural Marketplace Platform - Connecting agricultural providers with clien
 ## Documentation
 
 See [USER_MANUAL.md](USER_MANUAL.md) for complete documentation.  
-Deployment: [DEPLOYMENT.md](DEPLOYMENT.md).
+Deployment: [DEPLOYMENT.md](DEPLOYMENT.md) · Environment variables: [ENV.md](ENV.md).
 
 ## Technology Stack
 
-- **Frontend**: Vue.js
-- **Backend**: Spring Boot (Java)
-- **Database**: MySQL
-- **Build Tools**: Maven, Vite
+- **Frontend**: Vue.js 3 + Vite
+- **Backend**: Spring Boot (Java 17)
+- **Database**: PostgreSQL (UAT/PROD) · MySQL (local dev) · H2 (SIT tests)
+- **Build Tools**: Maven, npm
 
 ## Getting Started
 
@@ -35,7 +35,7 @@ Deployment: [DEPLOYMENT.md](DEPLOYMENT.md).
 ```bash
 cd backend
 mvn clean install
-mvn spring-boot:run
+mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
 ### Frontend
