@@ -14,7 +14,13 @@ import java.util.Set;
 public record CreateStaffRequest(
         @NotBlank @Email String email,
         @NotBlank @Size(min = 8, max = 100) String password,
+        @Size(max = 100) String firstName,
+        @Size(max = 100) String lastName,
+        @Size(max = 40) String phoneNumber,
         @NotNull UserRole role,
         @NotNull StaffRateUnit rateUnit,
         @NotNull @DecimalMin(value = "0.0", inclusive = true) BigDecimal rateAmount,
+        String targetPeriod,
+        @DecimalMin(value = "0.0", inclusive = true) BigDecimal targetValue,
+        @DecimalMin(value = "0.0", inclusive = true) BigDecimal bonusPercentage,
         Set<ProviderPermissionKey> permissions) {}

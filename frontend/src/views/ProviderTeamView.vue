@@ -4,47 +4,73 @@ import { useRouter } from 'vue-router';
 import { providerTeamApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
-import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
 
 const team = ref([]);
-const payroll = ref([]);
 const loading = ref(true);
 const error = ref('');
+const message = ref('');
 const context = ref(null);
+const search = ref('');
 
-const editing = ref(null); // staff member object being edited
-const showEditDialog = ref(false);
-const showAddDialog = ref(false);
-const editForm = ref({
+const showAdd = ref(false);
+const showEdit = ref(false);
+const showView = ref(false);
+const showDelete = ref(false);
+const saving = ref(false);
+
+const editing = ref(null);
+const viewing = ref(null);
+const deleting = ref(null);
+
+const emptyForm = () => ({
+  email: '',
+  password: '',
+  firstName: '',
+  lastName: '',
+  phoneNumber: '',
   role: 'PROVIDER_STAFF',
-  rateUnit: 'HOURLY',
+  rateUnit: 'PER_SERVICE',
   rateAmount: '',
+  targetPeriod: 'MONTHLY',
+  targetValue: '',
+  bonusPercentage: '',
   enabled: true,
   permissions: [],
 });
 
-const newStaff = ref({
-  email: '',
-  password: '',
-  role: 'PROVIDER_STAFF',
-  rateUnit: 'HOURLY',
-  rateAmount: '',
-  permissions: [],
-});
+const createForm = ref(emptyForm());
+const editForm = ref(emptyForm());
 
-const payrollForm = ref({
-  staffUserId: '',
-  unitsWorked: '',
-  notes: '',
-});
+const PAY_METHODS = [
+  { value: 'PER_SERVICE', label: 'Per service (order)' },
+  { value: 'HOURLY', label: 'Per hour' },
+  { value: 'DAILY', label: 'Per day' },
+  { value: 'WEEKLY', label: 'Per week' },
+  { value: 'MONTHLY', label: 'Monthly salary' },
+];
 
-const staffOptions = computed(() =>
-  team.value.filter((m) => !m.owner && m.rateAmount != null && Number(m.rateAmount) > 0),
-);
+const ROLE_OPTIONS = [
+  { value: 'PROVIDER_ADMIN', label: 'Admin' },
+  { value: 'PROVIDER_STAFF', label: 'Staff' },
+  { value: 'PROVIDER_VIEWER', label: 'Viewer' },
+];
+
+const PERM_LABELS = {
+  LISTINGS_READ: 'View listings',
+  LISTINGS_WRITE: 'Manage listings',
+  TEAM_READ: 'View team',
+  TEAM_MANAGE: 'Manage team',
+  PAYROLL_READ: 'View payroll',
+  PAYROLL_WRITE: 'Record payouts',
+  ORDERS_READ: 'View orders',
+  ORDERS_WRITE: 'Manage orders',
+  RENTALS_READ: 'View rentals',
+  RENTALS_WRITE: 'Manage rentals',
+};
 
 onMounted(async () => {
   auth.restoreFromStorage();
@@ -53,29 +79,24 @@ onMounted(async () => {
     return;
   }
   await loadContext();
-  await loadAll();
+  await loadTeam();
 });
 
 async function loadContext() {
   try {
     const { data } = await providerTeamApi.getContext();
     context.value = data;
-  } catch (e) {
-    // Context is used for UX only; server still enforces permissions.
+  } catch {
     context.value = null;
   }
 }
 
-async function loadAll() {
+async function loadTeam() {
   loading.value = true;
   error.value = '';
   try {
-    const [t, p] = await Promise.all([
-      providerTeamApi.listStaff(),
-      providerTeamApi.listPayrollEntries(),
-    ]);
-    team.value = t.data;
-    payroll.value = p.data;
+    const { data } = await providerTeamApi.listStaff();
+    team.value = data || [];
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
   } finally {
@@ -83,560 +104,645 @@ async function loadAll() {
   }
 }
 
-const canManageTeam = computed(() => context.value?.effectivePermissions?.includes?.('TEAM_MANAGE'));
-const canReadTeam = computed(() => context.value?.effectivePermissions?.includes?.('TEAM_READ'));
-const canReadPayroll = computed(() => context.value?.effectivePermissions?.includes?.('PAYROLL_READ'));
-const canWritePayroll = computed(() => context.value?.effectivePermissions?.includes?.('PAYROLL_WRITE'));
+const canManageTeam = computed(() => context.value?.effectivePermissions?.includes?.('TEAM_MANAGE') || auth.isProviderOwner);
+const canReadTeam = computed(() => context.value?.effectivePermissions?.includes?.('TEAM_READ') || auth.isProviderOwner);
+const isOwnerActor = computed(() => auth.isProviderOwner);
 
-const applicablePermissionOptions = computed(() => {
-  const keys = context.value?.applicablePermissions || [];
-  // hide purely internal/future keys if needed later
-  return keys;
-});
-
-const grantablePermissionOptions = computed(() => {
-  const applicable = applicablePermissionOptions.value || [];
+const grantablePermissions = computed(() => {
+  const applicable = context.value?.applicablePermissions || [];
   const mine = context.value?.effectivePermissions || [];
-  // Rule: you cannot grant permissions you don't have. (Server enforces too.)
+  if (isOwnerActor.value) return applicable;
   return applicable.filter((k) => mine.includes(k));
 });
 
-function openEdit(member) {
-  if (!canManageTeam.value) return;
-  editing.value = member;
-  editForm.value = {
-    role: member.role,
-    rateUnit: member.rateUnit || 'HOURLY',
-    rateAmount: member.rateAmount != null ? String(member.rateAmount) : '0',
-    enabled: !!member.enabled,
-    permissions: [...(member.permissions || [])],
-  };
-  showEditDialog.value = true;
+const defaultPermissions = computed(() => {
+  const keys = grantablePermissions.value;
+  const preferred = ['LISTINGS_READ', 'LISTINGS_WRITE', 'ORDERS_READ', 'ORDERS_WRITE', 'RENTALS_READ', 'RENTALS_WRITE', 'TEAM_READ'];
+  return preferred.filter((k) => keys.includes(k));
+});
+
+const filteredTeam = computed(() => {
+  const q = search.value.trim().toLowerCase();
+  const rows = team.value || [];
+  if (!q) return rows;
+  return rows.filter((m) => {
+    const hay = [m.email, m.firstName, m.lastName, m.displayName, m.phoneNumber, m.role, ...(m.permissions || [])]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+    return hay.includes(q);
+  });
+});
+
+function formatPayMethod(v) {
+  return PAY_METHODS.find((p) => p.value === v)?.label || v || '—';
 }
 
-function closeEdit() {
-  editing.value = null;
-  showEditDialog.value = false;
+function formatRole(v) {
+  return ROLE_OPTIONS.find((r) => r.value === v)?.label || v || '—';
+}
+
+function formatPerms(perms) {
+  if (!perms?.length) return '—';
+  return perms.map((p) => PERM_LABELS[p] || p).join(', ');
+}
+
+function displayName(m) {
+  if (m.displayName) return m.displayName;
+  const n = [m.firstName, m.lastName].filter(Boolean).join(' ');
+  return n || m.email;
 }
 
 function openAdd() {
-  if (!canManageTeam.value) return;
-  showAddDialog.value = true;
+  error.value = '';
+  createForm.value = { ...emptyForm(), permissions: [...defaultPermissions.value] };
+  showAdd.value = true;
 }
 
-function closeAdd() {
-  showAddDialog.value = false;
-  newStaff.value = {
-    email: '',
+function openEdit(m) {
+  if (m.owner) return;
+  editing.value = m;
+  editForm.value = {
+    email: m.email,
     password: '',
-    role: 'PROVIDER_STAFF',
-    rateUnit: 'HOURLY',
-    rateAmount: '',
-    permissions: [],
+    firstName: m.firstName || '',
+    lastName: m.lastName || '',
+    phoneNumber: m.phoneNumber || '',
+    role: m.role || 'PROVIDER_STAFF',
+    rateUnit: m.rateUnit || 'PER_SERVICE',
+    rateAmount: m.rateAmount != null ? String(m.rateAmount) : '',
+    targetPeriod: m.targetPeriod || 'MONTHLY',
+    targetValue: m.targetValue != null ? String(m.targetValue) : '',
+    bonusPercentage: m.bonusPercentage != null ? String(m.bonusPercentage) : '',
+    enabled: !!m.enabled,
+    permissions: [...(m.permissions || [])],
   };
+  showEdit.value = true;
 }
 
-async function saveEdit() {
+function openView(m) {
+  viewing.value = m;
+  showView.value = true;
+}
+
+function openDelete(m) {
+  if (m.owner) return;
+  deleting.value = m;
+  showDelete.value = true;
+}
+
+async function submitCreate() {
+  if (!canManageTeam.value) return;
+  saving.value = true;
+  error.value = '';
+  try {
+    const body = {
+      email: createForm.value.email,
+      password: createForm.value.password,
+      firstName: createForm.value.firstName || null,
+      lastName: createForm.value.lastName || null,
+      phoneNumber: createForm.value.phoneNumber || null,
+      role: createForm.value.role,
+      rateUnit: createForm.value.rateUnit,
+      rateAmount: Number(createForm.value.rateAmount),
+      targetPeriod: createForm.value.targetPeriod || null,
+      targetValue: createForm.value.targetValue === '' ? null : Number(createForm.value.targetValue),
+      bonusPercentage: createForm.value.bonusPercentage === '' ? null : Number(createForm.value.bonusPercentage),
+      permissions: isOwnerActor.value ? createForm.value.permissions : undefined,
+    };
+    await providerTeamApi.inviteStaff(body);
+    message.value = 'Employee enrolled successfully.';
+    showAdd.value = false;
+    await loadTeam();
+  } catch (e) {
+    error.value = e.response?.data?.message || e.message;
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function submitEdit() {
   if (!editing.value) return;
+  saving.value = true;
   error.value = '';
   try {
     await providerTeamApi.updateStaff(editing.value.id, {
       role: editForm.value.role,
+      firstName: editForm.value.firstName || null,
+      lastName: editForm.value.lastName || null,
+      phoneNumber: editForm.value.phoneNumber || null,
       rateUnit: editForm.value.rateUnit,
       rateAmount: Number(editForm.value.rateAmount),
+      targetPeriod: editForm.value.targetPeriod || null,
+      targetValue: editForm.value.targetValue === '' ? null : Number(editForm.value.targetValue),
+      bonusPercentage: editForm.value.bonusPercentage === '' ? null : Number(editForm.value.bonusPercentage),
       enabled: !!editForm.value.enabled,
       permissions: editForm.value.permissions,
     });
-    closeEdit();
-    await loadContext();
-    await loadAll();
+    message.value = 'Team member updated.';
+    showEdit.value = false;
+    await loadTeam();
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
+  } finally {
+    saving.value = false;
   }
 }
 
-async function deleteStaff(id) {
-  if (!id) return;
+async function confirmDelete() {
+  if (!deleting.value) return;
+  saving.value = true;
   error.value = '';
   try {
-    await providerTeamApi.removeStaff(id);
-    if (editing.value?.id === id) closeEdit();
-    await loadContext();
-    await loadAll();
+    await providerTeamApi.removeStaff(deleting.value.id);
+    message.value = 'Employee removed (login disabled).';
+    showDelete.value = false;
+    deleting.value = null;
+    await loadTeam();
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
+  } finally {
+    saving.value = false;
   }
 }
 
-async function createStaff() {
-  error.value = '';
-  try {
-    await providerTeamApi.inviteStaff({
-      email: newStaff.value.email,
-      password: newStaff.value.password,
-      role: newStaff.value.role,
-      rateUnit: newStaff.value.rateUnit,
-      rateAmount: Number(newStaff.value.rateAmount),
-      permissions: newStaff.value.permissions,
-    });
-    closeAdd();
-    await loadAll();
-  } catch (e) {
-    error.value = e.response?.data?.message || e.message;
-  }
-}
-
-async function recordPayroll() {
-  error.value = '';
-  try {
-    await providerTeamApi.addPayroll(payrollForm.value.staffUserId, {
-      unitsWorked: Number(payrollForm.value.unitsWorked),
-      notes: payrollForm.value.notes || null,
-    });
-    payrollForm.value = { staffUserId: '', unitsWorked: '', notes: '' };
-    await loadAll();
-  } catch (e) {
-    error.value = e.response?.data?.message || e.message;
-  }
+function money(v) {
+  if (v == null || v === '') return '—';
+  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(Number(v));
 }
 </script>
 
 <template>
   <div class="page-document page-document--wide team-page">
     <header class="page-hero">
-      <p class="page-hero__eyebrow">Your organisation</p>
-      <h1 class="page-hero__title">Team & payroll</h1>
+      <p class="page-hero__eyebrow">Provider</p>
+      <h1 class="page-hero__title">Team management</h1>
       <p class="page-hero__lead">
-        Invite staff with a rate type (hourly/daily/weekly/monthly) and a rate amount. Each payroll line stores the rate at the
-        time of entry and calculates <strong>units × rate</strong>.
+        Enrol staff, set pay methods and permissions, then pay them from completed orders on
+        <router-link to="/provider/staff-payments">Staff payments</router-link>.
       </p>
     </header>
 
-    <p v-if="error" class="err-toast">{{ error }}</p>
-    <p v-if="loading" class="muted loading-line">Loading…</p>
+    <p v-if="error" class="alert alert--error">{{ error }}</p>
+    <p v-if="message" class="alert alert--ok">{{ message }}</p>
 
-    <template v-else>
-      <section class="surface-panel team-section">
-        <div class="panel-head">
-          <h2>Team members</h2>
-          <button type="button" class="btn btn-primary" :disabled="!canManageTeam" @click="openAdd">Add new</button>
+    <div class="team-card surface-panel">
+      <div class="team-card__toolbar">
+        <h2>Team directory</h2>
+        <div class="team-card__actions">
+          <input v-model="search" type="search" class="team-search" placeholder="Search name, email, role…" />
+          <button type="button" class="btn btn-primary" :disabled="!canManageTeam" @click="openAdd">
+            Add employee
+          </button>
         </div>
-        <p v-if="!canReadTeam" class="muted small">You do not have permission to view team members.</p>
-        <ResponsiveRecordShell desktop-label="Team directory">
-          <template #desktop>
-            <DataTableShell caption="Team members">
-              <thead>
-                <tr>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Owner</th>
-                  <th>Rate type</th>
-                  <th>Rate</th>
-                  <th>Enabled</th>
-                  <th>Permissions</th>
-                  <th v-if="canManageTeam"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="m in team" :key="m.id">
-                  <td>{{ m.email }}</td>
-                  <td>{{ m.role }}</td>
-                  <td>{{ m.owner ? 'Yes' : '—' }}</td>
-                  <td>{{ m.rateUnit || '—' }}</td>
-                  <td>{{ m.rateAmount != null ? `R ${m.rateAmount}` : '—' }}</td>
-                  <td>{{ m.enabled ? 'Yes' : 'No' }}</td>
-                  <td class="small muted">{{ (m.permissions || []).join(', ') || '—' }}</td>
-                  <td v-if="canManageTeam" class="actions">
-                    <button type="button" class="btn btn-ghost" :disabled="m.owner" @click="openEdit(m)">Edit</button>
-                    <button type="button" class="btn btn-ghost btn-danger" :disabled="m.owner" @click="deleteStaff(m.id)">
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </DataTableShell>
-          </template>
-          <template #mobile>
-            <div class="cards">
-              <article v-for="m in team" :key="m.id" class="member-card">
-                <strong>{{ m.email }}</strong>
-                <span class="meta">{{ m.role }}{{ m.owner ? ' · Owner' : '' }}</span>
-                <span class="meta">Rate: {{ m.rateUnit || '—' }} · R{{ m.rateAmount ?? '—' }}</span>
-                <span class="meta">{{ m.enabled ? 'Active' : 'Disabled' }}</span>
-                <span class="meta">Perms: {{ (m.permissions || []).join(', ') || '—' }}</span>
-                <button v-if="canManageTeam" type="button" class="btn btn-ghost" :disabled="m.owner" @click="openEdit(m)">
-                  Edit
-                </button>
-                <button
-                  v-if="canManageTeam"
-                  type="button"
-                  class="btn btn-ghost btn-danger"
-                  :disabled="m.owner"
-                  @click="deleteStaff(m.id)"
-                >
-                  Delete
-                </button>
-              </article>
-            </div>
-          </template>
-        </ResponsiveRecordShell>
-      </section>
-
-      <dialog class="mp-dialog" :open="showEditDialog">
-        <div class="mp-dialog__panel">
-          <div class="mp-dialog__head">
-            <h2 class="mp-dialog__title">Edit staff</h2>
-            <button type="button" class="btn btn-ghost" @click="closeEdit">Close</button>
-          </div>
-
-          <p v-if="editing" class="muted small"><strong>Editing:</strong> {{ editing.email }}</p>
-
-          <div class="grid-2">
-            <FormField label="Role">
-              <select v-model="editForm.role">
-                <option value="PROVIDER_ADMIN">Provider admin</option>
-                <option value="PROVIDER_STAFF">Staff</option>
-                <option value="PROVIDER_VIEWER">Viewer (read-only)</option>
-              </select>
-            </FormField>
-            <FormField label="Enabled">
-              <select v-model="editForm.enabled">
-                <option :value="true">Enabled</option>
-                <option :value="false">Disabled</option>
-              </select>
-            </FormField>
-          </div>
-
-          <div class="grid-2">
-            <FormField label="Rate type">
-              <select v-model="editForm.rateUnit" required>
-                <option value="HOURLY">Hourly</option>
-                <option value="DAILY">Daily</option>
-                <option value="WEEKLY">Weekly</option>
-                <option value="MONTHLY">Monthly</option>
-              </select>
-            </FormField>
-            <FormField label="Rate amount (ZAR)">
-              <input v-model="editForm.rateAmount" type="number" min="0" step="0.01" required />
-            </FormField>
-          </div>
-
-          <FormField label="Permissions">
-            <div class="perm-grid">
-              <label v-for="k in grantablePermissionOptions" :key="k" class="perm-item">
-                <input type="checkbox" :value="k" v-model="editForm.permissions" />
-                <span>{{ k }}</span>
-              </label>
-            </div>
-            <p class="muted small">Tick the permissions to grant. You can only grant permissions you already have.</p>
-          </FormField>
-
-          <div class="mp-dialog__actions">
-            <button type="button" class="btn btn-primary" @click="saveEdit">Save changes</button>
-            <button type="button" class="btn btn-ghost" @click="closeEdit">Cancel</button>
-            <button
-              v-if="editing && !editing.owner"
-              type="button"
-              class="btn btn-ghost btn-danger"
-              @click="deleteStaff(editing.id)"
-            >
-              Delete staff
-            </button>
-          </div>
-        </div>
-      </dialog>
-
-     <dialog class="mp-dialog" :open="showAddDialog">
-  <div class="mp-dialog__overlay" @click="closeAdd"></div>
-
-  <div class="mp-dialog__panel">
-
-    <!-- Header -->
-    <header class="mp-dialog__head">
-      <div>
-        <h2 class="mp-dialog__title">Add staff member</h2>
-        <p class="mp-dialog__subtitle">Create a new team member and assign role & permissions</p>
       </div>
 
-      <button type="button" class="btn btn-icon" @click="closeAdd" aria-label="Close">
-        ✕
-      </button>
-    </header>
+      <p v-if="!canReadTeam" class="muted">You do not have permission to view team members.</p>
+      <p v-else-if="loading" class="muted">Loading…</p>
 
-    <!-- Permission warning -->
-    <div v-if="!canManageTeam" class="mp-alert">
-      You do not have permission to create or edit staff.
+      <DataTableShell v-else caption="Team members">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Role</th>
+            <th>Pay method</th>
+            <th>Rate</th>
+            <th>Active</th>
+            <th>Permissions</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="m in filteredTeam" :key="m.id">
+            <td>
+              <strong>{{ displayName(m) }}</strong>
+              <span v-if="m.owner" class="chip chip--owner">Owner</span>
+            </td>
+            <td>{{ m.email }}</td>
+            <td>{{ m.phoneNumber || '—' }}</td>
+            <td>{{ formatRole(m.role) }}</td>
+            <td>{{ m.owner ? '—' : formatPayMethod(m.rateUnit) }}</td>
+            <td>{{ m.owner ? '—' : money(m.rateAmount) }}</td>
+            <td>
+              <span class="chip" :class="m.enabled ? 'chip--ok' : 'chip--off'">
+                {{ m.enabled ? 'Active' : 'Disabled' }}
+              </span>
+            </td>
+            <td class="perms-cell">{{ m.owner ? 'All' : formatPerms(m.permissions) }}</td>
+            <td class="actions-cell">
+              <button type="button" class="icon-btn" title="View" @click="openView(m)">👁</button>
+              <button
+                type="button"
+                class="icon-btn"
+                title="Edit"
+                :disabled="m.owner || !canManageTeam"
+                @click="openEdit(m)"
+              >
+                ✎
+              </button>
+              <button
+                type="button"
+                class="icon-btn icon-btn--danger"
+                title="Remove"
+                :disabled="m.owner || !canManageTeam"
+                @click="openDelete(m)"
+              >
+                ✕
+              </button>
+            </td>
+          </tr>
+          <tr v-if="!filteredTeam.length">
+            <td colspan="9" class="muted">No team members yet. Add your first employee to get started.</td>
+          </tr>
+        </tbody>
+      </DataTableShell>
     </div>
 
-    <!-- Content -->
-    <section class="mp-dialog__body">
-
-      <div class="form-section">
-        <h3 class="section-title">Account details</h3>
-
-        <FormField label="Email">
-          <input v-model="newStaff.email" type="email" required :disabled="!canManageTeam" />
-        </FormField>
-
-        <FormField label="Password">
-          <input v-model="newStaff.password" type="password" required minlength="8" :disabled="!canManageTeam" />
-        </FormField>
-      </div>
-
-      <div class="form-section">
-        <h3 class="section-title">Role & access</h3>
-
-        <FormField label="Role">
-          <select v-model="newStaff.role" :disabled="!canManageTeam">
-            <option value="PROVIDER_ADMIN">Provider admin</option>
-            <option value="PROVIDER_STAFF">Staff</option>
-            <option value="PROVIDER_VIEWER">Viewer (read-only)</option>
-          </select>
-        </FormField>
-      </div>
-
-      <div class="form-section">
-        <h3 class="section-title">Billing</h3>
-
-        <div class="grid-2">
-          <FormField label="Rate type">
-            <select v-model="newStaff.rateUnit" required :disabled="!canManageTeam">
-              <option value="HOURLY">Hourly</option>
+    <!-- Add dialog -->
+    <div v-if="showAdd" class="modal" role="dialog" aria-modal="true">
+      <div class="modal__backdrop" @click="showAdd = false" />
+      <div class="modal__panel">
+        <header class="modal__head">
+          <h3>Add employee</h3>
+          <button type="button" class="icon-btn" @click="showAdd = false">✕</button>
+        </header>
+        <p v-if="!isOwnerActor" class="hint">
+          New team members receive the <strong>same permissions as you</strong>.
+        </p>
+        <div class="form-grid">
+          <FormField label="Email"><input v-model="createForm.email" type="email" required /></FormField>
+          <FormField label="Password"><input v-model="createForm.password" type="password" minlength="8" required /></FormField>
+          <FormField label="First name"><input v-model="createForm.firstName" type="text" /></FormField>
+          <FormField label="Last name"><input v-model="createForm.lastName" type="text" /></FormField>
+          <FormField label="Phone"><input v-model="createForm.phoneNumber" type="tel" /></FormField>
+          <FormField label="Role">
+            <select v-model="createForm.role">
+              <option v-for="r in ROLE_OPTIONS" :key="r.value" :value="r.value">{{ r.label }}</option>
+            </select>
+          </FormField>
+          <FormField label="Payment method">
+            <select v-model="createForm.rateUnit">
+              <option v-for="p in PAY_METHODS" :key="p.value" :value="p.value">{{ p.label }}</option>
+            </select>
+          </FormField>
+          <FormField label="Pay rate (ZAR)">
+            <input v-model="createForm.rateAmount" type="number" min="0" step="0.01" required />
+          </FormField>
+          <FormField label="Target period">
+            <select v-model="createForm.targetPeriod">
               <option value="DAILY">Daily</option>
               <option value="WEEKLY">Weekly</option>
               <option value="MONTHLY">Monthly</option>
             </select>
           </FormField>
-
-          <FormField label="Rate amount (ZAR)">
-            <input v-model="newStaff.rateAmount" type="number" min="0" step="0.01" required :disabled="!canManageTeam" />
+          <FormField label="Target value">
+            <input v-model="createForm.targetValue" type="number" min="0" step="0.01" />
+          </FormField>
+          <FormField label="Bonus %">
+            <input v-model="createForm.bonusPercentage" type="number" min="0" max="100" step="0.1" />
           </FormField>
         </div>
-      </div>
-
-      <div class="form-section">
-        <h3 class="section-title">Permissions</h3>
-
-        <div class="perm-chips">
-          <label
-            v-for="k in grantablePermissionOptions"
-            :key="k"
-            class="perm-chip"
-            :class="{ active: newStaff.permissions.includes(k) }"
-          >
-            <input
-              type="checkbox"
-              :value="k"
-              v-model="newStaff.permissions"
-              :disabled="!canManageTeam"
-            />
-            <span>{{ k }}</span>
-          </label>
+        <div v-if="isOwnerActor" class="perm-block">
+          <p class="section-label">Permissions</p>
+          <div class="perm-chips">
+            <label
+              v-for="k in grantablePermissions"
+              :key="k"
+              class="perm-chip"
+              :class="{ active: createForm.permissions.includes(k) }"
+            >
+              <input v-model="createForm.permissions" type="checkbox" :value="k" />
+              {{ PERM_LABELS[k] || k }}
+            </label>
+          </div>
         </div>
-
-        <p class="muted small">Select what this staff member is allowed to access.</p>
+        <footer class="modal__actions">
+          <button type="button" class="btn btn-ghost" @click="showAdd = false">Cancel</button>
+          <button type="button" class="btn btn-primary" :disabled="saving" @click="submitCreate">
+            {{ saving ? 'Creating…' : 'Create' }}
+          </button>
+        </footer>
       </div>
+    </div>
 
-    </section>
+    <!-- Edit dialog -->
+    <div v-if="showEdit && editing" class="modal" role="dialog" aria-modal="true">
+      <div class="modal__backdrop" @click="showEdit = false" />
+      <div class="modal__panel">
+        <header class="modal__head">
+          <h3>Edit team member</h3>
+          <button type="button" class="icon-btn" @click="showEdit = false">✕</button>
+        </header>
+        <p class="muted small">{{ editing.email }}</p>
+        <div class="form-grid">
+          <FormField label="First name"><input v-model="editForm.firstName" type="text" /></FormField>
+          <FormField label="Last name"><input v-model="editForm.lastName" type="text" /></FormField>
+          <FormField label="Phone"><input v-model="editForm.phoneNumber" type="tel" /></FormField>
+          <FormField label="Role">
+            <select v-model="editForm.role">
+              <option v-for="r in ROLE_OPTIONS" :key="r.value" :value="r.value">{{ r.label }}</option>
+            </select>
+          </FormField>
+          <FormField label="Payment method">
+            <select v-model="editForm.rateUnit">
+              <option v-for="p in PAY_METHODS" :key="p.value" :value="p.value">{{ p.label }}</option>
+            </select>
+          </FormField>
+          <FormField label="Pay rate (ZAR)">
+            <input v-model="editForm.rateAmount" type="number" min="0" step="0.01" required />
+          </FormField>
+          <FormField label="Target period">
+            <select v-model="editForm.targetPeriod">
+              <option value="DAILY">Daily</option>
+              <option value="WEEKLY">Weekly</option>
+              <option value="MONTHLY">Monthly</option>
+            </select>
+          </FormField>
+          <FormField label="Target value">
+            <input v-model="editForm.targetValue" type="number" min="0" step="0.01" />
+          </FormField>
+          <FormField label="Bonus %">
+            <input v-model="editForm.bonusPercentage" type="number" min="0" max="100" step="0.1" />
+          </FormField>
+          <FormField label="Status">
+            <select v-model="editForm.enabled">
+              <option :value="true">Active</option>
+              <option :value="false">Disabled</option>
+            </select>
+          </FormField>
+        </div>
+        <div class="perm-block">
+          <p class="section-label">Permissions</p>
+          <div class="perm-chips">
+            <label
+              v-for="k in grantablePermissions"
+              :key="k"
+              class="perm-chip"
+              :class="{ active: editForm.permissions.includes(k) }"
+            >
+              <input v-model="editForm.permissions" type="checkbox" :value="k" />
+              {{ PERM_LABELS[k] || k }}
+            </label>
+          </div>
+        </div>
+        <footer class="modal__actions">
+          <button type="button" class="btn btn-ghost" @click="showEdit = false">Cancel</button>
+          <button type="button" class="btn btn-primary" :disabled="saving" @click="submitEdit">
+            {{ saving ? 'Saving…' : 'Save' }}
+          </button>
+        </footer>
+      </div>
+    </div>
 
-    <!-- Actions -->
-    <footer class="mp-dialog__actions">
-      <button type="button" class="btn btn-primary" :disabled="!canManageTeam" @click="createStaff">
-        Create staff
-      </button>
-      <button type="button" class="btn btn-ghost" @click="closeAdd">
-        Cancel
-      </button>
-    </footer>
+    <!-- View dialog -->
+    <div v-if="showView && viewing" class="modal" role="dialog" aria-modal="true">
+      <div class="modal__backdrop" @click="showView = false" />
+      <div class="modal__panel modal__panel--narrow">
+        <header class="modal__head">
+          <h3>Team member details</h3>
+          <button type="button" class="icon-btn" @click="showView = false">✕</button>
+        </header>
+        <dl class="detail-list">
+          <div><dt>Name</dt><dd>{{ displayName(viewing) }}</dd></div>
+          <div><dt>Email</dt><dd>{{ viewing.email }}</dd></div>
+          <div><dt>Phone</dt><dd>{{ viewing.phoneNumber || '—' }}</dd></div>
+          <div><dt>Role</dt><dd>{{ formatRole(viewing.role) }}</dd></div>
+          <div><dt>Pay method</dt><dd>{{ formatPayMethod(viewing.rateUnit) }}</dd></div>
+          <div><dt>Rate</dt><dd>{{ money(viewing.rateAmount) }}</dd></div>
+          <div><dt>Target</dt><dd>{{ viewing.targetPeriod || '—' }} · {{ viewing.targetValue ?? '—' }}</dd></div>
+          <div><dt>Bonus</dt><dd>{{ viewing.bonusPercentage != null ? `${viewing.bonusPercentage}%` : '—' }}</dd></div>
+          <div><dt>Active</dt><dd>{{ viewing.enabled ? 'Yes' : 'No' }}</dd></div>
+          <div><dt>Permissions</dt><dd>{{ viewing.owner ? 'All' : formatPerms(viewing.permissions) }}</dd></div>
+        </dl>
+        <footer class="modal__actions">
+          <button type="button" class="btn btn-ghost" @click="showView = false">Close</button>
+          <router-link
+            v-if="!viewing.owner"
+            class="btn btn-primary"
+            :to="{ path: '/provider/staff-payments', query: { staff: viewing.id } }"
+          >
+            View payouts
+          </router-link>
+        </footer>
+      </div>
+    </div>
 
-  </div>
-</dialog>
-
-      <section class="surface-panel team-section">
-        <h2>Payroll</h2>
-        <p class="muted small">
-          Payroll recording and history have moved to <router-link to="/provider/staff-payments">Staff payments</router-link>.
+    <!-- Delete dialog -->
+    <div v-if="showDelete && deleting" class="modal" role="dialog" aria-modal="true">
+      <div class="modal__backdrop" @click="showDelete = false" />
+      <div class="modal__panel modal__panel--narrow">
+        <header class="modal__head">
+          <h3>Remove employee?</h3>
+          <button type="button" class="icon-btn" @click="showDelete = false">✕</button>
+        </header>
+        <p>
+          This will deactivate <strong>{{ displayName(deleting) }}</strong>. They will no longer be able to sign in.
+          Payroll history is kept.
         </p>
-      </section>
-    </template>
+        <footer class="modal__actions">
+          <button type="button" class="btn btn-ghost" @click="showDelete = false">Cancel</button>
+          <button type="button" class="btn btn-danger" :disabled="saving" @click="confirmDelete">
+            {{ saving ? 'Removing…' : 'Remove' }}
+          </button>
+        </footer>
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
-/* =========================
-   ANIMATIONS
-========================= */
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translate(-50%, calc(-50% + 20px));
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%);
-  }
+.team-page {
+  padding-bottom: 2.5rem;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.team-card__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
-/* =========================
-   DIALOG BASE - PROPER MODAL POPUP
-========================= */
-.mp-dialog {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(760px, calc(100vw - 2rem));
-  max-height: 90vh;
+.team-card__toolbar h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  color: var(--color-canopy);
   border: none;
   padding: 0;
-  background: transparent;
-  z-index: var(--z-modal);
-  animation: slideUp 0.3s var(--ease-out);
 }
 
-.mp-dialog::backdrop {
+.team-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.team-search {
+  min-width: 14rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.12rem 0.45rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.72rem;
+  font-weight: 700;
+  margin-left: 0.35rem;
+}
+
+.chip--owner {
+  background: var(--color-wheat-soft);
+  color: var(--color-earth);
+}
+
+.chip--ok {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+  margin-left: 0;
+}
+
+.chip--off {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  margin-left: 0;
+}
+
+.perms-cell {
+  max-width: 14rem;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+
+.actions-cell {
+  white-space: nowrap;
+}
+
+.icon-btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: 8px;
+  width: 2rem;
+  height: 2rem;
+  cursor: pointer;
+}
+
+.icon-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.icon-btn--danger {
+  color: var(--color-danger-text);
+}
+
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 0.85rem;
+}
+
+.alert--error {
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+}
+
+.alert--ok {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.modal__backdrop {
+  position: absolute;
+  inset: 0;
   background: rgba(28, 36, 24, 0.5);
-  backdrop-filter: blur(4px);
-  animation: fadeIn 0.3s var(--ease-out);
+  backdrop-filter: blur(3px);
 }
 
-.mp-dialog[open] {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Close button icon style */
-.btn-icon {
-  font-size: 1.5rem;
-  line-height: 1;
-  padding: 0;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* =========================
-   OVERLAY (not needed with ::backdrop, kept for safety)
-========================= */
-.mp-dialog__overlay {
-  display: none; /* Hidden - using native ::backdrop instead */
-}
-
-/* =========================
-   PANEL - Modal Content Container
-========================= */
-.mp-dialog__panel {
+.modal__panel {
+  position: relative;
+  width: min(560px, 100%);
+  max-height: min(90vh, 44rem);
+  overflow: auto;
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  padding: 1.5rem;
   box-shadow: var(--shadow-lg);
-  
-  width: 100%;
-  max-height: 85vh;
-  overflow-y: auto;
-  
-  display: flex;
-  flex-direction: column;
+  padding: 1.15rem 1.2rem 1rem;
 }
 
-/* =========================
-   HEADER
-========================= */
-.mp-dialog__head {
+.modal__panel--narrow {
+  width: min(420px, 100%);
+}
+
+.modal__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.75rem;
   margin-bottom: 0.75rem;
 }
 
-.mp-dialog__title {
-  font-family: var(--font-display);
+.modal__head h3 {
   margin: 0;
-  font-size: 20px;
-  font-weight: 600;
+  font-family: var(--font-display);
+  color: var(--color-canopy);
 }
 
-.mp-dialog__subtitle {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: #64748b;
-}
-
-/* =========================
-   BODY
-========================= */
-.mp-dialog__body {
-  padding: 20px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-/* =========================
-   SECTIONS
-========================= */
-.form-section {
-  padding-bottom: 16px;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.section-title {
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  color: #64748b;
-  margin-bottom: 12px;
-}
-
-/* =========================
-   GRID (DEDUPED)
-========================= */
-.grid-2 {
+.form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
-@media (max-width: 980px) {
-  .grid-2 {
+@media (max-width: 640px) {
+  .form-grid {
     grid-template-columns: 1fr;
   }
 }
 
-/* =========================
-   PERMISSIONS
-========================= */
+.section-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  margin: 0.85rem 0 0.45rem;
+}
+
 .perm-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 0.4rem;
 }
 
 .perm-chip {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  font-size: 12px;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  font-size: 0.8rem;
   cursor: pointer;
-  transition: all 0.15s ease;
-  user-select: none;
+  background: var(--color-surface);
 }
 
 .perm-chip input {
@@ -644,164 +750,58 @@ async function recordPayroll() {
 }
 
 .perm-chip.active {
-  background: #2563eb;
-  color: white;
-  border-color: #2563eb;
-}
-
-/* legacy compatibility (your original style kept) */
-.perm-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem 0.6rem;
-  padding: 0.35rem;
-  border: 1px solid rgba(26, 60, 52, 0.12);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.55);
-  max-height: 180px;
-  overflow: auto;
-}
-
-@media (max-width: 980px) {
-  .perm-grid {
-    grid-template-columns: 1fr;
-    max-height: 220px;
-  }
-}
-
-.perm-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-size: 0.88rem;
+  background: var(--color-sage-soft);
+  border-color: var(--color-sage);
   color: var(--color-canopy);
-  line-height: 1.2;
-  padding: 0.15rem 0.25rem;
-  border-radius: 10px;
+  font-weight: 600;
 }
 
-.perm-item:hover {
-  background: rgba(26, 60, 52, 0.05);
-}
-
-/* =========================
-   ALERT
-========================= */
-.mp-alert {
-  margin: 0 24px;
-  padding: 10px 12px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #9a3412;
-  border-radius: 8px;
-  font-size: 13px;
-}
-
-/* =========================
-   ACTIONS (DEDUPED)
-========================= */
-.mp-dialog__actions {
+.modal__actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-md);
-  margin-top: var(--space-lg);
-  padding-top: var(--space-lg);
-  border-top: 1px solid var(--color-border);
   justify-content: flex-end;
-}
-
-/* =========================
-   ICON BUTTON
-========================= */
-.btn-icon {
-  border: none;
-  background: transparent;
-  font-size: 18px;
-  cursor: pointer;
-}
-
-/* =========================
-   TEAM PAGE (unchanged, grouped)
-========================= */
-.team-page {
-  padding: 0.5rem 0 2.5rem;
-}
-
-.team-section {
-  margin-top: 1.35rem;
-}
-
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-.team-section h2 {
-  font-family: var(--font-display);
-}
-
-.team-section .btn-primary {
-  margin-top: 0.65rem;
-}
-
-.loading-line {
-  padding: 1rem 0;
-}
-
-.muted {
-  color: var(--color-muted);
-  line-height: 1.5;
-}
-
-/* =========================
-   CARDS
-========================= */
-.cards {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.member-card,
-.pay-card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 0.95rem 1.05rem;
-  background: var(--color-surface);
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  box-shadow: var(--shadow-sm);
-}
-
-.meta {
-  font-size: 0.82rem;
-  color: var(--color-muted);
-}
-
-.col-num {
-  text-align: right;
-}
-
-.actions {
-  text-align: right;
-}
-
-.edit-panel {
-  max-width: 680px;
-}
-
-.edit-actions {
-  display: flex;
-  gap: 0.6rem;
-  margin-top: 0.75rem;
+  gap: 0.55rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border);
 }
 
 .btn-danger {
-  border-color: rgba(180, 40, 40, 0.35);
-  color: rgba(140, 20, 20, 0.95);
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  border: 1px solid rgba(139, 44, 31, 0.25);
+  border-radius: var(--radius-md);
+  padding: 0.5rem 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.detail-list {
+  margin: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.detail-list > div {
+  display: grid;
+  grid-template-columns: 7rem 1fr;
+  gap: 0.5rem;
+}
+
+.detail-list dt {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+}
+
+.detail-list dd {
+  margin: 0;
+}
+
+.hint {
+  background: var(--color-wheat-soft);
+  border: 1px solid rgba(201, 162, 39, 0.35);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 0.75rem;
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
 }
 </style>

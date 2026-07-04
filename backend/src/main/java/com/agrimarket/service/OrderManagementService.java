@@ -21,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
@@ -87,6 +88,11 @@ public class OrderManagementService {
 
     @Transactional
     public Order updateOrderStatus(Long providerId, Long orderId, OrderStatus newStatus) {
+        return updateOrderStatus(providerId, orderId, newStatus, null);
+    }
+
+    @Transactional
+    public Order updateOrderStatus(Long providerId, Long orderId, OrderStatus newStatus, Long actorUserId) {
         Order order = getOrderById(providerId, orderId);
 
         // Validate status transitions
@@ -126,6 +132,14 @@ public class OrderManagementService {
         }
 
         order.setStatus(newStatus);
+        if (newStatus == OrderStatus.COLLECTED) {
+            if (order.getCompletedAt() == null) {
+                order.setCompletedAt(Instant.now());
+            }
+            if (actorUserId != null) {
+                order.setCompletedByStaffId(actorUserId);
+            }
+        }
         Order saved = OrderRepository.save(order);
         sendPurchaseStatusEmails(saved);
         return saved;

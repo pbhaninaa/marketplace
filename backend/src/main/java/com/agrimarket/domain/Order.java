@@ -80,6 +80,14 @@ public class Order {
     @Column(name = "inventory_finalized", nullable = false)
     private boolean inventoryFinalized;
 
+    /** When the order was collected/completed (payroll attribution window). */
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
+    /** Staff user who completed/collected the order (payroll attribution). */
+    @Column(name = "completed_by_staff_id")
+    private Long completedByStaffId;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CartLine> lines = new ArrayList<>();
 }

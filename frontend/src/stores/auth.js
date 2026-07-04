@@ -29,6 +29,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isProviderUser = computed(() =>
     ['PROVIDER_OWNER', 'PROVIDER_ADMIN', 'PROVIDER_STAFF', 'PROVIDER_VIEWER'].includes(role.value),
   );
+  const isProviderOwner = computed(() => role.value === 'PROVIDER_OWNER');
   const canManageStaff = computed(() => role.value === 'PROVIDER_OWNER' || role.value === 'PROVIDER_ADMIN');
   const isClientUser = computed(() => role.value === 'CLIENT');
   const isPremiumPlan = computed(() => String(providerPlan.value || '').toUpperCase() === 'PREMIUM');
@@ -141,6 +142,7 @@ export const useAuthStore = defineStore('auth', () => {
     isSupport,
     isShadowing,
     isProviderUser,
+    isProviderOwner,
     canManageStaff,
     isClientUser,
     isPremiumPlan,

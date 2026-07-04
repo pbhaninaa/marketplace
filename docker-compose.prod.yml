@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${PROD_DB_NAME}
       POSTGRES_USER: ${PROD_DB_USER}
@@ -16,6 +17,7 @@ services:
   backend:
     build:
       context: ./backend
+    restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: prod
       PROD_DB_HOST: db
@@ -24,7 +26,7 @@ services:
       PROD_DB_USER: ${PROD_DB_USER}
       PROD_DB_PASSWORD: ${PROD_DB_PASSWORD}
       APP_JWT_SECRET: ${APP_JWT_SECRET}
-      PROD_CORS_ORIGINS: ${PUBLIC_APP_BASE_URL}
+      PROD_CORS_ORIGINS: ${PROD_CORS_ORIGINS}
       PUBLIC_APP_BASE_URL: ${PUBLIC_APP_BASE_URL}
       PROD_PAYMENT_PROVIDER: ${PROD_PAYMENT_PROVIDER:-stub}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
@@ -39,13 +41,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    ports:
-      - "8080:8080"
+    # API is only reachable via frontend nginx (/api). Do not publish 8080 publicly.
+    expose:
+      - "8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health | grep -q UP"]
       interval: 10s
       timeout: 5s
       retries: 10
+      start_period: 60s
 
   frontend:
     build:
@@ -53,6 +57,7 @@ services:
       args:
         VITE_API_BASE: ${VITE_API_BASE:-}
         VITE_APP_ENV: PROD
+    restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy

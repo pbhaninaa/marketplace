@@ -183,9 +183,8 @@ function initPaymentFields() {
       <p class="page-hero__eyebrow">Provider</p>
       <h1 class="page-hero__title">Subscription</h1>
       <p class="page-hero__lead">
-        Choose a plan to unlock workspace features. This page mirrors the Wheel Hub subscription flow (same sections),
-        with our
-        Marketplace theme.
+        Pick a plan, pay the platform bank details with your payment reference, then upload proof.
+        Auto-verification activates access immediately when checks pass; otherwise Support reviews it.
       </p>
     </header>
 

@@ -1,43 +1,62 @@
 # Railway UAT / PROD — copy variable names only; fill values in the dashboard.
+# Never commit real secrets.
 
 # ========== PROFILE ==========
-SPRING_PROFILES_ACTIVE=
+# UAT: uat | PROD: prod
+SPRING_PROFILES_ACTIVE=prod
 
 # ========== DATABASE (PostgreSQL) ==========
-UAT_DB_HOST=
-UAT_DB_PORT=
-UAT_DB_NAME=
-UAT_DB_USER=
-UAT_DB_PASSWORD=
+# Prefer linking Railway Postgres (injects PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD).
+# Or set explicit vars:
+
+# --- PROD ---
+PROD_DB_HOST=
+PROD_DB_PORT=5432
+PROD_DB_NAME=
+PROD_DB_USER=
+PROD_DB_PASSWORD=
+
+# --- UAT (use instead of PROD_* when SPRING_PROFILES_ACTIVE=uat) ---
+# UAT_DB_HOST=
+# UAT_DB_PORT=5432
+# UAT_DB_NAME=
+# UAT_DB_USER=
+# UAT_DB_PASSWORD=
 
 # ========== SECURITY (JWT) ==========
+# Min 32 random characters — not a local/sit default
 APP_JWT_SECRET=
 
 # ========== FRONTEND URLS ==========
-PUBLIC_APP_BASE_URL=
-UAT_CORS_ORIGINS=
-APP_FRONTEND_URL=
+# Public UI origin, no trailing slash
+PUBLIC_APP_BASE_URL=https://your-frontend.up.railway.app
+
+# PROD:
+PROD_CORS_ORIGINS=https://your-frontend.up.railway.app
+# UAT:
+# UAT_CORS_ORIGINS=https://your-frontend-uat.up.railway.app
 
 # ========== EMAIL (SendGrid) ==========
 SENDGRID_API_KEY=
-EMAIL_FROM=
+EMAIL_FROM=no-reply@yourdomain.com
 
 # ========== PAYMENTS (label only — EFT/CASH in-app) ==========
-UAT_PAYMENT_PROVIDER=
+PROD_PAYMENT_PROVIDER=stub
+# UAT_PAYMENT_PROVIDER=stub
 
 # ========== PLATFORM BANK (subscription EFT) ==========
 APP_BANK_NAME=
 APP_BANK_ACCOUNT_NAME=
 APP_BANK_ACCOUNT_NUMBER=
 APP_BANK_BRANCH_CODE=
-APP_BANK_REFERENCE_HINT=
+APP_BANK_REFERENCE_HINT=Use your Provider Name as reference
 
 # ========== SUBSCRIPTION PRICING (ZAR / month) ==========
-APP_SUBSCRIPTION_BASIC_MONTHLY=
-APP_SUBSCRIPTION_PREMIUM_MONTHLY=
-
-# --- PROD: replace UAT_* with PROD_* / PROD_CORS_ORIGINS / SPRING_PROFILES_ACTIVE=prod ---
+APP_SUBSCRIPTION_BASIC_MONTHLY=199
+APP_SUBSCRIPTION_PREMIUM_MONTHLY=499
 
 # ========== FRONTEND SERVICE (separate Railway service) ==========
-VITE_APP_ENV=
-VITE_API_BASE=
+# Root directory: frontend | Branch: PROD
+# These must be available at Docker build time:
+VITE_APP_ENV=PROD
+VITE_API_BASE=https://your-backend.up.railway.app

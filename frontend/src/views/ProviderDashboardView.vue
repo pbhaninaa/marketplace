@@ -174,7 +174,7 @@ watch(
             </li>
             <li v-if="canManage">
               <span class="dot" />
-              Audit permissions in <router-link to="/provider/team">Team & payroll</router-link>
+              Audit permissions in <router-link to="/provider/team">Team management</router-link>
             </li>
           </ul>
         </div>
@@ -200,12 +200,12 @@ watch(
           <span class="muted small">Location, banking, payment methods</span>
         </router-link>
         <router-link v-if="canManagePremium" to="/provider/team" class="dash-card">
-          <strong>Team & payroll</strong>
-          <span class="muted small">Staff, permissions, payroll</span>
+          <strong>Team management</strong>
+          <span class="muted small">Enrol staff, permissions, targets</span>
         </router-link>
         <router-link v-if="canManagePremium" to="/provider/staff-payments" class="dash-card">
           <strong>Staff payments</strong>
-          <span class="muted small">Expected payouts from rate × units</span>
+          <span class="muted small">Order-based payouts and pay-all</span>
         </router-link>
       </div>
     </section>
@@ -215,8 +215,8 @@ watch(
 <style scoped>
 
 .dash-top {
-  max-width: 1500px;
-  margin: 0 auto 1rem;
+  width: 100%;
+  margin: 0 0 1rem;
   display: grid;
   grid-template-columns: 1fr;
   gap: 0.85rem;
@@ -228,10 +228,10 @@ watch(
 }
 .kpi {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 18px;
   padding: 0.85rem 0.95rem;
   background: var(--color-surface-elevated);
-  box-shadow: var(--shadow-sm);
+  border-left: 3px solid var(--color-sage);
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -249,8 +249,8 @@ watch(
   color: var(--color-muted);
 }
 .dash-panel {
-  max-width: 1500px;
-  margin: 0 auto;
+  width: 100%;
+  margin: 0;
 }
 
 .dash-panel--status {
@@ -332,10 +332,10 @@ watch(
 }
 .dash-card {
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 18px;
   padding: 1rem 1.05rem;
   background: var(--color-surface-elevated);
-  box-shadow: var(--shadow-sm);
+  border-left: 3px solid var(--color-sage);
   text-decoration: none;
   color: var(--color-canopy);
   display: flex;
@@ -343,8 +343,10 @@ watch(
   gap: 0.35rem;
 }
 .dash-card:hover {
-  border-color: rgba(61, 122, 102, 0.28);
-  box-shadow: var(--shadow-md);
+  background: var(--color-sage-soft);
+  border-color: rgba(61, 122, 102, 0.35);
+  text-decoration: none;
+  color: var(--color-canopy);
 }
 @media (max-width: 900px) {
   .kpis {

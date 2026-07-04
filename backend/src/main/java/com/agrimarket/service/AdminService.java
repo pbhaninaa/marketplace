@@ -227,14 +227,30 @@ public class AdminService {
                 perms = EnumSet.copyOf(keys);
             }
         }
+        String display = u.getDisplayName();
+        if (display == null || display.isBlank()) {
+            String fn = u.getFirstName() == null ? "" : u.getFirstName().trim();
+            String ln = u.getLastName() == null ? "" : u.getLastName().trim();
+            display = (fn + " " + ln).trim();
+            if (display.isEmpty()) {
+                display = null;
+            }
+        }
         return new StaffMemberResponse(
                 u.getId(),
                 u.getEmail(),
+                u.getFirstName(),
+                u.getLastName(),
+                u.getPhoneNumber(),
+                display,
                 u.getRole(),
                 u.isEnabled(),
                 owner,
                 u.getStaffRateUnit(),
                 u.getStaffCompensationRate(),
+                u.getStaffTargetPeriod(),
+                u.getStaffTargetValue(),
+                u.getStaffBonusPercentage(),
                 perms);
     }
 }
