@@ -103,7 +103,7 @@ public class ProviderOrderController {
                 user.getProviderId(), orderId, request.status());
 
         Order order = orderManagementService.updateOrderStatus(
-                user.getProviderId(), orderId, request.status());
+                user.getProviderId(), orderId, request.status(), user.getUserId());
         OrderResponse response = OrderResponse.from(order);
 
         return ResponseEntity.ok(response);
@@ -276,7 +276,7 @@ public class ProviderOrderController {
                 user.getProviderId(), orderId, status);
 
         Order order = orderManagementService.updateOrderStatus(
-                user.getProviderId(), orderId, status);
+                user.getProviderId(), orderId, status, user.getUserId());
         OrderResponse response = OrderResponse.from(order);
 
         return ResponseEntity.ok(response);

@@ -53,6 +53,15 @@ public class UserAccount {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @Column(name = "first_name", length = 100)
+    private String firstName;
+
+    @Column(name = "last_name", length = 100)
+    private String lastName;
+
+    @Column(name = "phone_number", length = 40)
+    private String phoneNumber;
+
     /** Hourly compensation for provider staff (not used for platform or provider owner). */
     @Convert(converter = StaffRateUnitConverter.class)
     @Column(name = "staff_compensation_method")
@@ -60,6 +69,17 @@ public class UserAccount {
 
     @Column(name = "staff_compensation_rate", precision = 14, scale = 2)
     private BigDecimal staffCompensationRate;
+
+    /** Provider-defined target period: DAILY / WEEKLY / MONTHLY. */
+    @Column(name = "staff_target_period", length = 20)
+    private String staffTargetPeriod;
+
+    @Column(name = "staff_target_value", precision = 14, scale = 2)
+    private BigDecimal staffTargetValue;
+
+    /** Bonus percentage 0–100. */
+    @Column(name = "staff_bonus_percentage", precision = 6, scale = 2)
+    private BigDecimal staffBonusPercentage;
 
     public UserAccount(String email, String passwordHash, UserRole role, Provider provider) {
         this.email = email;

@@ -449,14 +449,12 @@ onMounted(async () => {
 }
 
 .cards-grid--desktop {
-  max-width: 1120px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .cards-grid--mobile {
   grid-template-columns: 1fr;
-  max-width: 680px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 .muted {

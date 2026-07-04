@@ -24,6 +24,12 @@ public class StaffRateUnitConverter implements AttributeConverter<StaffRateUnit,
         if (v.equals("EFT") || v.equals("CASH") || v.equals("CARD")) {
             return StaffRateUnit.HOURLY;
         }
+        if (v.equals("PER_HOUR")) {
+            return StaffRateUnit.HOURLY;
+        }
+        if (v.equals("PER_DAY")) {
+            return StaffRateUnit.DAILY;
+        }
         try {
             return StaffRateUnit.valueOf(v);
         } catch (Exception e) {

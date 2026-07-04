@@ -153,7 +153,7 @@ public class ProviderMeOrdersController {
             @AuthenticationPrincipal MarketUserPrincipal actor,
             @PathVariable Long id,
             @RequestParam("status") OrderStatus status) {
-        orderManagementService.updateOrderStatus(actor.getProviderId(), id, status);
+        orderManagementService.updateOrderStatus(actor.getProviderId(), id, status, actor.getUserId());
     }
 
     @PutMapping("/orders/rentals/{id}/status")

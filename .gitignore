@@ -13,6 +13,8 @@ frontend/dist/
 .env
 .env.*
 !.env.example
+!.env.*.example
+!railway-env-variables.example.txt
 
 .idea/
 **/.idea/

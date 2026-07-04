@@ -9,9 +9,16 @@ import java.util.Set;
 public record StaffMemberResponse(
         Long id,
         String email,
+        String firstName,
+        String lastName,
+        String phoneNumber,
+        String displayName,
         UserRole role,
         boolean enabled,
         boolean owner,
         StaffRateUnit rateUnit,
         BigDecimal rateAmount,
+        String targetPeriod,
+        BigDecimal targetValue,
+        BigDecimal bonusPercentage,
         Set<ProviderPermissionKey> permissions) {}

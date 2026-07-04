@@ -291,8 +291,8 @@ export const providerTeamApi = {
   listStaff() {
     return api.get('/api/provider/me/staff');
   },
-  listPayrollEntries() {
-    return api.get('/api/provider/me/payroll-entries');
+  listPayrollEntries(params) {
+    return api.get('/api/provider/me/payroll-entries', { params });
   },
   updateStaff(userId, body) {
     return api.patch(`/api/provider/me/staff/${userId}`, body);
@@ -305,6 +305,21 @@ export const providerTeamApi = {
   },
   addPayroll(staffUserId, body) {
     return api.post(`/api/provider/me/staff/${staffUserId}/payroll`, body);
+  },
+  paymentCalculations(params) {
+    return api.get('/api/provider/me/staff/payment-calculations', { params });
+  },
+  staffIncome(staffUserId, params) {
+    return api.get(`/api/provider/me/staff/${staffUserId}/income`, { params });
+  },
+  markPayrollPaid(staffUserId, orderId) {
+    return api.post(`/api/provider/me/staff/${staffUserId}/payroll-marks`, { orderId });
+  },
+  unmarkPayrollPaid(staffUserId, orderId) {
+    return api.delete(`/api/provider/me/staff/${staffUserId}/payroll-marks`, { params: { orderId } });
+  },
+  payAllUnpaid(staffUserId, params) {
+    return api.post(`/api/provider/me/staff/${staffUserId}/payroll-marks/pay-all`, null, { params });
   },
 };
 

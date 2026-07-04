@@ -1,0 +1,11 @@
+# Railway: set Root Directory = frontend
+# Build args: VITE_API_BASE (backend origin, no /api), VITE_APP_ENV=PROD or UAT
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
