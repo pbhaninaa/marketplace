@@ -115,7 +115,7 @@ CI runs the same on push/PR to `SIT`, `UAT`, `PROD`, and `main`.
 2. As that staff user, mark an order **COLLECTED** (or owner re-assigns `completedByStaffId`).
 3. Owner opens **Staff payments** → pending row appears → mark paid (optional include bonus) / pay all.
 4. Staff opens **My income** (`/provider/staff-payments`) → sees expected unpaid / paid lines.
-5. Confirm notification bell shows new-order / subscription events when applicable.
+5. Confirm notification bell + email (+ SMS if Twilio enabled) for new-order / status / subscription events.
 
 ## Rollback
 

@@ -9,7 +9,6 @@ import com.agrimarket.domain.PaymentStatus;
 import com.agrimarket.domain.Order;
 import com.agrimarket.domain.RentalBooking;
 import com.agrimarket.repo.CartLineRepository;
-import com.agrimarket.repo.UserAccountRepository;
 import com.agrimarket.repo.PaymentRecordRepository;
 import com.agrimarket.repo.OrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
@@ -37,8 +36,6 @@ public class OrderManagementService {
     private final PaymentRecordRepository paymentRecordRepository;
     private final RentalBookingRepository rentalBookingRepository;
     private final CartLineRepository cartLineRepository;
-    private final UserAccountRepository userAccountRepository;
-    private final EmailService emailService;
     private final AppNotificationService appNotificationService;
 
     @Transactional(readOnly = true)
@@ -161,11 +158,10 @@ public class OrderManagementService {
             }
         }
         Order saved = OrderRepository.save(order);
-        sendPurchaseStatusEmails(saved);
         try {
-            appNotificationService.notifyOrderStatusByGuestEmail(saved, newStatus.name());
+            appNotificationService.notifyOrderStatus(saved);
         } catch (Exception ignored) {
-            // Never fail status update due to in-app notification.
+            // Never fail status update due to notifications.
         }
         return saved;
     }
@@ -194,6 +190,10 @@ public class OrderManagementService {
         order.setStatus(OrderStatus.CANCELLED);
         order.setPaymentStatus(PaymentStatus.PENDING);
         OrderRepository.save(order);
+        try {
+            appNotificationService.notifyOrderCancelled(order);
+        } catch (Exception ignored) {
+        }
     }
 
     @Transactional
@@ -408,122 +408,11 @@ public class OrderManagementService {
                             newStatus == BookingStatus.PAID ? OrderStatus.PAID : OrderStatus.CANCELLED));
         }
 
-        sendRentalStatusEmails(rental);
+        try {
+            appNotificationService.notifyRentalStatus(rental);
+        } catch (Exception ignored) {
+        }
         return rental;
-    }
-
-    private void sendPurchaseStatusEmails(Order order) {
-        try {
-            String clientTo = order.getGuestEmail();
-            String subject = "Order update: " + order.getStatus();
-            String plain = EmailTemplates.simpleText(
-                    "Your purchase order status changed",
-                    java.util.List.of(
-                            "Order ID: " + order.getId(),
-                            "New status: " + order.getStatus(),
-                            "Payment status: " + order.getPaymentStatus()
-                    ),
-                    "Thank you for using Agri Marketplace."
-            );
-            String html = EmailTemplates.layout(
-                    "Purchase order update",
-                    "Hello " + (order.getGuestName() == null ? "" : order.getGuestName()),
-                    "Your purchase order status has changed.",
-                    java.util.List.of(
-                            "Order ID: " + order.getId(),
-                            "New status: " + order.getStatus(),
-                            "Payment status: " + order.getPaymentStatus()
-                    ),
-                    "Thank you for using Agri Marketplace."
-            );
-            emailService.send(clientTo, subject, plain, html);
-
-            var providerUsers = userAccountRepository.findByProvider_IdOrderByEmailAsc(order.getProvider().getId());
-            String providerSubject = "Purchase order status changed: " + order.getStatus();
-            String providerPlain = EmailTemplates.simpleText(
-                    "Purchase order status changed",
-                    java.util.List.of(
-                            "Order ID: " + order.getId(),
-                            "New status: " + order.getStatus(),
-                            "Customer: " + order.getGuestName() + " (" + order.getGuestPhone() + ")"
-                    ),
-                    null
-            );
-            String providerHtml = EmailTemplates.layout(
-                    "Purchase order update",
-                    "Purchase order status changed",
-                    "An order status was updated in your store.",
-                    java.util.List.of(
-                            "Order ID: " + order.getId(),
-                            "New status: " + order.getStatus(),
-                            "Customer: " + order.getGuestName() + " (" + order.getGuestPhone() + ")"
-                    ),
-                    null
-            );
-            for (var u : providerUsers) {
-                if (u.getEmail() == null || u.getEmail().isBlank()) continue;
-                emailService.send(u.getEmail(), providerSubject, providerPlain, providerHtml);
-            }
-        } catch (Exception ignored) {
-        }
-    }
-
-    private void sendRentalStatusEmails(RentalBooking rental) {
-        try {
-            String clientTo = rental.getGuestEmail();
-            String subject = "Booking update: " + rental.getStatus();
-            String plain = EmailTemplates.simpleText(
-                    "Your rental booking status changed",
-                    java.util.List.of(
-                            "Booking ID: " + rental.getId(),
-                            "New status: " + rental.getStatus(),
-                            "Start: " + rental.getStartAt(),
-                            "End: " + rental.getEndAt()
-                    ),
-                    "Thank you for using Agri Marketplace."
-            );
-            String html = EmailTemplates.layout(
-                    "Rental booking update",
-                    "Hello " + (rental.getGuestName() == null ? "" : rental.getGuestName()),
-                    "Your rental booking status has changed.",
-                    java.util.List.of(
-                            "Booking ID: " + rental.getId(),
-                            "New status: " + rental.getStatus(),
-                            "Start: " + rental.getStartAt(),
-                            "End: " + rental.getEndAt()
-                    ),
-                    "Thank you for using Agri Marketplace."
-            );
-            emailService.send(clientTo, subject, plain, html);
-
-            var providerUsers = userAccountRepository.findByProvider_IdOrderByEmailAsc(rental.getProvider().getId());
-            String providerSubject = "Rental booking status changed: " + rental.getStatus();
-            String providerPlain = EmailTemplates.simpleText(
-                    "Rental booking status changed",
-                    java.util.List.of(
-                            "Booking ID: " + rental.getId(),
-                            "New status: " + rental.getStatus(),
-                            "Customer: " + rental.getGuestName() + " (" + rental.getGuestPhone() + ")"
-                    ),
-                    null
-            );
-            String providerHtml = EmailTemplates.layout(
-                    "Rental booking update",
-                    "Rental booking status changed",
-                    "A booking status was updated in your store.",
-                    java.util.List.of(
-                            "Booking ID: " + rental.getId(),
-                            "New status: " + rental.getStatus(),
-                            "Customer: " + rental.getGuestName() + " (" + rental.getGuestPhone() + ")"
-                    ),
-                    null
-            );
-            for (var u : providerUsers) {
-                if (u.getEmail() == null || u.getEmail().isBlank()) continue;
-                emailService.send(u.getEmail(), providerSubject, providerPlain, providerHtml);
-            }
-        } catch (Exception ignored) {
-        }
     }
 
     private void validateStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {

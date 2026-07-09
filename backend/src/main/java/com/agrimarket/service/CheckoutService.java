@@ -19,7 +19,6 @@ import com.agrimarket.repo.ListingRepository;
 import com.agrimarket.repo.PaymentRecordRepository;
 import com.agrimarket.repo.OrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
-import com.agrimarket.repo.UserAccountRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -47,8 +46,6 @@ public class CheckoutService {
     private final CartSessionRepository cartSessionRepository;
     private final ListingRepository listingRepository;
     private final VerificationCodeService verificationCodeService;
-    private final UserAccountRepository userAccountRepository;
-    private final EmailService emailService;
     private final AppNotificationService appNotificationService;
 
     @Transactional
@@ -180,6 +177,9 @@ public class CheckoutService {
                     .setScale(2, RoundingMode.HALF_UP);
         }
 
+        List<Order> createdOrders = new ArrayList<>();
+        List<RentalBooking> createdRentals = new ArrayList<>();
+
         if (!saleLines.isEmpty()) {
             Order order = new Order();
             order.setProvider(cart.getProvider());
@@ -208,11 +208,7 @@ public class CheckoutService {
             OrderRepository.save(order);
             orderIds.add(order.getId());
             verificationCodes.add(order.getVerificationCode());
-            try {
-                appNotificationService.notifyNewOrder(order);
-            } catch (Exception ignored) {
-                // Never fail checkout due to in-app notification.
-            }
+            createdOrders.add(order);
 
             PaymentRecord pay = new PaymentRecord();
             pay.setProvider(cart.getProvider());
@@ -244,6 +240,7 @@ public class CheckoutService {
             rentalBookingRepository.save(b);
             bookingIds.add(b.getId());
             verificationCodes.add(b.getVerificationCode());
+            createdRentals.add(b);
 
             PaymentRecord pay = new PaymentRecord();
             pay.setProvider(cart.getProvider());
@@ -259,63 +256,18 @@ public class CheckoutService {
         cart.setUpdatedAt(java.time.Instant.now());
         cartSessionRepository.save(cart);
 
-        // Send email notifications (best-effort).
+        // Unified channels: in-app + email + SMS (Wheel Hub fan-out).
         try {
-            String clientTo = req.guestEmail();
-            String subject = "Order confirmation";
-            String plain = EmailTemplates.simpleText(
-                    "Order confirmation",
-                    java.util.List.of(
-                            "Purchases: " + orderIds,
-                            "Rentals: " + bookingIds,
-                            "Payment method: " + req.paymentMethod(),
-                            "Delivery/Pickup: " + req.deliveryOrPickup()
-                    ),
-                    "Thank you for using Agri Marketplace."
-            );
-            String html = EmailTemplates.layout(
-                    "Order confirmation",
-                    "Thanks " + (req.guestName() == null ? "" : req.guestName()),
-                    "Your order has been placed successfully.",
-                    java.util.List.of(
-                            "Purchases: " + orderIds,
-                            "Rentals: " + bookingIds,
-                            "Payment method: " + req.paymentMethod(),
-                            "Delivery/Pickup: " + req.deliveryOrPickup()
-                    ),
-                    "Thank you for using Agri Marketplace."
-            );
-            emailService.send(clientTo, subject, plain, html);
-
-            // Provider notification: send to all users linked to provider (owners/staff).
-            var providerUsers = userAccountRepository.findByProvider_IdOrderByEmailAsc(providerId);
-            String providerSubject = "New order received";
-            String providerPlain = EmailTemplates.simpleText(
-                    "New order received",
-                    java.util.List.of(
-                            "Purchases: " + orderIds,
-                            "Rentals: " + bookingIds,
-                            "Customer: " + req.guestName() + " (" + req.guestPhone() + ")"
-                    ),
-                    null
-            );
-            String providerHtml = EmailTemplates.layout(
-                    "New order received",
-                    "New order received",
-                    "A customer placed an order on your store.",
-                    java.util.List.of(
-                            "Purchases: " + orderIds,
-                            "Rentals: " + bookingIds,
-                            "Customer: " + req.guestName() + " (" + req.guestPhone() + ")"
-                    ),
-                    null
-            );
-            for (var u : providerUsers) {
-                if (u.getEmail() == null || u.getEmail().isBlank()) continue;
-                emailService.send(u.getEmail(), providerSubject, providerPlain, providerHtml);
-            }
+            appNotificationService.notifyCheckout(
+                    createdOrders,
+                    createdRentals,
+                    req.guestName(),
+                    req.guestEmail(),
+                    req.guestPhone(),
+                    req.paymentMethod() == null ? "" : req.paymentMethod().name(),
+                    req.deliveryOrPickup());
         } catch (Exception ignored) {
-            // Never fail checkout due to email.
+            // Never fail checkout due to notifications.
         }
 
         // Backward-compatible response keys (older clients/tests used OrderIds/bookingIds)

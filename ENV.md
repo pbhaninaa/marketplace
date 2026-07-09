@@ -57,6 +57,16 @@ Railway can also inject **`PGHOST`**, **`PGPORT`**, **`PGDATABASE`**, **`PGUSER`
 | `SENDGRID_API_KEY` | SendGrid API key |
 | `EMAIL_FROM` | Verified sender |
 
+### SMS (Twilio) — optional
+| Variable | Notes |
+|----------|--------|
+| `APP_SMS_ENABLED` | `true` to enable SMS channel |
+| `TWILIO_ACCOUNT_SID` | Twilio account SID |
+| `TWILIO_AUTH_TOKEN` | Twilio auth token |
+| `TWILIO_FROM_NUMBER` | E.164 sender (or use messaging service) |
+| `TWILIO_MESSAGING_SERVICE_SID` | Optional MG… SID instead of from number |
+| `APP_PHONE_COUNTRY_CODE` | Default `+27` when guest phone has no country code |
+
 ### Optional
 | Variable | Default |
 |----------|---------|
