@@ -57,7 +57,7 @@ class CheckoutMvcIntegrationTest extends AbstractIntegrationTest {
                 "guestEmail", "guest+" + UUID.randomUUID() + "@checkout.test",
                 "guestPhone", "0820000000",
                 "deliveryOrPickup", "Collect at gate 3",
-                "paymentMethod", "EFT");
+                "paymentMethod", "CASH");
 
         mockMvc.perform(post("/api/public/cart/checkout")
                         .header("X-Session-Id", sessionId)

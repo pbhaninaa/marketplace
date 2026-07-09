@@ -393,7 +393,7 @@ function money(v) {
               <option v-for="r in ROLE_OPTIONS" :key="r.value" :value="r.value">{{ r.label }}</option>
             </select>
           </FormField>
-          <FormField label="Payment method">
+          <FormField label="Pay method (payroll rate)">
             <select v-model="createForm.rateUnit">
               <option v-for="p in PAY_METHODS" :key="p.value" :value="p.value">{{ p.label }}</option>
             </select>
@@ -456,7 +456,7 @@ function money(v) {
               <option v-for="r in ROLE_OPTIONS" :key="r.value" :value="r.value">{{ r.label }}</option>
             </select>
           </FormField>
-          <FormField label="Payment method">
+          <FormField label="Pay method (payroll rate)">
             <select v-model="editForm.rateUnit">
               <option v-for="p in PAY_METHODS" :key="p.value" :value="p.value">{{ p.label }}</option>
             </select>

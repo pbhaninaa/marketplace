@@ -161,20 +161,23 @@ async function save() {
             <input v-model="form.location" type="text" :disabled="!canEdit" />
           </FormField>
 
-          <FormField label="Payment methods">
+          <FormField label="Client payment methods you accept">
             <div class="payment-grid">
 
               <label class="check-card">
                 <input type="checkbox" :disabled="!canEdit" value="EFT" v-model="form.acceptedPaymentMethods" />
-                <span>EFT</span>
+                <span>EFT (bank transfer)</span>
               </label>
 
               <label class="check-card">
                 <input type="checkbox" :disabled="!canEdit" value="CASH" v-model="form.acceptedPaymentMethods" />
-                <span>Cash</span>
+                <span>Cash on collection / delivery</span>
               </label>
 
             </div>
+            <p class="muted small" style="margin-top: 0.5rem;">
+              Same as Wheel Hub: clients choose Cash or EFT at checkout. Subscriptions to the platform are always EFT + proof.
+            </p>
           </FormField>
         </section>
 

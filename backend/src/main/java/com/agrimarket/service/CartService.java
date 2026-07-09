@@ -16,10 +16,10 @@ import com.agrimarket.repo.ListingRepository;
 import com.agrimarket.repo.RentalBookingRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Instant;import java.time.ZoneId;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -312,11 +312,9 @@ public class CartService {
         String bankAccNo = cart.getProvider() != null ? cart.getProvider().getBankAccountNumber() : null;
         String bankBranch = cart.getProvider() != null ? cart.getProvider().getBankBranchCode() : null;
         String bankRef = cart.getProvider() != null ? cart.getProvider().getBankReference() : null;
-        Set<PaymentMethod> accepted = EnumSet.allOf(PaymentMethod.class);
-        if (cart.getProvider() != null
-                && cart.getProvider().getAcceptedPaymentMethods() != null
-                && !cart.getProvider().getAcceptedPaymentMethods().isEmpty()) {
-            accepted = EnumSet.copyOf(cart.getProvider().getAcceptedPaymentMethods());
+        Set<PaymentMethod> accepted = PaymentMethod.defaultAccepted();
+        if (cart.getProvider() != null) {
+            accepted = PaymentMethod.normalizeAccepted(cart.getProvider().getAcceptedPaymentMethods());
         }
         Boolean deliveryAvailable = cart.getProvider() != null ? cart.getProvider().isDeliveryAvailable() : null;
         BigDecimal deliveryPricePerKm = cart.getProvider() != null ? cart.getProvider().getDeliveryPricePerKm() : null;

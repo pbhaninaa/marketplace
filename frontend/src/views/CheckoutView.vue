@@ -55,10 +55,29 @@ function roundMoney(n) {
 }
 
 /* ================= PAYMENT METHODS ================= */
+const PAYMENT_LABELS = {
+  CASH: 'Cash on collection / delivery',
+  EFT: 'EFT (bank transfer)',
+};
+
 const acceptedPaymentMethods = computed(() => {
-  const list = cart.lockedProviderAcceptedPaymentMethods || [];
-  return Array.isArray(list) && list.length ? list : ['EFT', 'CASH'];
+  const list = (cart.lockedProviderAcceptedPaymentMethods || []).filter((m) => m === 'CASH' || m === 'EFT');
+  return list.length ? list : ['EFT', 'CASH'];
 });
+
+function paymentLabel(m) {
+  return PAYMENT_LABELS[m] || m;
+}
+
+watch(
+  acceptedPaymentMethods,
+  (methods) => {
+    if (!methods.includes(paymentMethod.value)) {
+      paymentMethod.value = methods.includes('CASH') ? 'CASH' : methods[0];
+    }
+  },
+  { immediate: true },
+);
 
 /* ================= DELIVERY SETTINGS ================= */
 const deliveryAvailable = computed(() =>
@@ -351,22 +370,30 @@ async function handleLimitWarning({ message, type }) {
           </p>
 
           <!-- PAYMENT -->
-          <FormField label="Payment method">
+          <FormField label="How will you pay?">
             <select v-model="paymentMethod">
               <option v-for="m in acceptedPaymentMethods" :key="m" :value="m">
-                {{ m }}
+                {{ paymentLabel(m) }}
               </option>
             </select>
           </FormField>
+          <p v-if="paymentMethod === 'CASH'" class="muted small" style="margin-top: -0.5rem;">
+            Pay the provider in person when you collect or receive delivery. Keep your verification code ready.
+          </p>
+          <p v-else-if="paymentMethod === 'EFT'" class="muted small" style="margin-top: -0.5rem;">
+            Transfer to the provider’s bank account below, then show your verification code when they confirm payment.
+          </p>
 
           <!-- BANK DETAILS -->
           <div v-if="showBankDetails" class="bank-box">
-            <h3>EFT Payment Details</h3>
+            <h3>EFT payment details</h3>
+            <p class="muted small">Pay the <strong>provider</strong> (not the platform). Use your name as reference if none is shown.</p>
 
             <p><strong>Bank:</strong> {{ cart.lockedProviderBank?.bankName }}</p>
             <p><strong>Account:</strong> {{ cart.lockedProviderBank?.accountName }}</p>
             <p><strong>Number:</strong> {{ cart.lockedProviderBank?.accountNumber }}</p>
             <p><strong>Branch:</strong> {{ cart.lockedProviderBank?.branchCode }}</p>
+            <p v-if="cart.lockedProviderBank?.reference"><strong>Reference:</strong> {{ cart.lockedProviderBank.reference }}</p>
           </div>
 
           <!-- TOTAL -->

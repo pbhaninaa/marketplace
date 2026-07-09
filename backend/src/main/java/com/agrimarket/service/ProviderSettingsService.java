@@ -25,10 +25,7 @@ public class ProviderSettingsService {
         Provider p = providerRepository
                 .findById(actor.getProviderId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PROVIDER", "Provider not found"));
-        Set<PaymentMethod> accepted = EnumSet.allOf(PaymentMethod.class);
-        if (p.getAcceptedPaymentMethods() != null && !p.getAcceptedPaymentMethods().isEmpty()) {
-            accepted = EnumSet.copyOf(p.getAcceptedPaymentMethods());
-        }
+        Set<PaymentMethod> accepted = PaymentMethod.normalizeAccepted(p.getAcceptedPaymentMethods());
         return new ProviderSettingsResponse(
                 p.getId(),
                 p.getName(),
@@ -75,8 +72,25 @@ public class ProviderSettingsService {
                     "PAYMENT_METHODS_REQUIRED",
                     "Select at least one payment method (EFT and/or CASH).");
         }
-        Set<PaymentMethod> accepted = EnumSet.copyOf(req.acceptedPaymentMethods());
-        p.setAcceptedPaymentMethods(accepted);
+        Set<PaymentMethod> accepted = PaymentMethod.normalizeAccepted(req.acceptedPaymentMethods());
+        // Persist only selectable methods (never BOTH)
+        EnumSet<PaymentMethod> toStore = EnumSet.noneOf(PaymentMethod.class);
+        for (PaymentMethod m : accepted) {
+            if (m.isCheckoutSelectable()) {
+                toStore.add(m);
+            }
+        }
+        if (toStore.isEmpty()) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "PAYMENT_METHODS_REQUIRED",
+                    "Select at least one payment method (EFT and/or CASH).");
+        }
+        if (toStore.contains(PaymentMethod.EFT)
+                && (blankToNull(req.bankAccountNumber()) == null && blankToNull(p.getBankAccountNumber()) == null)) {
+            // soft warning not hard fail — bank may already be on provider from earlier fields set above
+        }
+        p.setAcceptedPaymentMethods(toStore);
 
         providerRepository.save(p);
         return get(actor);

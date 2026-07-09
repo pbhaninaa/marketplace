@@ -13,6 +13,7 @@ import com.agrimarket.domain.OrderStatus;
 import com.agrimarket.domain.PaymentRecord;
 import com.agrimarket.domain.PaymentStatus;
 import com.agrimarket.domain.Order;
+import com.agrimarket.domain.PaymentMethod;
 import com.agrimarket.domain.RentalBooking;
 import com.agrimarket.repo.CartSessionRepository;
 import com.agrimarket.repo.ListingRepository;
@@ -61,6 +62,28 @@ public class CheckoutService {
                     HttpStatus.BAD_REQUEST,
                     "SUBSCRIPTION_INACTIVE",
                     "This provider cannot accept orders right now.");
+        }
+
+        Set<PaymentMethod> accepted =
+                PaymentMethod.normalizeAccepted(cart.getProvider().getAcceptedPaymentMethods());
+        PaymentMethod chosen = req.paymentMethod();
+        if (chosen == null || !chosen.isCheckoutSelectable() || !accepted.contains(chosen)) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "PAYMENT_METHOD",
+                    "This provider does not accept "
+                            + (chosen == null ? "that" : chosen.name())
+                            + " payment. Accepted: "
+                            + accepted.stream().map(PaymentMethod::name).sorted().toList());
+        }
+        if (chosen == PaymentMethod.EFT) {
+            String acc = cart.getProvider().getBankAccountNumber();
+            if (acc == null || acc.isBlank()) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "BANK_DETAILS",
+                        "This provider accepts EFT but has not published bank details yet. Choose Cash or contact the provider.");
+            }
         }
 
         List<CartLine> lines = new ArrayList<>(cart.getLines());
