@@ -8,6 +8,7 @@ import { useCartStore } from './stores/cart';
 import { useThemeStore } from './stores/theme';
 import { useDialog } from './composables/useDialog';
 import DialogModal from './components/ui/DialogModal.vue';
+import NotificationBell from './components/NotificationBell.vue';
 
 const route = useRoute();
 const session = useSessionStore();
@@ -59,6 +60,7 @@ onMounted(async () => {
     /* leave needsFirstAdmin unchanged if API is unreachable */
   }
   auth.restoreFromStorage();
+  auth.listenForForceLogout();
   try {
     await cart.refresh();
   } catch {
@@ -104,6 +106,7 @@ onMounted(async () => {
       </router-link>
 
       <div class="top-bar__actions">
+        <NotificationBell />
         <router-link
           v-if="!auth.isAuthenticated"
           to="/checkout"
@@ -196,9 +199,9 @@ onMounted(async () => {
             to="/provider/team"
           >Team management</router-link>
           <router-link
-            v-if="auth.canManageStaff && auth.isPremiumPlan"
+            v-if="auth.isPremiumPlan"
             to="/provider/staff-payments"
-          >Staff payments</router-link>
+          >{{ auth.canManageStaff ? 'Staff payments' : 'My income' }}</router-link>
           <router-link to="/provider/subscription">Subscription</router-link>
           <router-link to="/provider/settings">Settings</router-link>
           <router-link to="/provider/help">Help</router-link>

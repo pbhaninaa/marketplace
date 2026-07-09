@@ -47,8 +47,8 @@ const editForm = ref(emptyForm());
 
 const PAY_METHODS = [
   { value: 'PER_SERVICE', label: 'Per service (order)' },
-  { value: 'HOURLY', label: 'Per hour' },
-  { value: 'DAILY', label: 'Per day' },
+  { value: 'PER_HOUR', label: 'Per hour' },
+  { value: 'PER_DAY', label: 'Per day' },
   { value: 'WEEKLY', label: 'Per week' },
   { value: 'MONTHLY', label: 'Monthly salary' },
 ];
@@ -226,6 +226,8 @@ async function submitEdit() {
   saving.value = true;
   error.value = '';
   try {
+    const prevPerms = [...(editing.value.permissions || [])].sort().join(',');
+    const nextPerms = [...(editForm.value.permissions || [])].sort().join(',');
     await providerTeamApi.updateStaff(editing.value.id, {
       role: editForm.value.role,
       firstName: editForm.value.firstName || null,
@@ -237,9 +239,14 @@ async function submitEdit() {
       targetValue: editForm.value.targetValue === '' ? null : Number(editForm.value.targetValue),
       bonusPercentage: editForm.value.bonusPercentage === '' ? null : Number(editForm.value.bonusPercentage),
       enabled: !!editForm.value.enabled,
-      permissions: editForm.value.permissions,
+      permissions: isOwnerActor.value ? editForm.value.permissions : editForm.value.permissions,
     });
-    message.value = 'Team member updated.';
+    if (prevPerms !== nextPerms) {
+      auth.signalForceLogout(editing.value.email);
+      message.value = 'Team member updated. They will be signed out so new permissions apply.';
+    } else {
+      message.value = 'Team member updated.';
+    }
     showEdit.value = false;
     await loadTeam();
   } catch (e) {
@@ -251,11 +258,15 @@ async function submitEdit() {
 
 async function confirmDelete() {
   if (!deleting.value) return;
+  if (!isOwnerActor.value) {
+    error.value = 'Only the provider owner can permanently remove team members.';
+    return;
+  }
   saving.value = true;
   error.value = '';
   try {
     await providerTeamApi.removeStaff(deleting.value.id);
-    message.value = 'Employee removed (login disabled).';
+    message.value = 'Employee permanently removed.';
     showDelete.value = false;
     deleting.value = null;
     await loadTeam();
@@ -346,7 +357,7 @@ function money(v) {
                 type="button"
                 class="icon-btn icon-btn--danger"
                 title="Remove"
-                :disabled="m.owner || !canManageTeam"
+                :disabled="m.owner || !isOwnerActor"
                 @click="openDelete(m)"
               >
                 ✕
@@ -538,7 +549,7 @@ function money(v) {
           <button type="button" class="icon-btn" @click="showDelete = false">✕</button>
         </header>
         <p>
-          This will deactivate <strong>{{ displayName(deleting) }}</strong>. They will no longer be able to sign in.
+          This permanently deletes <strong>{{ displayName(deleting) }}</strong>, their permissions, and payroll marks. Only the owner can do this.
           Payroll history is kept.
         </p>
         <footer class="modal__actions">

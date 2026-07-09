@@ -11,9 +11,12 @@ public record StaffPaymentCalculationDto(
         BigDecimal payRate,
         long jobCount,
         BigDecimal units,
+        /** Pending unpaid amount owed to staff (Wheel Hub expectedPayment). */
         BigDecimal expectedPayment,
         BigDecimal paidPayment,
         BigDecimal unpaidPayment,
         String targetPeriod,
         BigDecimal targetValue,
-        BigDecimal bonusPercentage) {}
+        BigDecimal bonusPercentage,
+        Integer unpaidTargetPeriods,
+        Integer unpaidTargetMetCount) {}

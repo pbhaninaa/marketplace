@@ -39,6 +39,7 @@ public class OrderManagementService {
     private final CartLineRepository cartLineRepository;
     private final UserAccountRepository userAccountRepository;
     private final EmailService emailService;
+    private final AppNotificationService appNotificationService;
 
     @Transactional(readOnly = true)
     public Page<Order> getProviderOrders(Long providerId, Pageable pageable) {
@@ -88,16 +89,34 @@ public class OrderManagementService {
 
     @Transactional
     public Order updateOrderStatus(Long providerId, Long orderId, OrderStatus newStatus) {
-        return updateOrderStatus(providerId, orderId, newStatus, null);
+        return updateOrderStatus(providerId, orderId, newStatus, null, null);
     }
 
     @Transactional
     public Order updateOrderStatus(Long providerId, Long orderId, OrderStatus newStatus, Long actorUserId) {
+        return updateOrderStatus(providerId, orderId, newStatus, actorUserId, null);
+    }
+
+    /**
+     * @param completedByStaffId optional payroll attribution override when marking COLLECTED
+     *     (owner may re-assign completer so pay is not orphaned on the owner account).
+     */
+    @Transactional
+    public Order updateOrderStatus(
+            Long providerId, Long orderId, OrderStatus newStatus, Long actorUserId, Long completedByStaffId) {
         Order order = getOrderById(providerId, orderId);
 
         // Validate status transitions
         OrderStatus current = order.getStatus();
         if (current == newStatus) {
+            // Allow re-attribution on already-collected orders when owner supplies a staff id
+            if (current == OrderStatus.COLLECTED && completedByStaffId != null) {
+                order.setCompletedByStaffId(completedByStaffId);
+                if (order.getCompletedAt() == null) {
+                    order.setCompletedAt(Instant.now());
+                }
+                return OrderRepository.save(order);
+            }
             return order;
         }
         validateStatusTransition(current, newStatus);
@@ -136,12 +155,18 @@ public class OrderManagementService {
             if (order.getCompletedAt() == null) {
                 order.setCompletedAt(Instant.now());
             }
-            if (actorUserId != null) {
-                order.setCompletedByStaffId(actorUserId);
+            Long attributed = completedByStaffId != null ? completedByStaffId : actorUserId;
+            if (attributed != null) {
+                order.setCompletedByStaffId(attributed);
             }
         }
         Order saved = OrderRepository.save(order);
         sendPurchaseStatusEmails(saved);
+        try {
+            appNotificationService.notifyOrderStatusByGuestEmail(saved, newStatus.name());
+        } catch (Exception ignored) {
+            // Never fail status update due to in-app notification.
+        }
         return saved;
     }
 

@@ -2,8 +2,6 @@ package com.agrimarket.service;
 
 import com.agrimarket.api.dto.CreateStaffRequest;
 import com.agrimarket.api.dto.MarkStaffOrderPayrollRequest;
-import com.agrimarket.api.dto.PayrollEntryRequest;
-import com.agrimarket.api.dto.PayrollEntryResponse;
 import com.agrimarket.api.dto.StaffIncomeBundleDto;
 import com.agrimarket.api.dto.StaffIncomeLineDto;
 import com.agrimarket.api.dto.StaffMemberResponse;
@@ -16,7 +14,6 @@ import com.agrimarket.domain.OrderStatus;
 import com.agrimarket.domain.Provider;
 import com.agrimarket.domain.ProviderPermissionKey;
 import com.agrimarket.domain.ProviderStaffPermission;
-import com.agrimarket.domain.StaffPayrollEntry;
 import com.agrimarket.domain.StaffPayrollJobMark;
 import com.agrimarket.domain.StaffRateUnit;
 import com.agrimarket.domain.UserAccount;
@@ -24,7 +21,6 @@ import com.agrimarket.domain.UserRole;
 import com.agrimarket.repo.OrderRepository;
 import com.agrimarket.repo.ProviderRepository;
 import com.agrimarket.repo.ProviderStaffPermissionRepository;
-import com.agrimarket.repo.StaffPayrollEntryRepository;
 import com.agrimarket.repo.StaffPayrollJobMarkRepository;
 import com.agrimarket.repo.UserAccountRepository;
 import com.agrimarket.security.MarketUserPrincipal;
@@ -35,10 +31,14 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -59,7 +59,6 @@ public class ProviderStaffService {
     private final ProviderRepository providerRepository;
     private final ProviderStaffPermissionRepository providerStaffPermissionRepository;
     private final ProviderPermissionService providerPermissionService;
-    private final StaffPayrollEntryRepository staffPayrollEntryRepository;
     private final StaffPayrollJobMarkRepository staffPayrollJobMarkRepository;
     private final OrderRepository orderRepository;
     private final PasswordEncoder passwordEncoder;
@@ -70,6 +69,7 @@ public class ProviderStaffService {
         keys.add(ProviderPermissionKey.LISTINGS_READ);
         keys.add(ProviderPermissionKey.LISTINGS_WRITE);
         keys.add(ProviderPermissionKey.TEAM_READ);
+        keys.add(ProviderPermissionKey.PAYROLL_READ);
         if (provider.getSubtype() != null) {
             switch (provider.getSubtype()) {
                 case RESELLER -> {
@@ -158,9 +158,15 @@ public class ProviderStaffService {
         return toStaffResponse(saved);
     }
 
+    /** Hard-delete staff (Wheel Hub ManageTeam remove). Owner only. */
     @Transactional
     public void deleteStaff(MarketUserPrincipal actor, Long staffUserId) {
-        providerPermissionService.requireManageTeam(actor);
+        UserAccount actorAccount = userAccountRepository
+                .findById(actor.getUserId())
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "AUTH", "Not authenticated"));
+        if (actorAccount.getRole() != UserRole.PROVIDER_OWNER) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "OWNER_ONLY", "Only the provider owner can remove team members.");
+        }
         UserAccount target = userAccountRepository
                 .findByIdAndProvider_Id(staffUserId, actor.getProviderId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "STAFF", "User not found in this organization"));
@@ -170,66 +176,18 @@ public class ProviderStaffService {
         if (target.getId().equals(actor.getUserId())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "SELF_DELETE", "You cannot delete your own account.");
         }
-        target.setEnabled(false);
-        userAccountRepository.save(target);
+        staffPayrollJobMarkRepository.deleteByStaff_Id(target.getId());
         if (target.getProvider() != null) {
             providerStaffPermissionRepository.deleteByProvider_IdAndUser_Id(target.getProvider().getId(), target.getId());
         }
-    }
-
-    @Transactional(readOnly = true)
-    public List<PayrollEntryResponse> listPayroll(MarketUserPrincipal actor, Long staffUserId) {
-        providerPermissionService.require(actor, ProviderPermissionKey.PAYROLL_READ);
-        loadProvider(actor.getProviderId());
-        List<StaffPayrollEntry> rows =
-                staffUserId == null
-                        ? staffPayrollEntryRepository.findByProvider_IdOrderByCreatedAtDesc(actor.getProviderId())
-                        : staffPayrollEntryRepository.findByProvider_IdAndStaff_IdOrderByCreatedAtDesc(
-                                actor.getProviderId(), staffUserId);
-        return rows.stream().map(this::toPayrollResponse).toList();
-    }
-
-    @Transactional
-    public PayrollEntryResponse recordPayroll(MarketUserPrincipal actor, Long staffUserId, PayrollEntryRequest req) {
-        providerPermissionService.require(actor, ProviderPermissionKey.PAYROLL_WRITE);
-        UserAccount staff = requireStaff(actor.getProviderId(), staffUserId);
-        if (staff.getRole() == UserRole.PROVIDER_OWNER) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "OWNER_PAYROLL", "Payroll cannot be recorded for the owner via this flow.");
-        }
-        if (staff.getStaffCompensationRate() == null
-                || staff.getStaffCompensationRate().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "NO_RATE",
-                    "Staff member must have a compensation rate greater than zero.");
-        }
-        if (staff.getStaffRateUnit() == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "NO_RATE_UNIT", "Staff member must have a rate unit.");
-        }
-        Provider p = loadProvider(actor.getProviderId());
-        UserAccount recorder = userAccountRepository.findById(actor.getUserId()).orElse(null);
-
-        BigDecimal amount = req.unitsWorked()
-                .multiply(staff.getStaffCompensationRate())
-                .setScale(2, RoundingMode.HALF_UP);
-
-        StaffPayrollEntry e = new StaffPayrollEntry();
-        e.setProvider(p);
-        e.setStaff(staff);
-        e.setUnitsWorked(req.unitsWorked());
-        e.setRateSnapshot(staff.getStaffCompensationRate());
-        e.setRateUnitSnapshot(staff.getStaffRateUnit());
-        e.setAmount(amount);
-        e.setNotes(req.notes());
-        e.setRecordedBy(recorder);
-        staffPayrollEntryRepository.save(e);
-        return toPayrollResponse(e);
+        userAccountRepository.delete(target);
     }
 
     @Transactional(readOnly = true)
     public StaffPaymentCalculationsBundleDto listPaymentCalculations(
             MarketUserPrincipal actor, LocalDate startDate, LocalDate endDate) {
         providerPermissionService.require(actor, ProviderPermissionKey.PAYROLL_READ);
+        requireBothOrNeitherDates(startDate, endDate);
         Provider p = loadProvider(actor.getProviderId());
         List<Order> completed = completedOrdersForProvider(p.getId(), startDate, endDate);
         List<StaffPaymentCalculationDto> rows = new ArrayList<>();
@@ -246,50 +204,32 @@ public class ProviderStaffService {
     public StaffIncomeBundleDto staffIncome(
             MarketUserPrincipal actor, Long staffUserId, LocalDate startDate, LocalDate endDate) {
         providerPermissionService.require(actor, ProviderPermissionKey.PAYROLL_READ);
+        requireBothOrNeitherDates(startDate, endDate);
         UserAccount staff = requireStaff(actor.getProviderId(), staffUserId);
         if (staff.getRole() == UserRole.PROVIDER_OWNER) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "OWNER_PAYROLL", "Owner has no staff income lines.");
         }
-        List<Order> completed = completedOrdersForProvider(actor.getProviderId(), startDate, endDate).stream()
-                .filter(o -> staff.getId().equals(o.getCompletedByStaffId()))
-                .toList();
-        StaffPaymentCalculationDto calc = calculateForStaff(staff, completedOrdersForProvider(actor.getProviderId(), startDate, endDate));
-        Set<Long> paidOrderIds = new HashSet<>();
-        if (!completed.isEmpty()) {
-            paidOrderIds.addAll(staffPayrollJobMarkRepository
-                    .findByStaff_IdAndOrder_IdIn(
-                            staff.getId(), completed.stream().map(Order::getId).toList())
-                    .stream()
-                    .map(m -> m.getOrder().getId())
-                    .collect(Collectors.toSet()));
-        }
+        return buildIncomeBundle(staff, actor.getProviderId(), startDate, endDate, false);
+    }
 
-        StaffRateUnit method = staff.getStaffRateUnit();
-        BigDecimal rate = staff.getStaffCompensationRate() == null ? BigDecimal.ZERO : staff.getStaffCompensationRate();
-        List<StaffIncomeLineDto> lines = new ArrayList<>();
-        for (Order o : completed) {
-            BigDecimal units = unitsForSingleOrder(method, o, completed);
-            BigDecimal lineAmount = lineAmount(method, rate, units, o);
-            lines.add(new StaffIncomeLineDto(
-                    o.getId(),
-                    o.getGuestName(),
-                    o.getTotalAmount(),
-                    o.getCompletedAt() != null ? o.getCompletedAt() : o.getCreatedAt(),
-                    units,
-                    lineAmount,
-                    paidOrderIds.contains(o.getId())));
+    /** Staff self-view: expected salary from attributed collected orders (Wheel Hub my-expected-income). */
+    @Transactional(readOnly = true)
+    public StaffIncomeBundleDto myExpectedIncome(MarketUserPrincipal actor, LocalDate startDate, LocalDate endDate) {
+        providerPermissionService.require(actor, ProviderPermissionKey.PAYROLL_READ);
+        requireBothOrNeitherDates(startDate, endDate);
+        UserAccount me = userAccountRepository
+                .findById(actor.getUserId())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "USER", "User not found"));
+        if (me.getRole() == UserRole.PROVIDER_OWNER) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "OWNER_INCOME",
+                    "Owners use payment calculations for the team, not personal expected income.");
         }
-        return new StaffIncomeBundleDto(
-                staff.getId(),
-                staff.getEmail(),
-                method,
-                rate,
-                startDate,
-                endDate,
-                calc.expectedPayment(),
-                calc.paidPayment(),
-                calc.unpaidPayment(),
-                lines);
+        if (me.getProvider() == null || !me.getProvider().getId().equals(actor.getProviderId())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not a member of this provider");
+        }
+        return buildIncomeBundle(me, actor.getProviderId(), startDate, endDate, true);
     }
 
     @Transactional
@@ -317,6 +257,7 @@ public class ProviderStaffService {
         mark.setOrder(order);
         mark.setMarkedBy(userAccountRepository.findById(actor.getUserId()).orElse(null));
         mark.setMarkedAt(Instant.now());
+        mark.setIncludeBonus(req.includeBonus() == null || Boolean.TRUE.equals(req.includeBonus()));
         staffPayrollJobMarkRepository.save(mark);
     }
 
@@ -328,23 +269,22 @@ public class ProviderStaffService {
     }
 
     @Transactional
-    public int markAllUnpaidPayrollPaid(MarketUserPrincipal actor, Long staffUserId, LocalDate startDate, LocalDate endDate) {
+    public int markAllUnpaidPayrollPaid(
+            MarketUserPrincipal actor,
+            Long staffUserId,
+            LocalDate startDate,
+            LocalDate endDate,
+            Boolean includeBonus) {
         providerPermissionService.require(actor, ProviderPermissionKey.PAYROLL_WRITE);
+        requireBothOrNeitherDates(startDate, endDate);
         UserAccount staff = requireStaff(actor.getProviderId(), staffUserId);
         List<Order> completed = completedOrdersForProvider(actor.getProviderId(), startDate, endDate).stream()
                 .filter(o -> staff.getId().equals(o.getCompletedByStaffId()))
                 .toList();
-        Set<Long> paid = new HashSet<>();
-        if (!completed.isEmpty()) {
-            paid.addAll(staffPayrollJobMarkRepository
-                    .findByStaff_IdAndOrder_IdIn(
-                            staff.getId(), completed.stream().map(Order::getId).toList())
-                    .stream()
-                    .map(m -> m.getOrder().getId())
-                    .collect(Collectors.toSet()));
-        }
+        Set<Long> paid = paidOrderIds(staff.getId(), completed);
         Provider p = loadProvider(actor.getProviderId());
         UserAccount marker = userAccountRepository.findById(actor.getUserId()).orElse(null);
+        boolean bonus = includeBonus == null || Boolean.TRUE.equals(includeBonus);
         int count = 0;
         for (Order o : completed) {
             if (paid.contains(o.getId())) {
@@ -356,102 +296,120 @@ public class ProviderStaffService {
             mark.setOrder(o);
             mark.setMarkedBy(marker);
             mark.setMarkedAt(Instant.now());
+            mark.setIncludeBonus(bonus);
             staffPayrollJobMarkRepository.save(mark);
             count++;
         }
         return count;
     }
 
-    private StaffPaymentCalculationDto calculateForStaff(UserAccount staff, List<Order> allCompleted) {
+    private StaffIncomeBundleDto buildIncomeBundle(
+            UserAccount staff, Long providerId, LocalDate startDate, LocalDate endDate, boolean forStaffMember) {
+        List<Order> allCompleted = completedOrdersForProvider(providerId, startDate, endDate);
         List<Order> mine = allCompleted.stream()
                 .filter(o -> staff.getId().equals(o.getCompletedByStaffId()))
+                .sorted(Comparator.comparing(this::completionInstant))
                 .toList();
         StaffRateUnit method = staff.getStaffRateUnit();
-        BigDecimal rate = staff.getStaffCompensationRate() == null ? BigDecimal.ZERO : staff.getStaffCompensationRate();
-        long jobCount = mine.size();
-        BigDecimal units = BigDecimal.ZERO;
-        BigDecimal expected = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal rate = nz(staff.getStaffCompensationRate());
+        boolean fixed = method != null && method.isFixedPeriod();
+        Map<Long, StaffPayrollJobMark> marks = marksByOrderId(staff.getId(), mine);
+        List<StaffIncomeLineDto> lines = buildIncomeLines(staff, mine, marks);
+        StaffPaymentCalculationDto calc = calculateForStaff(staff, allCompleted);
 
-        if (method != null && rate.compareTo(BigDecimal.ZERO) > 0) {
-            switch (method) {
-                case PER_SERVICE -> {
-                    units = BigDecimal.valueOf(jobCount);
-                    expected = units.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-                }
-                case HOURLY -> {
-                    // 1 hour per completed order when duration is unknown
-                    units = BigDecimal.valueOf(jobCount);
-                    expected = units.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-                }
-                case DAILY -> {
-                    Set<LocalDate> days = mine.stream()
-                            .map(this::completionDate)
-                            .collect(Collectors.toSet());
-                    units = BigDecimal.valueOf(days.size());
-                    expected = units.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-                }
-                case WEEKLY -> {
-                    WeekFields wf = WeekFields.of(Locale.getDefault());
-                    Set<String> weeks = mine.stream()
-                            .map(o -> {
-                                LocalDate d = completionDate(o);
-                                return d.get(wf.weekBasedYear()) + "-W" + d.get(wf.weekOfWeekBasedYear());
-                            })
-                            .collect(Collectors.toSet());
-                    units = BigDecimal.valueOf(weeks.size());
-                    expected = units.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-                }
-                case MONTHLY -> {
-                    units = BigDecimal.ZERO;
-                    expected = rate.setScale(2, RoundingMode.HALF_UP);
-                }
+        String note = forStaffMember
+                ? "These figures are your expected pay from completed orders attributed to you. "
+                        + "Settlement is between you and your employer."
+                : "Use “Pay” on each collected order after you settle payroll with your team member.";
+        if (!forStaffMember && calc.unpaidTargetMetCount() != null && calc.unpaidTargetPeriods() != null) {
+            note = note + " Target met " + calc.unpaidTargetMetCount() + " / " + calc.unpaidTargetPeriods()
+                    + " " + (staff.getStaffTargetPeriod() != null ? staff.getStaffTargetPeriod() : "period")
+                    + " bucket(s) for unpaid work.";
+        }
+
+        return new StaffIncomeBundleDto(
+                staff.getId(),
+                staff.getEmail(),
+                displayNameOf(staff),
+                method,
+                rate,
+                staff.getStaffBonusPercentage(),
+                staff.getStaffTargetPeriod(),
+                staff.getStaffTargetValue(),
+                startDate,
+                endDate,
+                calc.expectedPayment().add(calc.paidPayment()),
+                calc.paidPayment(),
+                calc.unpaidPayment(),
+                fixed,
+                calc.unpaidTargetPeriods(),
+                calc.unpaidTargetMetCount(),
+                note,
+                lines);
+    }
+
+    /**
+     * Wheel Hub parity: expectedPayment / unpaidPayment = pending unpaid only;
+     * bonus is NOT included in backend totals (applied at mark time via includeBonus).
+     */
+    StaffPaymentCalculationDto calculateForStaff(UserAccount staff, List<Order> allCompleted) {
+        List<Order> mine = allCompleted.stream()
+                .filter(o -> staff.getId().equals(o.getCompletedByStaffId()))
+                .sorted(Comparator.comparing(this::completionInstant))
+                .toList();
+        StaffRateUnit method = staff.getStaffRateUnit();
+        BigDecimal rate = nz(staff.getStaffCompensationRate());
+        Map<Long, StaffPayrollJobMark> marks = marksByOrderId(staff.getId(), mine);
+        List<StaffIncomeLineDto> lines = buildIncomeLines(staff, mine, marks);
+
+        boolean fixed = method != null && method.isFixedPeriod();
+        List<StaffIncomeLineDto> unpaidLines = lines.stream().filter(l -> !l.payrollPaid()).toList();
+        List<StaffIncomeLineDto> paidLines = lines.stream().filter(StaffIncomeLineDto::payrollPaid).toList();
+
+        BigDecimal unpaid;
+        BigDecimal paid;
+        BigDecimal units;
+        long jobCount;
+
+        if (fixed) {
+            units = BigDecimal.ZERO;
+            jobCount = unpaidLines.size();
+            unpaid = unpaidLines.isEmpty() || rate.compareTo(BigDecimal.ZERO) <= 0
+                    ? zero()
+                    : rate.setScale(2, RoundingMode.HALF_UP);
+            // Paid period salary once all lines marked (or no work)
+            boolean allPaid = !mine.isEmpty() && unpaidLines.isEmpty();
+            paid = allPaid && rate.compareTo(BigDecimal.ZERO) > 0
+                    ? rate.setScale(2, RoundingMode.HALF_UP)
+                    : zero();
+            // Apply includeBonus on paid total when any mark requested bonus
+            if (paid.compareTo(BigDecimal.ZERO) > 0 && anyIncludeBonus(marks, paidLines)) {
+                paid = withBonus(paid, staff.getStaffBonusPercentage());
             }
-        }
-
-        // Bonus on expected
-        if (staff.getStaffBonusPercentage() != null
-                && staff.getStaffBonusPercentage().compareTo(BigDecimal.ZERO) > 0
-                && expected.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal bonus = expected
-                    .multiply(staff.getStaffBonusPercentage())
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-            expected = expected.add(bonus);
-        }
-
-        Set<Long> paidIds = new HashSet<>();
-        if (!mine.isEmpty()) {
-            paidIds.addAll(staffPayrollJobMarkRepository
-                    .findByStaff_IdAndOrder_IdIn(staff.getId(), mine.stream().map(Order::getId).toList())
-                    .stream()
-                    .map(m -> m.getOrder().getId())
-                    .collect(Collectors.toSet()));
-        }
-
-        BigDecimal paid = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-        if (method == StaffRateUnit.MONTHLY) {
-            // Monthly: treat as fully paid only when all attributed orders in period are marked (or none exist)
-            if (!mine.isEmpty() && paidIds.size() >= mine.size()) {
-                paid = expected;
-            } else if (mine.isEmpty()) {
-                paid = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+            if (unpaid.compareTo(BigDecimal.ZERO) > 0) {
+                // pending stays base rate (bonus only at mark/display time)
             }
         } else {
-            for (Order o : mine) {
-                if (!paidIds.contains(o.getId())) {
-                    continue;
+            unpaid = zero();
+            paid = zero();
+            for (StaffIncomeLineDto l : unpaidLines) {
+                unpaid = unpaid.add(l.lineAmount());
+            }
+            for (StaffIncomeLineDto l : paidLines) {
+                BigDecimal amt = l.lineAmount();
+                StaffPayrollJobMark m = marks.get(l.orderId());
+                if (m != null && Boolean.TRUE.equals(m.getIncludeBonus())) {
+                    amt = withBonus(amt, staff.getStaffBonusPercentage());
                 }
-                BigDecimal u = unitsForSingleOrder(method, o, mine);
-                paid = paid.add(lineAmount(method, rate, u, o));
+                paid = paid.add(amt);
             }
-            if (staff.getStaffBonusPercentage() != null
-                    && staff.getStaffBonusPercentage().compareTo(BigDecimal.ZERO) > 0
-                    && paid.compareTo(BigDecimal.ZERO) > 0) {
-                BigDecimal bonus = paid.multiply(staff.getStaffBonusPercentage())
-                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
-                paid = paid.add(bonus);
-            }
+            unpaid = unpaid.setScale(2, RoundingMode.HALF_UP);
+            paid = paid.setScale(2, RoundingMode.HALF_UP);
+            units = calculateUnits(method, unpaidOrders(mine, marks));
+            jobCount = unpaidLines.size();
         }
-        BigDecimal unpaid = expected.subtract(paid).max(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+
+        TargetSummary targets = computeTargetSummary(staff, unpaidLines);
 
         return new StaffPaymentCalculationDto(
                 staff.getId(),
@@ -461,32 +419,155 @@ public class ProviderStaffService {
                 rate,
                 jobCount,
                 units,
-                expected,
+                unpaid,
                 paid,
                 unpaid,
                 staff.getStaffTargetPeriod(),
                 staff.getStaffTargetValue(),
-                staff.getStaffBonusPercentage());
+                staff.getStaffBonusPercentage(),
+                targets.periods(),
+                targets.met());
     }
 
-    private BigDecimal unitsForSingleOrder(StaffRateUnit method, Order order, List<Order> allMine) {
-        if (method == null) {
+    private List<StaffIncomeLineDto> buildIncomeLines(
+            UserAccount staff, List<Order> mine, Map<Long, StaffPayrollJobMark> marks) {
+        StaffRateUnit method = staff.getStaffRateUnit();
+        BigDecimal rate = nz(staff.getStaffCompensationRate());
+        boolean fixed = method != null && method.isFixedPeriod();
+        Set<LocalDate> seenDays = new HashSet<>();
+        List<StaffIncomeLineDto> lines = new ArrayList<>();
+        for (Order o : mine) {
+            LocalDate day = completionDate(o);
+            BigDecimal units;
+            BigDecimal amount;
+            String note = null;
+            if (method == null || rate.compareTo(BigDecimal.ZERO) <= 0) {
+                units = BigDecimal.ZERO;
+                amount = zero();
+            } else if (fixed) {
+                units = BigDecimal.ZERO;
+                amount = zero();
+                note = "Period rate shown in summary";
+            } else if (method == StaffRateUnit.PER_DAY) {
+                if (seenDays.add(day)) {
+                    units = BigDecimal.ONE;
+                    amount = rate.setScale(2, RoundingMode.HALF_UP);
+                } else {
+                    units = BigDecimal.ZERO;
+                    amount = zero();
+                    note = "Day rate counted on first order of this date";
+                }
+            } else {
+                // PER_SERVICE / PER_HOUR: 1 unit per order
+                units = BigDecimal.ONE;
+                amount = rate.setScale(2, RoundingMode.HALF_UP);
+            }
+            lines.add(new StaffIncomeLineDto(
+                    o.getId(),
+                    o.getGuestName(),
+                    o.getTotalAmount(),
+                    o.getCompletedAt() != null ? o.getCompletedAt() : o.getCreatedAt(),
+                    units,
+                    amount,
+                    marks.containsKey(o.getId()),
+                    note));
+        }
+        return lines;
+    }
+
+    private BigDecimal calculateUnits(StaffRateUnit method, List<Order> orders) {
+        if (method == null || orders.isEmpty()) {
             return BigDecimal.ZERO;
         }
         return switch (method) {
-            case PER_SERVICE, HOURLY -> BigDecimal.ONE;
-            case DAILY, WEEKLY, MONTHLY -> BigDecimal.ONE;
+            case PER_SERVICE, PER_HOUR -> BigDecimal.valueOf(orders.size());
+            case PER_DAY -> BigDecimal.valueOf(orders.stream().map(this::completionDate).collect(Collectors.toSet()).size());
+            case WEEKLY, MONTHLY -> BigDecimal.ZERO;
         };
     }
 
-    private BigDecimal lineAmount(StaffRateUnit method, BigDecimal rate, BigDecimal units, Order order) {
-        if (method == null || rate == null) {
-            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    private List<Order> unpaidOrders(List<Order> mine, Map<Long, StaffPayrollJobMark> marks) {
+        return mine.stream().filter(o -> !marks.containsKey(o.getId())).toList();
+    }
+
+    private TargetSummary computeTargetSummary(UserAccount staff, List<StaffIncomeLineDto> unpaidLines) {
+        String targetPeriod = staff.getStaffTargetPeriod();
+        BigDecimal targetValue = staff.getStaffTargetValue();
+        if (targetPeriod == null || targetPeriod.isBlank() || targetValue == null || targetValue.compareTo(BigDecimal.ZERO) <= 0) {
+            return new TargetSummary(null, null);
         }
-        if (method == StaffRateUnit.MONTHLY) {
-            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        String tp = targetPeriod.trim().toUpperCase(Locale.ROOT);
+        WeekFields wf = WeekFields.ISO;
+        Map<String, BigDecimal> buckets = new LinkedHashMap<>();
+        for (StaffIncomeLineDto l : unpaidLines) {
+            if (l.completedAt() == null) {
+                continue;
+            }
+            LocalDate d = l.completedAt().atZone(ZONE).toLocalDate();
+            String key;
+            if ("DAILY".equals(tp)) {
+                key = d.toString();
+            } else if ("WEEKLY".equals(tp)) {
+                key = d.get(wf.weekBasedYear()) + "-W" + String.format(Locale.ROOT, "%02d", d.get(wf.weekOfWeekBasedYear()));
+            } else if ("MONTHLY".equals(tp)) {
+                key = d.getYear() + "-" + String.format(Locale.ROOT, "%02d", d.getMonthValue());
+            } else {
+                key = d.toString();
+            }
+            buckets.merge(key, l.lineAmount(), BigDecimal::add);
         }
-        return units.multiply(rate).setScale(2, RoundingMode.HALF_UP);
+        int met = 0;
+        for (BigDecimal v : buckets.values()) {
+            if (v.compareTo(targetValue) >= 0) {
+                met++;
+            }
+        }
+        return new TargetSummary(buckets.size(), met);
+    }
+
+    private record TargetSummary(Integer periods, Integer met) {}
+
+    private Map<Long, StaffPayrollJobMark> marksByOrderId(Long staffId, List<Order> orders) {
+        Map<Long, StaffPayrollJobMark> map = new HashMap<>();
+        if (orders.isEmpty()) {
+            return map;
+        }
+        for (StaffPayrollJobMark m : staffPayrollJobMarkRepository.findByStaff_IdAndOrder_IdIn(
+                staffId, orders.stream().map(Order::getId).toList())) {
+            map.put(m.getOrder().getId(), m);
+        }
+        return map;
+    }
+
+    private Set<Long> paidOrderIds(Long staffId, List<Order> orders) {
+        return new HashSet<>(marksByOrderId(staffId, orders).keySet());
+    }
+
+    private boolean anyIncludeBonus(Map<Long, StaffPayrollJobMark> marks, List<StaffIncomeLineDto> paidLines) {
+        for (StaffIncomeLineDto l : paidLines) {
+            StaffPayrollJobMark m = marks.get(l.orderId());
+            if (m != null && Boolean.TRUE.equals(m.getIncludeBonus())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private BigDecimal withBonus(BigDecimal base, BigDecimal bonusPct) {
+        if (base == null || base.compareTo(BigDecimal.ZERO) <= 0 || bonusPct == null || bonusPct.compareTo(BigDecimal.ZERO) <= 0) {
+            return base == null ? zero() : base.setScale(2, RoundingMode.HALF_UP);
+        }
+        return base.multiply(BigDecimal.ONE.add(bonusPct.divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP)))
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private void requireBothOrNeitherDates(LocalDate start, LocalDate end) {
+        if ((start == null) != (end == null)) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "PAY_PERIOD",
+                    "Provide both startDate and endDate for the pay period, or neither for all time");
+        }
     }
 
     private List<Order> completedOrdersForProvider(Long providerId, LocalDate startDate, LocalDate endDate) {
@@ -509,8 +590,19 @@ public class ProviderStaffService {
     }
 
     private LocalDate completionDate(Order o) {
-        Instant at = o.getCompletedAt() != null ? o.getCompletedAt() : o.getCreatedAt();
-        return at.atZone(ZONE).toLocalDate();
+        return completionInstant(o).atZone(ZONE).toLocalDate();
+    }
+
+    private Instant completionInstant(Order o) {
+        return o.getCompletedAt() != null ? o.getCompletedAt() : o.getCreatedAt();
+    }
+
+    private BigDecimal nz(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
+    }
+
+    private BigDecimal zero() {
+        return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     }
 
     private UserAccount requireStaff(Long providerId, Long staffUserId) {
@@ -585,19 +677,6 @@ public class ProviderStaffService {
                 u.getStaffTargetValue(),
                 u.getStaffBonusPercentage(),
                 perms);
-    }
-
-    private PayrollEntryResponse toPayrollResponse(StaffPayrollEntry e) {
-        return new PayrollEntryResponse(
-                e.getId(),
-                e.getStaff().getId(),
-                e.getStaff().getEmail(),
-                e.getUnitsWorked(),
-                e.getRateSnapshot(),
-                e.getRateUnitSnapshot(),
-                e.getAmount(),
-                e.getNotes(),
-                e.getCreatedAt().toString());
     }
 
     private void setPermissions(

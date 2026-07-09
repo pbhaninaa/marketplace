@@ -116,6 +116,37 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /** Wheel Hub-style force logout when permissions change for a team member. */
+  function listenForForceLogout() {
+    if (typeof window === 'undefined') return;
+    const check = () => {
+      try {
+        const raw = localStorage.getItem('forceLogoutUser');
+        if (!raw) return;
+        const payload = JSON.parse(raw);
+        const target = String(payload?.email || '').toLowerCase();
+        if (target && email.value && target === email.value.toLowerCase()) {
+          localStorage.removeItem('forceLogoutUser');
+          logout();
+          window.location.href = '/login?reason=permissions';
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener('forceLogoutUser', check);
+    window.addEventListener('storage', check);
+    check();
+  }
+
+  function signalForceLogout(targetEmail) {
+    if (!targetEmail) return;
+    const payload = { email: targetEmail, at: Date.now() };
+    localStorage.setItem('forceLogoutUser', JSON.stringify(payload));
+    window.dispatchEvent(new CustomEvent('forceLogoutUser', { detail: payload }));
+    setTimeout(() => localStorage.removeItem('forceLogoutUser'), 2000);
+  }
+
   function setProviderSubscriptionStatus(status) {
     // status is from /api/provider/me/subscription/status
     providerPlan.value = status?.plan ? String(status.plan) : '';
@@ -151,6 +182,8 @@ export const useAuthStore = defineStore('auth', () => {
     endShadow,
     logout,
     restoreFromStorage,
+    listenForForceLogout,
+    signalForceLogout,
     setProviderSubscriptionStatus,
   };
 });

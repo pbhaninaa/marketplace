@@ -20,4 +20,8 @@ public interface StaffPayrollJobMarkRepository extends JpaRepository<StaffPayrol
     void deleteByStaff_IdAndOrder_Id(@Param("staffUserId") Long staffUserId, @Param("orderId") Long orderId);
 
     boolean existsByStaff_IdAndOrder_Id(Long staffUserId, Long orderId);
+
+    @Modifying(clearAutomatically = true)
+    @Query("delete from StaffPayrollJobMark m where m.staff.id = :staffUserId")
+    void deleteByStaff_Id(@Param("staffUserId") Long staffUserId);
 }

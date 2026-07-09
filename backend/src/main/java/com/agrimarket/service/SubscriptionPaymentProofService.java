@@ -38,6 +38,7 @@ public class SubscriptionPaymentProofService {
     private final SubscriptionPaymentProofRepository proofRepository;
     private final ProviderRepository providerRepository;
     private final SubscriptionService subscriptionService;
+    private final AppNotificationService appNotificationService;
     private final SubscriptionQuoteService quoteService;
 
     @Transactional
@@ -120,11 +121,19 @@ public class SubscriptionPaymentProofService {
                 saved.setReviewNote("Auto-verified");
                 proofRepository.save(saved);
                 subscriptionService.approveSubscription(sub);
+                try {
+                    appNotificationService.notifySubscriptionDecision(provider, true, "Auto-verified");
+                } catch (Exception ignored) {
+                }
             } else {
                 // Route to manual verification (Support)
                 saved.setManualVerificationRequired(true);
                 saved.setReviewNote("Auto-verification failed: " + String.join("; ", failures));
                 proofRepository.save(saved);
+                try {
+                    appNotificationService.notifySubscriptionProofPending(provider.getId(), provider.getName());
+                } catch (Exception ignored) {
+                }
             }
             // Mark intent used (one-time reference).
             intent.setUsed(true);
@@ -246,6 +255,10 @@ public class SubscriptionPaymentProofService {
             subscriptionRepository.save(sub);
         }
         proofRepository.save(proof);
+        try {
+            appNotificationService.notifySubscriptionDecision(proof.getProvider(), approve, req.note());
+        } catch (Exception ignored) {
+        }
     }
 }
 

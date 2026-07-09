@@ -25,7 +25,9 @@ public class AdminMaintenanceService {
         // These deletes intentionally remove *all* rows (including anything related to the admin),
         // except for the final `users` delete which keeps the admin account.
         out.put("provider_staff_permissions", del("DELETE FROM provider_staff_permissions"));
+        out.put("staff_payroll_job_marks", del("DELETE FROM staff_payroll_job_marks"));
         out.put("staff_payroll_entries", del("DELETE FROM staff_payroll_entries"));
+        out.put("app_notifications", del("DELETE FROM app_notifications"));
         out.put("password_reset_tokens", del("DELETE FROM password_reset_tokens"));
         out.put("client_otp_challenges", del("DELETE FROM client_otp_challenges"));
         out.put("support_tickets", del("DELETE FROM support_tickets"));

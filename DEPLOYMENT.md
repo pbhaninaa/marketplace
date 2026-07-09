@@ -109,6 +109,14 @@ cd frontend && npm run test:run
 
 CI runs the same on push/PR to `SIT`, `UAT`, `PROD`, and `main`.
 
+### Staff / payroll smoke (Premium)
+
+1. Enrol staff on **Team management** (pay method + rate + permissions).
+2. As that staff user, mark an order **COLLECTED** (or owner re-assigns `completedByStaffId`).
+3. Owner opens **Staff payments** → pending row appears → mark paid (optional include bonus) / pay all.
+4. Staff opens **My income** (`/provider/staff-payments`) → sees expected unpaid / paid lines.
+5. Confirm notification bell shows new-order / subscription events when applicable.
+
 ## Rollback
 
 Redeploy the previous Railway build (or previous image tag). Avoid DB rollback without a backup when `ddl-auto=update` has already applied schema changes.

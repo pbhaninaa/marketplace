@@ -69,9 +69,7 @@ public class ProviderSubscriptionGateInterceptor implements HandlerInterceptor {
     private static boolean requiresPremium(String uri) {
         if (uri == null) return false;
         // Premium provider tools (team management + payroll).
-        return uri.startsWith("/api/provider/me/staff")
-                || uri.startsWith("/api/provider/me/payroll-entries")
-                || uri.contains("/payroll");
+        return uri.startsWith("/api/provider/me/staff");
     }
 }
 

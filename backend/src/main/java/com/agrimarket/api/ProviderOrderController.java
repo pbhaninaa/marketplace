@@ -103,7 +103,11 @@ public class ProviderOrderController {
                 user.getProviderId(), orderId, request.status());
 
         Order order = orderManagementService.updateOrderStatus(
-                user.getProviderId(), orderId, request.status(), user.getUserId());
+                user.getProviderId(),
+                orderId,
+                request.status(),
+                user.getUserId(),
+                request.completedByStaffId());
         OrderResponse response = OrderResponse.from(order);
 
         return ResponseEntity.ok(response);
@@ -289,7 +293,7 @@ public class ProviderOrderController {
     /**
      * Request DTO for updating order status
      */
-    public record UpdateOrderStatusRequest(OrderStatus status) {}
+    public record UpdateOrderStatusRequest(OrderStatus status, Long completedByStaffId) {}
 
     /**
      * Request DTO for bulk delete operations

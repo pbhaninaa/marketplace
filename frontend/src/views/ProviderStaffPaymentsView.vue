@@ -18,6 +18,9 @@ const selectedStaffId = ref('');
 const income = ref(null);
 const incomeLoading = ref(false);
 const acting = ref(false);
+const pendingOnly = ref(false);
+const includeBonusOnPay = ref(true);
+const staffMode = ref(false);
 
 const periodMode = ref('month'); // month | all
 const startDate = ref('');
@@ -37,27 +40,35 @@ function periodParams() {
   return { startDate: startDate.value || undefined, endDate: endDate.value || undefined };
 }
 
+const isEmployer = computed(() => auth.isProviderOwner || auth.canManageStaff);
+
 onMounted(async () => {
   auth.restoreFromStorage();
   if (!auth.isProviderUser) {
     router.replace({ path: '/login', query: { redirect: '/provider/staff-payments' } });
     return;
   }
+  staffMode.value = !isEmployer.value || route.query.mode === 'mine';
   monthBounds();
   if (route.query.staff) {
     selectedStaffId.value = String(route.query.staff);
   }
-  await loadCalculations();
-  if (selectedStaffId.value) {
-    await loadIncome();
-  }
+  await reload();
 });
 
 watch(periodMode, async () => {
   if (periodMode.value === 'month') monthBounds();
-  await loadCalculations();
-  if (selectedStaffId.value) await loadIncome();
+  await reload();
 });
+
+async function reload() {
+  if (staffMode.value) {
+    await loadMyIncome();
+  } else {
+    await loadCalculations();
+    if (selectedStaffId.value) await loadIncome();
+  }
+}
 
 async function loadCalculations() {
   loading.value = true;
@@ -69,6 +80,23 @@ async function loadCalculations() {
     error.value = e.response?.data?.message || e.message;
   } finally {
     loading.value = false;
+  }
+}
+
+async function loadMyIncome() {
+  loading.value = true;
+  incomeLoading.value = true;
+  error.value = '';
+  try {
+    const { data } = await providerTeamApi.myExpectedIncome(periodParams());
+    income.value = data;
+    selectedStaffId.value = String(data?.staffUserId || auth.email);
+  } catch (e) {
+    error.value = e.response?.data?.message || e.message;
+    income.value = null;
+  } finally {
+    loading.value = false;
+    incomeLoading.value = false;
   }
 }
 
@@ -96,11 +124,23 @@ async function selectStaff(id) {
   await loadIncome();
 }
 
+function displayAmount(base) {
+  const n = Number(base || 0);
+  if (!includeBonusOnPay.value || !income.value?.bonusPercentage) return n;
+  const pct = Number(income.value.bonusPercentage);
+  if (!pct || n <= 0) return n;
+  return Math.round(n * (1 + pct / 100) * 100) / 100;
+}
+
 async function markPaid(orderId) {
+  if (staffMode.value) return;
   acting.value = true;
   error.value = '';
   try {
-    await providerTeamApi.markPayrollPaid(selectedStaffId.value, orderId);
+    await providerTeamApi.markPayrollPaid(selectedStaffId.value, {
+      orderId,
+      includeBonus: includeBonusOnPay.value,
+    });
     message.value = 'Marked as paid.';
     await Promise.all([loadCalculations(), loadIncome()]);
   } catch (e) {
@@ -110,26 +150,15 @@ async function markPaid(orderId) {
   }
 }
 
-async function unmarkPaid(orderId) {
-  acting.value = true;
-  error.value = '';
-  try {
-    await providerTeamApi.unmarkPayrollPaid(selectedStaffId.value, orderId);
-    message.value = 'Payment mark cleared.';
-    await Promise.all([loadCalculations(), loadIncome()]);
-  } catch (e) {
-    error.value = e.response?.data?.message || e.message;
-  } finally {
-    acting.value = false;
-  }
-}
-
 async function payAll() {
-  if (!selectedStaffId.value) return;
+  if (!selectedStaffId.value || staffMode.value) return;
   acting.value = true;
   error.value = '';
   try {
-    const { data } = await providerTeamApi.payAllUnpaid(selectedStaffId.value, periodParams());
+    const { data } = await providerTeamApi.payAllUnpaid(selectedStaffId.value, {
+      ...periodParams(),
+      includeBonus: includeBonusOnPay.value,
+    });
     message.value = `Marked ${data?.markedCount ?? 0} order(s) as paid.`;
     await Promise.all([loadCalculations(), loadIncome()]);
   } catch (e) {
@@ -147,7 +176,9 @@ function money(v) {
 function payLabel(v) {
   const map = {
     PER_SERVICE: 'Per service',
+    PER_HOUR: 'Per hour',
     HOURLY: 'Per hour',
+    PER_DAY: 'Per day',
     DAILY: 'Per day',
     WEEKLY: 'Per week',
     MONTHLY: 'Monthly',
@@ -160,26 +191,63 @@ function formatWhen(iso) {
   return String(iso).replace('T', ' ').slice(0, 16);
 }
 
+const visibleCalculations = computed(() => {
+  const rows = calculations.value || [];
+  if (!pendingOnly.value) return rows;
+  return rows.filter((r) => Number(r.unpaidPayment || 0) > 0);
+});
+
+const visibleLines = computed(() => {
+  const lines = income.value?.lines || [];
+  if (!pendingOnly.value) return lines;
+  return lines.filter((l) => !l.payrollPaid);
+});
+
 const totals = computed(() => {
   const rows = calculations.value || [];
   return {
     expected: rows.reduce((s, r) => s + Number(r.expectedPayment || 0), 0),
     paid: rows.reduce((s, r) => s + Number(r.paidPayment || 0), 0),
     unpaid: rows.reduce((s, r) => s + Number(r.unpaidPayment || 0), 0),
+    members: rows.length,
+    pendingJobs: rows.reduce((s, r) => s + Number(r.jobCount || 0), 0),
   };
 });
+
+function switchMode(mine) {
+  staffMode.value = mine;
+  router.replace({ query: { ...route.query, mode: mine ? 'mine' : undefined } });
+  reload();
+}
 </script>
 
 <template>
   <div class="page-document page-document--wide pay-page">
     <header class="page-hero">
       <p class="page-hero__eyebrow">Provider</p>
-      <h1 class="page-hero__title">Staff payments</h1>
+      <h1 class="page-hero__title">{{ staffMode ? 'My expected income' : 'Staff payments' }}</h1>
       <p class="page-hero__lead">
-        Pay staff from completed orders they collected. Amounts follow each employee’s pay method
-        (per service, hourly, daily, weekly, or monthly), plus any bonus %.
-        <router-link to="/provider/team">Team management</router-link>
+        <template v-if="staffMode">
+          Expected pay from collected orders attributed to you. Settlement is between you and your employer.
+        </template>
+        <template v-else>
+          Pay staff from completed orders they collected. Amounts follow each employee’s pay method
+          (per service, per hour, per day, weekly, or monthly). Bonus is applied when you mark paid.
+          <router-link to="/provider/team">Team management</router-link>
+        </template>
       </p>
+      <div v-if="isEmployer" class="mode-switch">
+        <button type="button" class="seg" :class="{ active: !staffMode }" @click="switchMode(false)">Team payouts</button>
+        <button
+          v-if="!auth.isProviderOwner"
+          type="button"
+          class="seg"
+          :class="{ active: staffMode }"
+          @click="switchMode(true)"
+        >
+          My income
+        </button>
+      </div>
     </header>
 
     <p v-if="error" class="alert alert--error">{{ error }}</p>
@@ -187,56 +255,70 @@ const totals = computed(() => {
 
     <div class="period-bar surface-panel">
       <div class="period-bar__modes">
-        <button
-          type="button"
-          class="seg"
-          :class="{ active: periodMode === 'month' }"
-          @click="periodMode = 'month'"
-        >
+        <button type="button" class="seg" :class="{ active: periodMode === 'month' }" @click="periodMode = 'month'">
           This month
         </button>
-        <button
-          type="button"
-          class="seg"
-          :class="{ active: periodMode === 'all' }"
-          @click="periodMode = 'all'"
-        >
+        <button type="button" class="seg" :class="{ active: periodMode === 'all' }" @click="periodMode = 'all'">
           All time
         </button>
       </div>
       <div v-if="periodMode === 'month'" class="period-bar__dates">
         <FormField label="From">
-          <input v-model="startDate" type="date" @change="loadCalculations().then(() => selectedStaffId && loadIncome())" />
+          <input v-model="startDate" type="date" @change="reload" />
         </FormField>
         <FormField label="To">
-          <input v-model="endDate" type="date" @change="loadCalculations().then(() => selectedStaffId && loadIncome())" />
+          <input v-model="endDate" type="date" @change="reload" />
         </FormField>
       </div>
-      <button type="button" class="btn btn-ghost" @click="loadCalculations().then(() => selectedStaffId && loadIncome())">
-        Refresh
-      </button>
+      <label class="check">
+        <input v-model="pendingOnly" type="checkbox" />
+        Pending only
+      </label>
+      <label v-if="!staffMode" class="check">
+        <input v-model="includeBonusOnPay" type="checkbox" />
+        Include bonus when paying
+      </label>
+      <button type="button" class="btn btn-ghost" @click="reload">Refresh</button>
     </div>
 
-    <div class="summary-row">
+    <div v-if="!staffMode" class="summary-row">
       <article class="summary-card">
-        <span class="muted small">Expected</span>
-        <strong>{{ money(totals.expected) }}</strong>
-      </article>
-      <article class="summary-card summary-card--ok">
-        <span class="muted small">Paid</span>
-        <strong>{{ money(totals.paid) }}</strong>
+        <span class="muted small">Team members</span>
+        <strong>{{ totals.members }}</strong>
       </article>
       <article class="summary-card summary-card--warn">
-        <span class="muted small">Unpaid</span>
+        <span class="muted small">Pending payout</span>
         <strong>{{ money(totals.unpaid) }}</strong>
+      </article>
+      <article class="summary-card">
+        <span class="muted small">Orders pending</span>
+        <strong>{{ totals.pendingJobs }}</strong>
+      </article>
+      <article class="summary-card summary-card--ok">
+        <span class="muted small">Already paid</span>
+        <strong>{{ money(totals.paid) }}</strong>
       </article>
     </div>
 
-    <section class="surface-panel">
+    <div v-else class="summary-row">
+      <article class="summary-card summary-card--warn">
+        <span class="muted small">Expected (unpaid)</span>
+        <strong>{{ money(income?.unpaidTotal) }}</strong>
+      </article>
+      <article class="summary-card summary-card--ok">
+        <span class="muted small">Paid by employer</span>
+        <strong>{{ money(income?.paidTotal) }}</strong>
+      </article>
+      <article class="summary-card">
+        <span class="muted small">Pay method</span>
+        <strong>{{ payLabel(income?.payMethod) }}</strong>
+      </article>
+    </div>
+
+    <section v-if="!staffMode" class="surface-panel">
       <h2>Payment calculations</h2>
       <p class="muted small lead">
-        Based on orders marked <strong>COLLECTED</strong> by each staff member. Select a row to mark individual
-        orders paid or pay all unpaid.
+        Based on orders marked <strong>COLLECTED</strong>. Pending amounts exclude bonus until you mark paid with bonus included.
       </p>
       <p v-if="loading" class="muted">Loading…</p>
       <DataTableShell v-else caption="Payment calculations">
@@ -245,17 +327,16 @@ const totals = computed(() => {
             <th>Employee</th>
             <th>Pay method</th>
             <th>Rate</th>
-            <th>Orders</th>
+            <th>Pending orders</th>
             <th>Units</th>
-            <th>Expected</th>
+            <th>Pending</th>
             <th>Paid</th>
-            <th>Unpaid</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <tr
-            v-for="row in calculations"
+            v-for="row in visibleCalculations"
             :key="row.staffUserId"
             :class="{ selected: String(row.staffUserId) === String(selectedStaffId) }"
             @click="selectStaff(row.staffUserId)"
@@ -263,22 +344,27 @@ const totals = computed(() => {
             <td>
               <strong>{{ row.displayName || row.email }}</strong>
               <div class="muted tiny">{{ row.email }}</div>
+              <div
+                v-if="row.unpaidTargetMetCount != null"
+                class="muted tiny"
+              >
+                Target met {{ row.unpaidTargetMetCount }} / {{ row.unpaidTargetPeriods }}
+              </div>
             </td>
             <td>{{ payLabel(row.payMethod) }}</td>
             <td>{{ money(row.payRate) }}</td>
             <td>{{ row.jobCount }}</td>
             <td>{{ row.units }}</td>
-            <td>{{ money(row.expectedPayment) }}</td>
-            <td>{{ money(row.paidPayment) }}</td>
             <td><strong>{{ money(row.unpaidPayment) }}</strong></td>
+            <td>{{ money(row.paidPayment) }}</td>
             <td>
               <button type="button" class="btn btn-ghost" @click.stop="selectStaff(row.staffUserId)">
                 Details
               </button>
             </td>
           </tr>
-          <tr v-if="!calculations.length">
-            <td colspan="9" class="muted">
+          <tr v-if="!visibleCalculations.length">
+            <td colspan="8" class="muted">
               No staff payroll yet. Enrol staff on
               <router-link to="/provider/team">Team management</router-link>, then have them collect orders.
             </td>
@@ -287,15 +373,18 @@ const totals = computed(() => {
       </DataTableShell>
     </section>
 
-    <section v-if="selectedStaffId" class="surface-panel income-panel">
+    <section v-if="selectedStaffId || staffMode" class="surface-panel income-panel">
       <div class="income-head">
         <div>
-          <h2>Order payouts</h2>
+          <h2>{{ staffMode ? 'Your order lines' : 'Order payouts' }}</h2>
           <p class="muted small" v-if="income">
-            {{ income.email }} · {{ payLabel(income.payMethod) }} · {{ money(income.payRate) }}
+            {{ income.email || income.displayName }} · {{ payLabel(income.payMethod) }} · {{ money(income.payRate) }}
+            <span v-if="income.bonusPercentage"> · bonus {{ income.bonusPercentage }}%</span>
           </p>
+          <p v-if="income?.note" class="muted tiny">{{ income.note }}</p>
         </div>
         <button
+          v-if="!staffMode"
           type="button"
           class="btn btn-primary"
           :disabled="acting || !income?.lines?.some((l) => !l.payrollPaid)"
@@ -316,23 +405,26 @@ const totals = computed(() => {
             <th>Units</th>
             <th>Line amount</th>
             <th>Status</th>
-            <th></th>
+            <th v-if="!staffMode"></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="line in income.lines" :key="line.orderId">
+          <tr v-for="line in visibleLines" :key="line.orderId">
             <td>#{{ line.orderId }}</td>
             <td>{{ line.guestName }}</td>
             <td>{{ formatWhen(line.completedAt) }}</td>
             <td>{{ money(line.orderTotal) }}</td>
             <td>{{ line.units }}</td>
-            <td>{{ money(line.lineAmount) }}</td>
             <td>
-              <span class="chip" :class="line.payrollPaid ? 'chip--ok' : 'chip--warn'">
-                {{ line.payrollPaid ? 'Paid' : 'Unpaid' }}
-              </span>
+              {{ money(staffMode ? line.lineAmount : displayAmount(line.lineAmount)) }}
+              <div v-if="line.note" class="muted tiny">{{ line.note }}</div>
             </td>
             <td>
+              <span class="chip" :class="line.payrollPaid ? 'chip--ok' : 'chip--warn'">
+                {{ line.payrollPaid ? 'Payment Done!' : 'Unpaid' }}
+              </span>
+            </td>
+            <td v-if="!staffMode">
               <button
                 v-if="!line.payrollPaid"
                 type="button"
@@ -342,29 +434,22 @@ const totals = computed(() => {
               >
                 Mark paid
               </button>
-              <button
-                v-else
-                type="button"
-                class="btn btn-ghost"
-                :disabled="acting"
-                @click="unmarkPaid(line.orderId)"
-              >
-                Undo
-              </button>
             </td>
           </tr>
-          <tr v-if="!income.lines?.length">
-            <td colspan="8" class="muted">
-              No collected orders attributed to this staff member in the selected period.
+          <tr v-if="!visibleLines.length">
+            <td :colspan="staffMode ? 7 : 8" class="muted">
+              No collected orders in the selected period{{ pendingOnly ? ' (pending only)' : '' }}.
             </td>
           </tr>
         </tbody>
       </DataTableShell>
 
       <div v-if="income" class="income-totals">
-        <span>Expected {{ money(income.expectedTotal) }}</span>
+        <span>Pending {{ money(income.unpaidTotal) }}</span>
         <span>Paid {{ money(income.paidTotal) }}</span>
-        <span>Unpaid <strong>{{ money(income.unpaidTotal) }}</strong></span>
+        <span v-if="income.unpaidTargetMetCount != null">
+          Target met {{ income.unpaidTargetMetCount }} / {{ income.unpaidTargetPeriods }}
+        </span>
       </div>
     </section>
   </div>
@@ -373,6 +458,14 @@ const totals = computed(() => {
 <style scoped>
 .pay-page {
   padding-bottom: 2.5rem;
+}
+
+.mode-switch {
+  display: inline-flex;
+  margin-top: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
 }
 
 .period-bar {
@@ -410,14 +503,29 @@ const totals = computed(() => {
   flex-wrap: wrap;
 }
 
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+  color: var(--color-text-secondary);
+  padding-bottom: 0.35rem;
+}
+
 .summary-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
   margin-bottom: 1rem;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 900px) {
+  .summary-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 520px) {
   .summary-row {
     grid-template-columns: 1fr;
   }

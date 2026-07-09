@@ -10,4 +10,5 @@ public record StaffIncomeLineDto(
         Instant completedAt,
         BigDecimal units,
         BigDecimal lineAmount,
-        boolean payrollPaid) {}
+        boolean payrollPaid,
+        String note) {}

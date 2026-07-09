@@ -50,4 +50,8 @@ public class StaffPayrollJobMark {
 
     @Column(name = "marked_at", nullable = false)
     private Instant markedAt = Instant.now();
+
+    /** When true, employer included bonus % on settlement (Wheel Hub includeBonus). */
+    @Column(name = "include_bonus")
+    private Boolean includeBonus;
 }

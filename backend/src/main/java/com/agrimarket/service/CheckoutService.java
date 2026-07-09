@@ -49,6 +49,7 @@ public class CheckoutService {
     private final VerificationCodeService verificationCodeService;
     private final UserAccountRepository userAccountRepository;
     private final EmailService emailService;
+    private final AppNotificationService appNotificationService;
 
     @Transactional
     public Map<String, Object> guestCheckout(String sessionKey, GuestCheckoutRequest req) {
@@ -207,6 +208,11 @@ public class CheckoutService {
             OrderRepository.save(order);
             orderIds.add(order.getId());
             verificationCodes.add(order.getVerificationCode());
+            try {
+                appNotificationService.notifyNewOrder(order);
+            } catch (Exception ignored) {
+                // Never fail checkout due to in-app notification.
+            }
 
             PaymentRecord pay = new PaymentRecord();
             pay.setProvider(cart.getProvider());

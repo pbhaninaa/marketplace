@@ -2,8 +2,6 @@ package com.agrimarket.api;
 
 import com.agrimarket.api.dto.CreateStaffRequest;
 import com.agrimarket.api.dto.MarkStaffOrderPayrollRequest;
-import com.agrimarket.api.dto.PayrollEntryRequest;
-import com.agrimarket.api.dto.PayrollEntryResponse;
 import com.agrimarket.api.dto.StaffIncomeBundleDto;
 import com.agrimarket.api.dto.StaffMemberResponse;
 import com.agrimarket.api.dto.StaffPaymentCalculationsBundleDto;
@@ -58,21 +56,6 @@ public class ProviderTeamController {
         providerStaffService.deleteStaff(actor, userId);
     }
 
-    @GetMapping("/payroll-entries")
-    public List<PayrollEntryResponse> listPayroll(
-            @AuthenticationPrincipal MarketUserPrincipal actor,
-            @RequestParam(name = "staffUserId", required = false) Long staffUserId) {
-        return providerStaffService.listPayroll(actor, staffUserId);
-    }
-
-    @PostMapping("/staff/{staffUserId}/payroll")
-    public PayrollEntryResponse addPayroll(
-            @AuthenticationPrincipal MarketUserPrincipal actor,
-            @PathVariable Long staffUserId,
-            @Valid @RequestBody PayrollEntryRequest req) {
-        return providerStaffService.recordPayroll(actor, staffUserId, req);
-    }
-
     /** Order-attributed payroll summary (Wheel Hub payment-calculations). */
     @GetMapping("/staff/payment-calculations")
     public StaffPaymentCalculationsBundleDto paymentCalculations(
@@ -80,6 +63,15 @@ public class ProviderTeamController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
         return providerStaffService.listPaymentCalculations(actor, startDate, endDate);
+    }
+
+    /** Staff self-view: expected salary from attributed collected orders. */
+    @GetMapping("/staff/my-expected-income")
+    public StaffIncomeBundleDto myExpectedIncome(
+            @AuthenticationPrincipal MarketUserPrincipal actor,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return providerStaffService.myExpectedIncome(actor, startDate, endDate);
     }
 
     /** Per-order staff income lines for employer payout UI. */
@@ -115,8 +107,10 @@ public class ProviderTeamController {
             @AuthenticationPrincipal MarketUserPrincipal actor,
             @PathVariable Long staffUserId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
-        int count = providerStaffService.markAllUnpaidPayrollPaid(actor, staffUserId, startDate, endDate);
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) Boolean includeBonus) {
+        int count = providerStaffService.markAllUnpaidPayrollPaid(
+                actor, staffUserId, startDate, endDate, includeBonus);
         return Map.of("markedCount", count);
     }
 }

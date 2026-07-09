@@ -5,7 +5,7 @@ import jakarta.persistence.Converter;
 
 /**
  * Backwards-compatible converter for legacy DB values.
- * Older rows may contain payment methods (EFT/CASH/CARD) in the staff rate unit column.
+ * Older rows may contain payment methods (EFT/CASH/CARD) or HOURLY/DAILY aliases.
  */
 @Converter(autoApply = false)
 public class StaffRateUnitConverter implements AttributeConverter<StaffRateUnit, String> {
@@ -17,18 +17,19 @@ public class StaffRateUnitConverter implements AttributeConverter<StaffRateUnit,
 
     @Override
     public StaffRateUnit convertToEntityAttribute(String dbData) {
-        if (dbData == null) return null;
+        if (dbData == null) {
+            return null;
+        }
         String v = dbData.trim().toUpperCase();
-        if (v.isEmpty()) return null;
+        if (v.isEmpty()) {
+            return null;
+        }
         // tolerate legacy values
-        if (v.equals("EFT") || v.equals("CASH") || v.equals("CARD")) {
-            return StaffRateUnit.HOURLY;
+        if (v.equals("EFT") || v.equals("CASH") || v.equals("CARD") || v.equals("HOURLY")) {
+            return StaffRateUnit.PER_HOUR;
         }
-        if (v.equals("PER_HOUR")) {
-            return StaffRateUnit.HOURLY;
-        }
-        if (v.equals("PER_DAY")) {
-            return StaffRateUnit.DAILY;
+        if (v.equals("DAILY")) {
+            return StaffRateUnit.PER_DAY;
         }
         try {
             return StaffRateUnit.valueOf(v);
@@ -37,4 +38,3 @@ public class StaffRateUnitConverter implements AttributeConverter<StaffRateUnit,
         }
     }
 }
-

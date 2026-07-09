@@ -291,9 +291,6 @@ export const providerTeamApi = {
   listStaff() {
     return api.get('/api/provider/me/staff');
   },
-  listPayrollEntries(params) {
-    return api.get('/api/provider/me/payroll-entries', { params });
-  },
   updateStaff(userId, body) {
     return api.patch(`/api/provider/me/staff/${userId}`, body);
   },
@@ -303,23 +300,39 @@ export const providerTeamApi = {
   inviteStaff(body) {
     return api.post('/api/provider/me/staff', body);
   },
-  addPayroll(staffUserId, body) {
-    return api.post(`/api/provider/me/staff/${staffUserId}/payroll`, body);
-  },
   paymentCalculations(params) {
     return api.get('/api/provider/me/staff/payment-calculations', { params });
+  },
+  myExpectedIncome(params) {
+    return api.get('/api/provider/me/staff/my-expected-income', { params });
   },
   staffIncome(staffUserId, params) {
     return api.get(`/api/provider/me/staff/${staffUserId}/income`, { params });
   },
-  markPayrollPaid(staffUserId, orderId) {
-    return api.post(`/api/provider/me/staff/${staffUserId}/payroll-marks`, { orderId });
+  markPayrollPaid(staffUserId, body) {
+    const payload = typeof body === 'object' ? body : { orderId: body };
+    return api.post(`/api/provider/me/staff/${staffUserId}/payroll-marks`, payload);
   },
   unmarkPayrollPaid(staffUserId, orderId) {
     return api.delete(`/api/provider/me/staff/${staffUserId}/payroll-marks`, { params: { orderId } });
   },
   payAllUnpaid(staffUserId, params) {
     return api.post(`/api/provider/me/staff/${staffUserId}/payroll-marks/pay-all`, null, { params });
+  },
+};
+
+export const notificationsApi = {
+  list() {
+    return api.get('/api/me/notifications');
+  },
+  unreadCount() {
+    return api.get('/api/me/notifications/unread-count');
+  },
+  markRead(id) {
+    return api.post(`/api/me/notifications/${id}/read`);
+  },
+  markAllRead() {
+    return api.post('/api/me/notifications/read-all');
   },
 };
 

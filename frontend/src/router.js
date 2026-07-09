@@ -129,7 +129,7 @@ router.beforeEach(async (to) => {
   if (to.name === 'provider-team' && auth.isAuthenticated && (!auth.canManageStaff || !auth.isPremiumPlan)) {
     return { path: '/provider' };
   }
-  if (to.name === 'provider-staff-payments' && auth.isAuthenticated && (!auth.canManageStaff || !auth.isPremiumPlan)) {
+  if (to.name === 'provider-staff-payments' && auth.isAuthenticated && !auth.isPremiumPlan) {
     return { path: '/provider' };
   }
   if (to.name === 'setup') {

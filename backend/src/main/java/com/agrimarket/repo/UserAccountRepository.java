@@ -24,6 +24,8 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
 
     List<UserAccount> findByRoleOrderByEmailAsc(UserRole role);
 
+    List<UserAccount> findByProvider_IdAndRole(Long providerId, UserRole role);
+
     @Query(
             """
             SELECT COUNT(u) FROM UserAccount u
