@@ -38,6 +38,12 @@ public class TestFixtures {
         return providerRepository.save(p);
     }
 
+    public Provider savePendingProvider(String name, String slug) {
+        Provider p = new Provider(name, slug, "Test provider", "Testville");
+        p.setStatus(ProviderStatus.PENDING);
+        return providerRepository.save(p);
+    }
+
     public void saveActiveSubscription(Provider provider) {
         Subscription s = new Subscription();
         s.setProvider(provider);
@@ -57,6 +63,18 @@ public class TestFixtures {
         l.setDescription("Integration test listing");
         l.setUnitPrice(price);
         l.setStockQuantity(stock);
+        l.setActive(true);
+        return listingRepository.save(l);
+    }
+
+    public Listing saveRentListing(Provider provider, Category category, String title, BigDecimal unitPrice) {
+        Listing l = new Listing();
+        l.setProvider(provider);
+        l.setCategory(category);
+        l.setListingType(ListingType.RENT);
+        l.setTitle(title);
+        l.setDescription("Integration test rental");
+        l.setUnitPrice(unitPrice);
         l.setActive(true);
         return listingRepository.save(l);
     }

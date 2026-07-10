@@ -3,6 +3,7 @@ package com.agrimarket.service;
 import com.agrimarket.api.error.ApiException;
 import com.agrimarket.domain.BillingCycle;
 import com.agrimarket.domain.Provider;
+import com.agrimarket.domain.ProviderStatus;
 import com.agrimarket.domain.Subscription;
 import com.agrimarket.domain.SubscriptionPlan;
 import com.agrimarket.domain.SubscriptionStatus;
@@ -117,6 +118,17 @@ public class SubscriptionService {
                 : now.plus(30, ChronoUnit.DAYS);
         s.setStatus(SubscriptionStatus.ACTIVE);
         s.setExpiresAt(exp);
+        activateProviderForMarketplace(s.getProvider());
         return subscriptionRepository.save(s);
+    }
+
+    private void activateProviderForMarketplace(Provider provider) {
+        if (provider == null || provider.getStatus() == ProviderStatus.SUSPENDED) {
+            return;
+        }
+        if (provider.getStatus() != ProviderStatus.ACTIVE) {
+            provider.setStatus(ProviderStatus.ACTIVE);
+            providerRepository.save(provider);
+        }
     }
 }

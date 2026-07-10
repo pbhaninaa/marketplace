@@ -8,6 +8,19 @@ import ListingRecordCard from '../components/listings/ListingRecordCard.vue';
 import PaginationBar from '../components/ui/PaginationBar.vue';
 import { inclusiveDatesToRentalInstants } from '../utils/rentalPricing';
 
+function isMeaningfulMinPrice(value) {
+  if (value === null || value === undefined) return false;
+  const raw = String(value).trim();
+  if (!raw) return false;
+  const n = Number(raw);
+  return !(Number.isFinite(n) && n <= 0);
+}
+
+function isMeaningfulMaxPrice(value) {
+  if (value === null || value === undefined) return false;
+  return String(value).trim() !== '';
+}
+
 const cart = useCartStore();
 
 const listings = ref({ content: [], totalElements: 0 });
@@ -29,8 +42,8 @@ const hasActiveFilters = computed(() => {
   return !!(
     f.categoryId ||
     f.providerId ||
-    f.minPrice ||
-    f.maxPrice ||
+    isMeaningfulMinPrice(f.minPrice) ||
+    isMeaningfulMaxPrice(f.maxPrice) ||
     String(f.location || '').trim() ||
     String(f.search || '').trim()
   );
@@ -104,8 +117,8 @@ async function loadListings() {
     };
     if (filters.value.categoryId) params.categoryId = filters.value.categoryId;
     if (filters.value.providerId) params.providerId = filters.value.providerId;
-    if (filters.value.minPrice) params.minPrice = filters.value.minPrice;
-    if (filters.value.maxPrice) params.maxPrice = filters.value.maxPrice;
+    if (isMeaningfulMinPrice(filters.value.minPrice)) params.minPrice = filters.value.minPrice;
+    if (isMeaningfulMaxPrice(filters.value.maxPrice)) params.maxPrice = filters.value.maxPrice;
     if (filters.value.location) params.location = filters.value.location;
     if (filters.value.search) params.search = filters.value.search;
 
@@ -535,16 +548,20 @@ onMounted(async () => {
     left: 0;
     width: 100%;
     height: calc(100vh - 64px);
+    height: calc(100dvh - 64px);
     max-width: none;
     border-right: none;
     border-bottom: none;
-    background: white;
+    background: var(--color-surface-elevated, white);
     z-index: 998;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
     display: none;
     flex-direction: column;
-    padding: 1.5rem 1rem;
+    padding: 1rem 1rem 2.5rem;
+    box-sizing: border-box;
   }
 
   :deep(.marketplace-filter-sidebar.show-mobile) {
@@ -554,6 +571,14 @@ onMounted(async () => {
   :deep(.filters) {
     border-right: none;
     border-bottom: none;
+    max-height: none;
+    position: static;
+    overflow: visible;
+    padding-bottom: 1rem;
+  }
+
+  :deep(.filter-apply) {
+    margin-bottom: 0.5rem;
   }
 }
 
