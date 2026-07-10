@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -29,6 +30,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AppProperties appProperties;
+    private final Environment environment;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -76,6 +78,14 @@ public class SecurityConfig {
         List<String> configured = appProperties.cors() != null && appProperties.cors().allowedOrigins() != null
                 ? appProperties.cors().allowedOrigins()
                 : List.of();
+        // Prefer explicit deploy env vars so indexed localhost defaults cannot win on UAT/PROD.
+        String fromEnv = firstNonBlank(
+                environment.getProperty("PROD_CORS_ORIGINS"),
+                environment.getProperty("UAT_CORS_ORIGINS"),
+                environment.getProperty("app.cors.allowed-origins"));
+        if (fromEnv != null && !fromEnv.isBlank()) {
+            configured = List.of(fromEnv);
+        }
         if (configured.isEmpty()) {
             return List.of("http://localhost:5173");
         }
@@ -92,6 +102,14 @@ public class SecurityConfig {
             }
         }
         return expanded.isEmpty() ? List.of("http://localhost:5173") : expanded;
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) return null;
+        for (String v : values) {
+            if (v != null && !v.isBlank()) return v;
+        }
+        return null;
     }
 
     @Bean
