@@ -7,19 +7,12 @@ import MarketplaceFilterSidebar from '../components/filters/MarketplaceFilterSid
 import ListingRecordCard from '../components/listings/ListingRecordCard.vue';
 import PaginationBar from '../components/ui/PaginationBar.vue';
 import { inclusiveDatesToRentalInstants } from '../utils/rentalPricing';
-
-function isMeaningfulMinPrice(value) {
-  if (value === null || value === undefined) return false;
-  const raw = String(value).trim();
-  if (!raw) return false;
-  const n = Number(raw);
-  return !(Number.isFinite(n) && n <= 0);
-}
-
-function isMeaningfulMaxPrice(value) {
-  if (value === null || value === undefined) return false;
-  return String(value).trim() !== '';
-}
+import {
+  emptyMarketplaceFilters,
+  isDefaultMarketplaceFilters,
+  isMeaningfulMaxPrice,
+  isMeaningfulMinPrice,
+} from '../utils/marketplaceFilters';
 
 const cart = useCartStore();
 
@@ -37,32 +30,13 @@ const LISTING_PAGE_SIZE_DEFAULT = 100;
 
 const hasSidebar = computed(() => true);
 
-const hasActiveFilters = computed(() => {
-  const f = filters.value;
-  return !!(
-    f.categoryId ||
-    f.providerId ||
-    isMeaningfulMinPrice(f.minPrice) ||
-    isMeaningfulMaxPrice(f.maxPrice) ||
-    String(f.location || '').trim() ||
-    String(f.search || '').trim()
-  );
-});
+const hasActiveFilters = computed(() => !isDefaultMarketplaceFilters(filters.value));
 
 const listingPageSize = computed(() =>
   hasActiveFilters.value ? LISTING_PAGE_SIZE_FILTERED : LISTING_PAGE_SIZE_DEFAULT,
 );
 
-const filters = ref({
-  categoryId: '',
-  providerId: '',
-  listingType: '',
-  minPrice: '',
-  maxPrice: '',
-  location: '',
-  search: '',
-  page: 0,
-});
+const filters = ref(emptyMarketplaceFilters());
 
 const rentDefaults = ref({});
 const clearingCart = ref(false);
@@ -110,17 +84,20 @@ async function loadListings() {
   loading.value = true;
   error.value = '';
   try {
+    const narrowed = hasActiveFilters.value;
     const params = {
-      page: hasActiveFilters.value ? filters.value.page : 0,
+      page: narrowed ? filters.value.page : 0,
       size: listingPageSize.value,
       listingType: entryListingType.value,
     };
-    if (filters.value.categoryId) params.categoryId = filters.value.categoryId;
-    if (filters.value.providerId) params.providerId = filters.value.providerId;
-    if (isMeaningfulMinPrice(filters.value.minPrice)) params.minPrice = filters.value.minPrice;
-    if (isMeaningfulMaxPrice(filters.value.maxPrice)) params.maxPrice = filters.value.maxPrice;
-    if (filters.value.location) params.location = filters.value.location;
-    if (filters.value.search) params.search = filters.value.search;
+    if (narrowed) {
+      if (filters.value.categoryId) params.categoryId = filters.value.categoryId;
+      if (filters.value.providerId) params.providerId = filters.value.providerId;
+      if (isMeaningfulMinPrice(filters.value.minPrice)) params.minPrice = filters.value.minPrice;
+      if (isMeaningfulMaxPrice(filters.value.maxPrice)) params.maxPrice = filters.value.maxPrice;
+      if (filters.value.location) params.location = filters.value.location;
+      if (filters.value.search) params.search = filters.value.search;
+    }
 
     const { data } = await publicCatalogApi.listings(params);
     // Backend may return either a Page-like object or a raw array; normalize to {content,totalElements}.
@@ -146,28 +123,25 @@ async function loadListings() {
 
 function chooseEntry(type) {
   entryListingType.value = type;
-  filters.value = {
-    ...filters.value,
-    listingType: type,
-    page: 0,
-    // reset other filters when switching between buy/rent
-    categoryId: '',
-    providerId: '',
-    minPrice: '',
-    maxPrice: '',
-    location: '',
-    search: '',
-  };
+  filters.value = emptyMarketplaceFilters({ listingType: type });
   loadListings();
   loadFiltersData();
 }
 
+function clearFilters() {
+  filters.value = emptyMarketplaceFilters({ listingType: entryListingType.value });
+  showMobileFilters.value = false;
+  loadListings();
+}
+
 function onFiltersUpdate(v) {
-  // lock listing type to the client's chosen mode
   filters.value = { ...v, listingType: entryListingType.value };
 }
 
 function applyFilters() {
+  if (!isMeaningfulMinPrice(filters.value.minPrice)) {
+    filters.value = { ...filters.value, minPrice: '' };
+  }
   filters.value = { ...filters.value, page: 0 };
   showMobileFilters.value = false;
   loadListings();
@@ -245,10 +219,20 @@ onMounted(async () => {
     </div>
 
     <div class="market-body" :class="{ 'market-body--no-sidebar': !hasSidebar }">
-      <MarketplaceFilterSidebar v-if="entryListingType" :class="{ 'show-mobile': showMobileFilters }"
-        class="marketplace-filter-sidebar" :model-value="filters" :categories="categories" :providers="providers"
-        :hide-listing-type="true" :for-rent="entryListingType === 'RENT'" @update:model-value="onFiltersUpdate"
-        @apply="applyFilters" />
+      <MarketplaceFilterSidebar
+        v-if="entryListingType"
+        :class="{ 'show-mobile': showMobileFilters }"
+        class="marketplace-filter-sidebar"
+        :model-value="filters"
+        :categories="categories"
+        :providers="providers"
+        :hide-listing-type="true"
+        :for-rent="entryListingType === 'RENT'"
+        :has-active-filters="hasActiveFilters"
+        @update:model-value="onFiltersUpdate"
+        @apply="applyFilters"
+        @clear="clearFilters"
+      />
 
       <section class="market-content">
         <button type="button" class="filter-toggle filter-toggle--mobile"

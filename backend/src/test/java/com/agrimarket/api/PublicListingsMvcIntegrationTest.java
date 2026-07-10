@@ -27,15 +27,25 @@ class PublicListingsMvcIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void listings_includesPendingProviderWithActiveSubscription() throws Exception {
+    void listings_includesPendingProviderRentListing() throws Exception {
         var category = fixtures.saveCategory("Transport & vehicles", "transport-vehicles");
         var provider = fixtures.savePendingProvider("Rent Merchant", "rent-merchant");
-        fixtures.saveActiveSubscription(provider);
         fixtures.saveRentListing(provider, category, "Trailer", new BigDecimal("750"));
 
         mockMvc.perform(get("/api/public/listings").param("listingType", "RENT"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.title == 'Trailer')]").exists());
+    }
+
+    @Test
+    void listings_ignoresZeroMinPriceForRent() throws Exception {
+        var category = fixtures.saveCategory("Transport", "transport");
+        var provider = fixtures.savePendingProvider("Rent Co", "rent-co");
+        fixtures.saveRentListing(provider, category, "Semi Trailer", new BigDecimal("750"));
+
+        mockMvc.perform(get("/api/public/listings").param("listingType", "RENT").param("minPrice", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.title == 'Semi Trailer')]").exists());
     }
 
     @Test

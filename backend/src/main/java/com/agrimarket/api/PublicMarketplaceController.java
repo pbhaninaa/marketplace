@@ -64,12 +64,31 @@ public class PublicMarketplaceController {
             @RequestParam(required = false, name = "location") String locationContains,
             @RequestParam(required = false, name = "search") String search) {
 
-        var f = new ListingFilterParams(categoryId, providerId, listingType, minPrice, maxPrice, locationContains, search);
+        var f = new ListingFilterParams(
+                positiveId(categoryId),
+                positiveId(providerId),
+                listingType,
+                meaningfulMinPrice(minPrice),
+                maxPrice,
+                blankToNull(locationContains),
+                blankToNull(search));
         var pageable = PageRequest.of(
                 Math.max(0, page),
                 Math.min(Math.max(1, size), 100),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
         return listingRepository.findAll(ListingSpecifications.publicFeed(f), pageable).map(ListingMapper::toResponse);
+    }
+
+    private static Long positiveId(Long id) {
+        return id != null && id > 0 ? id : null;
+    }
+
+    private static BigDecimal meaningfulMinPrice(BigDecimal min) {
+        return min != null && min.signum() > 0 ? min : null;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }
 

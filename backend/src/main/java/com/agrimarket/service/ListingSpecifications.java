@@ -4,14 +4,11 @@ import com.agrimarket.api.dto.ListingFilterParams;
 import com.agrimarket.domain.Listing;
 import com.agrimarket.domain.ListingType;
 import com.agrimarket.domain.ProviderStatus;
-import com.agrimarket.domain.Subscription;
-import com.agrimarket.domain.SubscriptionStatus;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
-import jakarta.persistence.criteria.Subquery;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +29,6 @@ public final class ListingSpecifications {
             p.add(cb.isTrue(root.get("active")));
             Join<Object, Object> provider = root.join("provider", JoinType.INNER);
             p.add(cb.notEqual(provider.get("status"), ProviderStatus.SUSPENDED));
-            p.add(providerVisibleOnMarketplace(query, cb, provider));
             Join<Object, Object> category = root.join("category", JoinType.INNER);
 
             if (f.categoryId() != null) {
@@ -44,7 +40,7 @@ public final class ListingSpecifications {
             if (f.listingType() != null) {
                 p.add(cb.equal(root.get("listingType"), f.listingType()));
             }
-            if (f.minPrice() != null || f.maxPrice() != null) {
+            if (hasPriceFilter(f.minPrice(), f.maxPrice())) {
                 ListingType lt = f.listingType();
                 if (lt == ListingType.RENT) {
                     p.add(rentAnyRateInRange(root, cb, f.minPrice(), f.maxPrice()));
@@ -86,25 +82,18 @@ public final class ListingSpecifications {
         };
     }
 
-    /** ACTIVE providers, or PENDING providers with a current paid subscription. */
-    private static Predicate providerVisibleOnMarketplace(
-            jakarta.persistence.criteria.CriteriaQuery<?> query,
-            CriteriaBuilder cb,
-            Join<Object, Object> provider) {
-        Subquery<Long> activeSub = query.subquery(Long.class);
-        Root<Subscription> subRoot = activeSub.from(Subscription.class);
-        activeSub.select(subRoot.get("id"));
-        activeSub.where(cb.and(
-                cb.equal(subRoot.get("provider"), provider),
-                cb.equal(subRoot.get("status"), SubscriptionStatus.ACTIVE),
-                cb.greaterThan(subRoot.get("expiresAt"), cb.currentTimestamp())));
-        return cb.or(cb.equal(provider.get("status"), ProviderStatus.ACTIVE), cb.exists(activeSub));
+    private static boolean hasPriceFilter(BigDecimal min, BigDecimal max) {
+        return meaningfulMinPrice(min) || max != null;
+    }
+
+    private static boolean meaningfulMinPrice(BigDecimal min) {
+        return min != null && min.signum() > 0;
     }
 
     /** Sale items: filter on {@link Listing#getUnitPrice()} only. */
     private static Predicate unitPriceInRange(Root<Listing> root, CriteriaBuilder cb, BigDecimal min, BigDecimal max) {
         List<Predicate> parts = new ArrayList<>();
-        if (min != null) {
+        if (meaningfulMinPrice(min)) {
             parts.add(cb.greaterThanOrEqualTo(root.get("unitPrice"), min));
         }
         if (max != null) {
@@ -129,7 +118,7 @@ public final class ListingSpecifications {
             Root<Listing> root, CriteriaBuilder cb, String column, BigDecimal min, BigDecimal max) {
         List<Predicate> parts = new ArrayList<>();
         parts.add(cb.isNotNull(root.get(column)));
-        if (min != null) {
+        if (meaningfulMinPrice(min)) {
             parts.add(cb.greaterThanOrEqualTo(root.get(column), min));
         }
         if (max != null) {

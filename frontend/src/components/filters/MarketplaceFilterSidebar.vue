@@ -8,9 +8,10 @@ const props = defineProps({
   hideListingType: { type: Boolean, default: false },
   /** When true, price filters apply to rental rates (hourly/daily/weekly or unit), not only a single sale price. */
   forRent: { type: Boolean, default: false },
+  hasActiveFilters: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['update:modelValue', 'apply']);
+const emit = defineEmits(['update:modelValue', 'apply', 'clear']);
 
 function patch(field, raw) {
   const value = raw === undefined || raw === null ? '' : raw;
@@ -22,7 +23,7 @@ function patch(field, raw) {
   <aside class="filters">
     <div class="filters__head">
       <h2 class="filters__title">Filters</h2>
-      <p class="filters__hint">Refine listings, then apply.</p>
+      <p class="filters__hint">All listings are shown until you narrow the list and apply.</p>
     </div>
 
     <FormField label="Category">
@@ -48,7 +49,13 @@ function patch(field, raw) {
     </FormField>
 
     <FormField :label="forRent ? 'Min rate (R)' : 'Min price (R)'">
-      <input :value="modelValue.minPrice" type="number" placeholder="0" @input="patch('minPrice', $event.target.value)" />
+      <input
+        :value="modelValue.minPrice"
+        type="number"
+        min="0"
+        placeholder="Any"
+        @input="patch('minPrice', $event.target.value)"
+      />
     </FormField>
     <p v-if="forRent" class="filters__price-hint muted small">
       Matches listings where at least one rate (hourly, daily, weekly, or the listed amount) is in range.
@@ -76,7 +83,17 @@ function patch(field, raw) {
       />
     </FormField>
 
-    <button type="button" class="btn btn-primary filter-apply" @click="emit('apply')">Apply filters</button>
+    <div class="filters__actions">
+      <button type="button" class="btn btn-primary filter-apply" @click="emit('apply')">Apply filters</button>
+      <button
+        v-if="hasActiveFilters"
+        type="button"
+        class="btn btn-ghost filter-clear"
+        @click="emit('clear')"
+      >
+        Show all listings
+      </button>
+    </div>
   </aside>
 </template>
 
@@ -116,7 +133,17 @@ function patch(field, raw) {
 }
 
 .filter-apply {
+  width: 100%;
+}
+
+.filters__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
   margin-top: 1.1rem;
+}
+
+.filter-clear {
   width: 100%;
 }
 
