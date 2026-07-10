@@ -727,55 +727,38 @@ async function deleteListing(id) {
 
 .mp-dialog {
   position: fixed;
-  margin: 20rem 87rem;
+  top: 50%;
+  left: 50%;
   transform: translate(-50%, -50%);
-  width: min(40%);
+  width: min(42rem, 92vw);
   max-height: 90vh;
   border: none;
   padding: 0;
+  margin: 0;
   background: transparent;
   z-index: var(--z-modal, 1000);
-  animation: slideUp 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
-}
-@media (max-width: 980px) {
-  .mp-dialog {
-    width: 90%;
-    margin: 12rem 50%;
-  background: transparent;
-  z-index: var(--z-modal, 1000);
-  animation: slideUp 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
-  }
-  .mp-dialog::backdrop {
-  background: rgba(28, 36, 24, 0.5);
-  backdrop-filter: blur(4px);
-  animation: fadeIn 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+  animation: mpDialogSlideUp 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .mp-dialog[open] {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
 }
-}
-
 
 .mp-dialog::backdrop {
   background: rgba(28, 36, 24, 0.5);
   backdrop-filter: blur(4px);
-  animation: fadeIn 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+  animation: mpDialogFadeIn 0.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
-.mp-dialog[open] {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+@media (max-width: 980px) {
+  .mp-dialog {
+    width: min(42rem, 94vw);
+    max-height: 92vh;
+  }
 }
 
-/* ============================================
-   MODAL ANIMATIONS
-   ============================================ */
-
-@keyframes slideUp {
+@keyframes mpDialogSlideUp {
   from {
     opacity: 0;
     transform: translate(-50%, calc(-50% + 20px));
@@ -786,7 +769,7 @@ async function deleteListing(id) {
   }
 }
 
-@keyframes fadeIn {
+@keyframes mpDialogFadeIn {
   from {
     opacity: 0;
   }
