@@ -32,13 +32,18 @@ public class DeployedProfileValidator {
             throw new IllegalStateException("APP_JWT_SECRET must not use a development default on UAT/PROD");
         }
 
-        String cors = environment.getProperty("app.cors.allowed-origins", "").trim();
-        if (cors.isEmpty()) {
-            throw new IllegalStateException("Set UAT_CORS_ORIGINS or PROD_CORS_ORIGINS to your frontend URL(s)");
+        String cors = firstNonBlank(
+                environment.getProperty("PROD_CORS_ORIGINS"),
+                environment.getProperty("UAT_CORS_ORIGINS"),
+                environment.getProperty("app.cors.allowed-origins"));
+        if (cors == null || cors.isBlank()) {
+            throw new IllegalStateException("Set UAT_CORS_ORIGINS or PROD_CORS_ORIGINS to your frontend URL");
         }
 
-        String publicUrl = environment.getProperty("app.password-reset.public-app-base-url", "").trim();
-        if (publicUrl.isEmpty() || publicUrl.contains("localhost")) {
+        String publicUrl = firstNonBlank(
+                environment.getProperty("PUBLIC_APP_BASE_URL"),
+                environment.getProperty("app.password-reset.public-app-base-url"));
+        if (publicUrl == null || publicUrl.isBlank() || publicUrl.contains("localhost")) {
             throw new IllegalStateException("Set PUBLIC_APP_BASE_URL to your public frontend URL (no localhost)");
         }
 
@@ -51,6 +56,18 @@ public class DeployedProfileValidator {
                 throw new IllegalStateException("Email is enabled: set SENDGRID_API_KEY and EMAIL_FROM");
             }
         }
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String v : values) {
+            if (v != null && !v.isBlank()) {
+                return v.trim();
+            }
+        }
+        return null;
     }
 
     private boolean isDeployedProfile() {

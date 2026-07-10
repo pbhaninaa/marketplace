@@ -243,7 +243,7 @@ onMounted(async () => {
 
       <div v-if="auth.isAuthenticated" class="side-nav__footer">
         <p class="side-nav__user" :title="auth.email">{{ auth.displayLabel }}</p>
-        <button type="button" class="side-nav__signout" @click="auth.logout(); closeMenu()">
+        <button type="button" class="side-nav__signout" @click="auth.logout()">
           Sign out
         </button>
       </div>

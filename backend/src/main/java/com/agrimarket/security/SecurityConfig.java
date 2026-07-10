@@ -5,8 +5,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -28,6 +29,8 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AppProperties appProperties;
@@ -65,6 +68,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();
         List<String> origins = resolveAllowedOrigins();
+        log.info("CORS allowed origins: {}", origins);
         cfg.setAllowedOrigins(origins);
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
@@ -76,41 +80,39 @@ public class SecurityConfig {
     }
 
     private List<String> resolveAllowedOrigins() {
-        List<String> configured = appProperties.cors() != null && appProperties.cors().allowedOrigins() != null
-                ? appProperties.cors().allowedOrigins()
-                : List.of();
-        // Prefer explicit deploy env vars so indexed localhost defaults cannot win on UAT/PROD.
-        String fromEnv = firstNonBlank(
-                environment.getProperty("PROD_CORS_ORIGINS"),
-                environment.getProperty("UAT_CORS_ORIGINS"),
-                environment.getProperty("app.cors.allowed-origins"));
-        if (fromEnv != null && !fromEnv.isBlank()) {
-            configured = List.of(fromEnv);
+        LinkedHashSet<String> origins = new LinkedHashSet<>();
+
+        // Deploy env vars first (highest priority for UAT/PROD).
+        addOrigins(origins, environment.getProperty("PROD_CORS_ORIGINS"));
+        addOrigins(origins, environment.getProperty("UAT_CORS_ORIGINS"));
+
+        // Always allow the public frontend URL used for emails / password reset.
+        addOrigins(origins, environment.getProperty("PUBLIC_APP_BASE_URL"));
+        addOrigins(origins, environment.getProperty("APP_FRONTEND_URL"));
+        addOrigins(origins, environment.getProperty("app.password-reset.public-app-base-url"));
+        addOrigins(origins, environment.getProperty("app.email.public-app-base-url"));
+
+        // Profile property (comma-separated string).
+        if (appProperties.cors() != null) {
+            addOrigins(origins, appProperties.cors().allowedOrigins());
         }
-        if (configured.isEmpty()) {
-            return List.of("http://localhost:5173");
+        addOrigins(origins, environment.getProperty("app.cors.allowed-origins"));
+
+        if (origins.isEmpty()) {
+            origins.add("http://localhost:5173");
         }
-        LinkedHashSet<String> expanded = new LinkedHashSet<>();
-        for (String entry : configured) {
-            if (entry == null || entry.isBlank()) continue;
-            if (entry.contains(",")) {
-                expanded.addAll(Arrays.stream(entry.split(","))
-                        .map(String::trim)
-                        .filter(s -> !s.isEmpty())
-                        .collect(Collectors.toList()));
-            } else {
-                expanded.add(entry.trim());
-            }
-        }
-        return expanded.isEmpty() ? List.of("http://localhost:5173") : new ArrayList<>(expanded);
+        return new ArrayList<>(origins);
     }
 
-    private static String firstNonBlank(String... values) {
-        if (values == null) return null;
-        for (String v : values) {
-            if (v != null && !v.isBlank()) return v;
+    private static void addOrigins(LinkedHashSet<String> target, String raw) {
+        if (raw == null || raw.isBlank()) {
+            return;
         }
-        return null;
+        Arrays.stream(raw.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(s -> s.endsWith("/") ? s.substring(0, s.length() - 1) : s)
+                .forEach(target::add);
     }
 
     @Bean

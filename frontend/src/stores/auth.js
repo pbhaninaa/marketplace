@@ -93,7 +93,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function logout() {
+  function logout({ redirect = true } = {}) {
     applyToken('');
     role.value = '';
     email.value = '';
@@ -101,13 +101,16 @@ export const useAuthStore = defineStore('auth', () => {
     providerId.value = '';
     providerPlan.value = '';
     providerSubValid.value = false;
-    localStorage.removeItem(ROLE_KEY);
-    localStorage.removeItem(EMAIL_KEY);
-    localStorage.removeItem(DISPLAY_NAME_KEY);
-    localStorage.removeItem(PROVIDER_KEY);
-    localStorage.removeItem(SHADOW_BACKUP_KEY);
-    localStorage.removeItem(PROVIDER_PLAN_KEY);
-    localStorage.removeItem(PROVIDER_SUB_VALID_KEY);
+    try {
+      localStorage.clear();
+      sessionStorage.clear();
+    } catch {
+      /* ignore storage errors */
+    }
+    setAuthToken(null);
+    if (redirect && typeof window !== 'undefined') {
+      window.location.assign('/login?reason=logout');
+    }
   }
 
   function restoreFromStorage() {
@@ -127,8 +130,8 @@ export const useAuthStore = defineStore('auth', () => {
         const target = String(payload?.email || '').toLowerCase();
         if (target && email.value && target === email.value.toLowerCase()) {
           localStorage.removeItem('forceLogoutUser');
-          logout();
-          window.location.href = '/login?reason=permissions';
+          logout({ redirect: false });
+          window.location.assign('/login?reason=permissions');
         }
       } catch {
         /* ignore */

@@ -1,6 +1,5 @@
 package com.agrimarket.config;
 
-import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "app")
@@ -13,7 +12,8 @@ public record AppProperties(
         Payments payments,
         boolean seedDemoData) {
 
-    public record Cors(List<String> allowedOrigins) {}
+    /** Comma-separated frontend origins (single string — avoids indexed list override bugs). */
+    public record Cors(String allowedOrigins) {}
 
     public record Jwt(String secret, long expirationMs) {}
 
