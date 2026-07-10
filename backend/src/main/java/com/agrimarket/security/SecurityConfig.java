@@ -3,6 +3,7 @@ package com.agrimarket.security;
 import com.agrimarket.config.AppProperties;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -89,7 +90,7 @@ public class SecurityConfig {
         if (configured.isEmpty()) {
             return List.of("http://localhost:5173");
         }
-        List<String> expanded = new ArrayList<>();
+        LinkedHashSet<String> expanded = new LinkedHashSet<>();
         for (String entry : configured) {
             if (entry == null || entry.isBlank()) continue;
             if (entry.contains(",")) {
@@ -101,7 +102,7 @@ public class SecurityConfig {
                 expanded.add(entry.trim());
             }
         }
-        return expanded.isEmpty() ? List.of("http://localhost:5173") : expanded;
+        return expanded.isEmpty() ? List.of("http://localhost:5173") : new ArrayList<>(expanded);
     }
 
     private static String firstNonBlank(String... values) {
