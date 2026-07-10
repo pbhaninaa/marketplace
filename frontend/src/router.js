@@ -33,7 +33,10 @@ import ProviderStaffPaymentsView from './views/ProviderStaffPaymentsView.vue';
 import ProviderSubscriptionView from './views/ProviderSubscriptionView.vue';
 import ProviderHelpView from './views/ProviderHelpView.vue';
 import ClientHelpView from './views/ClientHelpView.vue';
-import { providerSubscriptionApi } from './services/marketplaceApi';
+import {
+  providerRouteGuard,
+  refreshProviderSubscription,
+} from './utils/providerSubscriptionGate';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -49,8 +52,7 @@ const router = createRouter({
     { path: '/reset-password', name: 'reset-password', component: ResetPasswordView, meta: { title: 'Reset password' } },
     { path: '/client', name: 'client', component: ClientEntryView, meta: { title: 'Client access' } },
     { path: '/client/verify', name: 'client-verify', component: ClientVerifyOtpView, meta: { title: 'Verify code' } },
-    {      path: '/admin',      name: 'admin',      component: AdminDashboardView,      meta: { requiresAdmin: true },
-    },
+    { path: '/admin', name: 'admin', component: AdminDashboardView, meta: { requiresAdmin: true } },
     { path: '/admin/providers', name: 'admin-providers', component: AdminProvidersView, meta: { requiresAdmin: true } },
     { path: '/admin/settings', name: 'admin-settings', component: AdminSettingsView, meta: { requiresAdmin: true } },
     { path: '/admin/listings', name: 'admin-listings', component: AdminListingsView, meta: { requiresAdmin: true } },
@@ -96,41 +98,26 @@ router.beforeEach(async (to) => {
     return { path: '/login', query: { redirect: to.fullPath } };
   }
 
-  // Provider subscription gate:
-  // If provider subscription is inactive, force provider users to stay on subscription page only.
-  if (
-    auth.isAuthenticated &&
-    auth.isProviderUser &&
-    typeof to.path === 'string' &&
-    to.path.startsWith('/provider') &&
-    to.name !== 'provider-subscription' &&
-    to.name !== 'provider-help'
-  ) {
-    try {
-      const { data } = await providerSubscriptionApi.status();
-      const active = !!data?.valid;
-      auth.setProviderSubscriptionStatus(data);
-      if (!active) {
-        return { path: '/provider/subscription', query: { redirect: to.fullPath } };
-      }
-      if (to.meta.requiresPremium && String(data?.plan || '').toUpperCase() !== 'PREMIUM') {
-        return { path: '/provider/subscription', query: { redirect: to.fullPath, upgrade: 'premium' } };
-      }
-    } catch {
-      // If status fails, be safe and keep provider on subscription.
-      return { path: '/provider/subscription', query: { redirect: to.fullPath } };
+  if (auth.isAuthenticated && auth.isProviderUser && to.path.startsWith('/provider')) {
+    const subStatus = await refreshProviderSubscription(auth);
+    const blocked = providerRouteGuard(to, auth, subStatus);
+    if (blocked) return blocked;
+
+    if (to.name === 'provider-team' && !auth.canManageStaff) {
+      return { path: '/provider' };
     }
   }
+
   if (to.name === 'market' && auth.isAuthenticated) {
     if (auth.isPlatformAdmin) return { path: '/admin' };
     if (auth.isSupport && !auth.isPlatformAdmin) return { path: '/support' };
-    if (auth.isProviderUser) return { path: '/provider' };
-  }
-  if (to.name === 'provider-team' && auth.isAuthenticated && (!auth.canManageStaff || !auth.isPremiumPlan)) {
-    return { path: '/provider' };
-  }
-  if (to.name === 'provider-staff-payments' && auth.isAuthenticated && !auth.isPremiumPlan) {
-    return { path: '/provider' };
+    if (auth.isProviderUser) {
+      const subStatus = await refreshProviderSubscription(auth);
+      if (!subStatus?.valid && !auth.providerSubValid) {
+        return { path: '/provider/subscription' };
+      }
+      return { path: '/provider' };
+    }
   }
   if (to.name === 'setup') {
     await setup.fetchStatus();

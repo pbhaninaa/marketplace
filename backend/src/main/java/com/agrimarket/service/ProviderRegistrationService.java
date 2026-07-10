@@ -2,33 +2,30 @@ package com.agrimarket.service;
 
 import com.agrimarket.api.dto.ProviderRegisterRequest;
 import com.agrimarket.api.error.ApiException;
-import com.agrimarket.domain.BillingCycle;
 import com.agrimarket.domain.Provider;
 import com.agrimarket.domain.ProviderSubtype;
 import com.agrimarket.domain.ProviderStatus;
-import com.agrimarket.domain.Subscription;
-import com.agrimarket.domain.SubscriptionPlan;
-import com.agrimarket.domain.SubscriptionStatus;
 import com.agrimarket.domain.UserAccount;
 import com.agrimarket.domain.UserRole;
 import com.agrimarket.repo.ProviderRepository;
-import com.agrimarket.repo.SubscriptionRepository;
 import com.agrimarket.repo.UserAccountRepository;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Registers a merchant (provider) + owner account.
+ * No subscription is seeded — the owner must choose and pay a plan on first login
+ * ({@code /provider/subscription}). Approved monthly plans run for 30 days.
+ */
 @Service
 @RequiredArgsConstructor
 public class ProviderRegistrationService {
 
     private final UserAccountRepository userAccountRepository;
     private final ProviderRepository providerRepository;
-    private final SubscriptionRepository subscriptionRepository;
     private final PasswordEncoder passwordEncoder;
     private final SlugService slugService;
 
@@ -48,13 +45,5 @@ public class ProviderRegistrationService {
 
         UserAccount owner = new UserAccount(req.ownerEmail(), passwordEncoder.encode(req.password()), UserRole.PROVIDER_OWNER, p);
         userAccountRepository.save(owner);
-
-        Subscription sub = new Subscription();
-        sub.setProvider(p);
-        sub.setPlan(SubscriptionPlan.BASIC);
-        sub.setBillingCycle(BillingCycle.MONTHLY);
-        sub.setStatus(SubscriptionStatus.ACTIVE);
-        sub.setExpiresAt(Instant.now().plus(30, ChronoUnit.DAYS));
-        subscriptionRepository.save(sub);
     }
 }

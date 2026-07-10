@@ -17,4 +17,9 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
             @Param("providerId") Long providerId, @Param("status") SubscriptionStatus status, @Param("now") Instant now);
 
     Optional<Subscription> findTopByProviderIdOrderByCreatedAtDesc(Long providerId);
+
+    @Query(
+            "SELECT s FROM Subscription s WHERE s.status = :status AND s.expiresAt IS NOT NULL AND s.expiresAt <= :now")
+    List<Subscription> findLapsedByStatus(
+            @Param("status") SubscriptionStatus status, @Param("now") Instant now);
 }

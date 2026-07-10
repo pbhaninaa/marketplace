@@ -45,6 +45,29 @@ public class SubscriptionService {
         return subscriptionRepository.findTopByProviderIdOrderByCreatedAtDesc(providerId);
     }
 
+    /**
+     * Status for UI + gates: prefer a non-expired ACTIVE row; otherwise fall back to the latest row
+     * (e.g. pending verification).
+     */
+    @Transactional(readOnly = true)
+    public SubscriptionStatusSnapshot resolveStatusSnapshot(Long providerId) {
+        Optional<Subscription> active = currentActive(providerId);
+        if (active.isPresent()) {
+            return new SubscriptionStatusSnapshot(true, active.get());
+        }
+        Optional<Subscription> latest = currentLatest(providerId);
+        if (latest.isEmpty()) {
+            return new SubscriptionStatusSnapshot(false, null);
+        }
+        Subscription cur = latest.get();
+        boolean valid = cur.getStatus() == SubscriptionStatus.ACTIVE
+                && cur.getExpiresAt() != null
+                && cur.getExpiresAt().isAfter(Instant.now());
+        return new SubscriptionStatusSnapshot(valid, cur);
+    }
+
+    public record SubscriptionStatusSnapshot(boolean valid, Subscription subscription) {}
+
     @Transactional
     public Subscription selectPlan(Long providerId, SubscriptionPlan plan, BillingCycle billingCycle) {
         if (billingCycle != BillingCycle.MONTHLY) {
@@ -57,9 +80,7 @@ public class SubscriptionService {
         // Cancel any existing active rows (keep history).
         subscriptionRepository
                 .findActiveForProviderOrderByExpiresAtDesc(providerId, SubscriptionStatus.ACTIVE, Instant.now())
-                .stream()
-                .findFirst()
-                .ifPresent(existing -> existing.setStatus(SubscriptionStatus.CANCELLED));
+                .forEach(existing -> existing.setStatus(SubscriptionStatus.CANCELLED));
 
         Subscription s = new Subscription();
         s.setProvider(p);

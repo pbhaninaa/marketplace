@@ -37,15 +37,13 @@ public class ProviderSubscriptionController {
     @GetMapping("/status")
     public ProviderSubscriptionStatusResponse status(@AuthenticationPrincipal MarketUserPrincipal user) {
         TenantAccess.requireProviderUser(user);
-        var cur = subscriptionService.currentLatest(user.getProviderId()).orElse(null);
+        var snapshot = subscriptionService.resolveStatusSnapshot(user.getProviderId());
+        var cur = snapshot.subscription();
         if (cur == null) {
             return new ProviderSubscriptionStatusResponse(false, null, null, null, null, null, null);
         }
-        boolean valid = cur.getStatus() == com.agrimarket.domain.SubscriptionStatus.ACTIVE
-                && cur.getExpiresAt() != null
-                && cur.getExpiresAt().isAfter(Instant.now());
         return new ProviderSubscriptionStatusResponse(
-                valid,
+                snapshot.valid(),
                 cur.getPlan(),
                 cur.getBillingCycle(),
                 cur.getStatus(),

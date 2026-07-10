@@ -67,6 +67,12 @@ public class SubscriptionPaymentProofService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PROVIDER", "Provider not found"));
 
         try {
+            // Renewal / upgrade: cancel any still-active row before creating pending proof.
+            subscriptionRepository
+                    .findActiveForProviderOrderByExpiresAtDesc(
+                            providerId, SubscriptionStatus.ACTIVE, Instant.now())
+                    .forEach(existing -> existing.setStatus(SubscriptionStatus.CANCELLED));
+
             // Create a subscription row only when proof is submitted.
             Subscription sub = new Subscription();
             sub.setProvider(provider);

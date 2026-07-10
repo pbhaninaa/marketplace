@@ -1,11 +1,12 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import { providerSubscriptionApi } from '../services/marketplaceApi';
 
 const router = useRouter();
+const route = useRoute();
 const auth = useAuthStore();
 
 const loading = ref(true);
@@ -91,6 +92,7 @@ async function load() {
     ]);
     status.value = st;
     bank.value = bk;
+    auth.setProviderSubscriptionStatus(st);
     if (st?.plan) {
       selectForm.value.plan = st.plan;
     }
@@ -143,6 +145,15 @@ async function uploadProof() {
   }
 }
 
+function continueAfterSubscription() {
+  const raw = typeof route.query.redirect === 'string' ? route.query.redirect.trim() : '';
+  const target =
+    raw && raw.startsWith('/') && !raw.startsWith('//') && raw !== '/provider/subscription'
+      ? raw
+      : '/provider';
+  router.push(target);
+}
+
 function openActivateDialog() {
   quoteDetail.value = null;
   initPaymentFields();
@@ -183,8 +194,8 @@ function initPaymentFields() {
       <p class="page-hero__eyebrow">Provider</p>
       <h1 class="page-hero__title">Subscription</h1>
       <p class="page-hero__lead">
-        Pick a plan, pay the platform bank details with your payment reference, then upload proof.
-        Auto-verification activates access immediately when checks pass; otherwise Support reviews it.
+        Choose a plan first to unlock your merchant workspace. Pay using the platform bank details and your
+        payment reference, then upload proof. Monthly access runs for 30 days from approval, then lapses until you renew.
       </p>
     </header>
 
@@ -219,7 +230,7 @@ function initPaymentFields() {
         </div>
         <div class="sub-actions">
           <button type="button" class="btn btn-ghost" @click="load">Refresh</button>
-          <button v-if="isValid" type="button" class="btn btn-primary" @click="router.push('/provider')">Continue
+          <button v-if="isValid" type="button" class="btn btn-primary" @click="continueAfterSubscription">Continue
             →</button>
         </div>
       </section>

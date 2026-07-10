@@ -9,6 +9,7 @@ import { useThemeStore } from './stores/theme';
 import { useDialog } from './composables/useDialog';
 import DialogModal from './components/ui/DialogModal.vue';
 import NotificationBell from './components/NotificationBell.vue';
+import { refreshProviderSubscription } from './utils/providerSubscriptionGate';
 
 const route = useRoute();
 const session = useSessionStore();
@@ -32,7 +33,9 @@ const brandHome = computed(() => {
   if (!auth.isAuthenticated) return '/';
   if (auth.isPlatformAdmin) return '/admin';
   if (auth.isSupport) return '/support';
-  if (auth.isProviderUser) return '/provider';
+  if (auth.isProviderUser) {
+    return auth.providerSubValid ? '/provider' : '/provider/subscription';
+  }
   return '/';
 });
 
@@ -61,6 +64,13 @@ onMounted(async () => {
   }
   auth.restoreFromStorage();
   auth.listenForForceLogout();
+  if (auth.isProviderUser) {
+    try {
+      await refreshProviderSubscription(auth);
+    } catch {
+      /* router gate will refresh on navigation */
+    }
+  }
   try {
     await cart.refresh();
   } catch {
@@ -191,20 +201,25 @@ onMounted(async () => {
 
         <template v-else-if="auth.isProviderUser">
           <p class="side-nav__section">Provider</p>
-          <router-link to="/provider">Dashboard</router-link>
-          <router-link to="/provider/listings">Listings</router-link>
-          <router-link to="/provider/orders">Orders</router-link>
-          <router-link
-            v-if="auth.canManageStaff && auth.isPremiumPlan"
-            to="/provider/team"
-          >Team management</router-link>
-          <router-link
-            v-if="auth.isPremiumPlan"
-            to="/provider/staff-payments"
-          >{{ auth.canManageStaff ? 'Staff payments' : 'My income' }}</router-link>
+          <template v-if="auth.providerSubValid">
+            <router-link to="/provider">Dashboard</router-link>
+            <router-link to="/provider/listings">Listings</router-link>
+            <router-link to="/provider/orders">Orders</router-link>
+            <router-link
+              v-if="auth.canManageStaff && auth.isPremiumPlan"
+              to="/provider/team"
+            >Team management</router-link>
+            <router-link
+              v-if="auth.isPremiumPlan"
+              to="/provider/staff-payments"
+            >{{ auth.canManageStaff ? 'Staff payments' : 'My income' }}</router-link>
+            <router-link to="/provider/settings">Settings</router-link>
+            <router-link to="/provider/help">Help</router-link>
+          </template>
           <router-link to="/provider/subscription">Subscription</router-link>
-          <router-link to="/provider/settings">Settings</router-link>
-          <router-link to="/provider/help">Help</router-link>
+          <p v-if="!auth.providerSubValid" class="side-nav__hint muted small">
+            Choose and activate a plan to unlock your provider workspace.
+          </p>
         </template>
 
         <template v-else-if="auth.isClientUser">

@@ -34,7 +34,13 @@ async function submit() {
     });
     done.value = true;
     setTimeout(() => {
-      router.push({ path: '/login', query: { email: ownerEmail.value.trim() } });
+      router.push({
+        path: '/login',
+        query: {
+          email: ownerEmail.value.trim(),
+          redirect: '/provider/subscription',
+        },
+      });
     }, 1200);
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
@@ -48,8 +54,8 @@ async function submit() {
       <p class="page-hero__eyebrow">New provider</p>
       <h1 class="page-hero__title">Sign up</h1>
       <p class="page-hero__lead">
-        Create your business profile and owner account. Available after the platform administrator has been created.
-        After approval you can sign in to manage listings and team.
+        Create your business profile and owner account. After you sign in, choose a subscription plan first —
+        monthly access runs for 30 days from approval. Then you can manage listings and your team.
       </p>
     </header>
 
@@ -82,7 +88,7 @@ async function submit() {
         <input v-model="password" type="password" required minlength="8" maxlength="100" autocomplete="new-password" />
       </FormField>
       <p v-if="error" class="err-toast">{{ error }}</p>
-      <p v-if="done" class="ok-msg">Account created. Redirecting to sign in…</p>
+      <p v-if="done" class="ok-msg">Account created. Sign in, then choose your subscription plan…</p>
       <button type="submit" class="btn btn-primary" :disabled="done">Create account</button>
       <p class="register-footer">
         Already have an account?

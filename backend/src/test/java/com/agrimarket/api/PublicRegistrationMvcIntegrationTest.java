@@ -9,6 +9,7 @@ import com.agrimarket.AbstractIntegrationTest;
 import com.agrimarket.domain.UserAccount;
 import com.agrimarket.domain.UserRole;
 import com.agrimarket.repo.PasswordResetTokenRepository;
+import com.agrimarket.repo.SubscriptionRepository;
 import com.agrimarket.repo.UserAccountRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
@@ -17,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 class PublicRegistrationMvcIntegrationTest extends AbstractIntegrationTest {
 
@@ -35,6 +38,9 @@ class PublicRegistrationMvcIntegrationTest extends AbstractIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private SubscriptionRepository subscriptionRepository;
+
     @Test
     void registerProvider_whenNoAdmin_returns403() throws Exception {
         String email = "owner-" + UUID.randomUUID() + "@integration.test";
@@ -51,7 +57,7 @@ class PublicRegistrationMvcIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void registerProvider_afterFirstAdmin_returnsCreated() throws Exception {
+    void registerProvider_afterFirstAdmin_returnsCreated_withoutActiveSubscription() throws Exception {
         String adminEmail = "platform-admin-" + UUID.randomUUID() + "@integration.test";
         mockMvc.perform(post("/api/public/first-admin")
                         .contentType(APPLICATION_JSON)
@@ -69,6 +75,11 @@ class PublicRegistrationMvcIntegrationTest extends AbstractIntegrationTest {
 
         mockMvc.perform(post("/api/public/provider/register").contentType(APPLICATION_JSON).content(json))
                 .andExpect(status().isCreated());
+
+        var owner = userAccountRepository.findByEmailIgnoreCase(email).orElseThrow();
+        assertThat(owner.getProvider()).isNotNull();
+        assertThat(subscriptionRepository.findTopByProviderIdOrderByCreatedAtDesc(owner.getProvider().getId()))
+                .isEmpty();
     }
 
     @Test

@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { authApi } from '../services/marketplaceApi';
+import { authApi, providerSubscriptionApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import { useSetupStore } from '../stores/setup';
 import FormField from '../components/ui/FormField.vue';
@@ -34,10 +34,26 @@ function homeForRole() {
   return '/';
 }
 
+/** New / unpaid merchants must choose a plan before the dashboard. */
+async function providerHomeAfterLogin() {
+  try {
+    const { data } = await providerSubscriptionApi.status();
+    auth.setProviderSubscriptionStatus(data);
+    if (!data?.valid) return '/provider/subscription';
+  } catch {
+    return '/provider/subscription';
+  }
+  return '/provider';
+}
+
 onMounted(async () => {
   // If already authenticated, don't show login page
   if (auth.isAuthenticated) {
-    router.replace(homeForRole());
+    if (auth.isProviderUser) {
+      router.replace(await providerHomeAfterLogin());
+    } else {
+      router.replace(homeForRole());
+    }
     return;
   }
 
@@ -93,12 +109,15 @@ async function submit() {
         : '';
 
     // Redirect priority:
-    // 1. Safe redirect query param
-    // 2. Role-based fallback
-    if (!raw || raw === '/' || !isSafeRedirect(raw)) {
-      router.push(homeForRole());
+    // 1. Safe redirect query param (register sends /provider/subscription)
+    // 2. Merchants without a valid plan → subscription
+    // 3. Role-based fallback
+    if (raw && raw !== '/' && isSafeRedirect(raw)) {
+      await router.push(raw);
+    } else if (auth.isProviderUser) {
+      await router.push(await providerHomeAfterLogin());
     } else {
-      router.push(raw);
+      await router.push(homeForRole());
     }
   } catch (e) {
     if (!e.response) {
