@@ -1,62 +1,97 @@
-# Railway UAT / PROD — copy variable names only; fill values in the dashboard.
-# Never commit real secrets.
+# MarketPlace — Railway (backend + MySQL) + Vercel (frontend)
+# Copy names into the dashboard. Never commit real secrets.
 
-# ========== PROFILE ==========
-# UAT: uat | PROD: prod
+# =============================================================================
+# 1) RAILWAY — MySQL addon
+# =============================================================================
+# Link MySQL to the backend. Prefer Railway reference variables:
+#   MYSQLHOST, MYSQLPORT, MYSQLDATABASE, MYSQLUSER, MYSQLPASSWORD
+# Or set SPRING_DATASOURCE_URL / USERNAME / PASSWORD explicitly.
+# SPRING_DATASOURCE_URL must be jdbc:mysql://host:port/db?...
+# Do NOT paste raw mysql:// from MYSQL_URL unless you rewrite it to jdbc:mysql://
+
+# =============================================================================
+# 2) RAILWAY — Backend service
+#    Root directory: backend
+#    Branch: PROD (live) or UAT (staging)
+#    Builder: Dockerfile (backend/railway.toml)
+#    Healthcheck: /actuator/health
+# =============================================================================
+
+# --- Profile (REQUIRED) ---
 SPRING_PROFILES_ACTIVE=prod
+# UAT staging instead: SPRING_PROFILES_ACTIVE=uat
 
-# ========== DATABASE (PostgreSQL) ==========
-# Prefer linking Railway Postgres (injects PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD).
-# Or set explicit vars:
-
-# --- PROD ---
-PROD_DB_HOST=
-PROD_DB_PORT=5432
-PROD_DB_NAME=
-PROD_DB_USER=
-PROD_DB_PASSWORD=
-
-# --- UAT (use instead of PROD_* when SPRING_PROFILES_ACTIVE=uat) ---
-# UAT_DB_HOST=
-# UAT_DB_PORT=5432
-# UAT_DB_NAME=
-# UAT_DB_USER=
-# UAT_DB_PASSWORD=
-
-# ========== SECURITY (JWT) ==========
-# Min 32 random characters — not a local/sit default
+# --- Security (REQUIRED) ---
+# Generate: openssl rand -base64 48
 APP_JWT_SECRET=
 
-# ========== FRONTEND URLS ==========
-# Public UI origin, no trailing slash
-PUBLIC_APP_BASE_URL=https://your-frontend.up.railway.app
+# --- Public frontend URL (REQUIRED) — your Vercel URL, no trailing slash ---
+PUBLIC_APP_BASE_URL=https://your-app.vercel.app
 
-# PROD:
-PROD_CORS_ORIGINS=https://your-frontend.up.railway.app
-# UAT:
-# UAT_CORS_ORIGINS=https://your-frontend-uat.up.railway.app
+# --- CORS (REQUIRED) — same origin(s) as the frontend ---
+PROD_CORS_ORIGINS=https://your-app.vercel.app
+# UAT: UAT_CORS_ORIGINS=https://your-app.vercel.app
+# Multiple: https://your-app.vercel.app,https://www.yourdomain.com
 
-# ========== EMAIL (SendGrid) ==========
+# --- Email SendGrid (REQUIRED on UAT/PROD — startup fails if missing) ---
 SENDGRID_API_KEY=
 EMAIL_FROM=no-reply@yourdomain.com
 
-# ========== PAYMENTS (label only — EFT/CASH in-app) ==========
+# --- Database (LendHand-style OR Railway MySQL refs) ---
+# SPRING_DATASOURCE_URL=${{MySQL.MYSQL_URL}}   # rewrite to jdbc:mysql:// if needed
+# SPRING_DATASOURCE_USERNAME=${{MySQL.MYSQLUSER}}
+# SPRING_DATASOURCE_PASSWORD=${{MySQL.MYSQLPASSWORD}}
+# Or leave unset and rely on linked MYSQLHOST / MYSQLPORT / MYSQLDATABASE / MYSQLUSER / MYSQLPASSWORD
+
+# --- Payments label (optional) ---
 PROD_PAYMENT_PROVIDER=stub
 # UAT_PAYMENT_PROVIDER=stub
 
-# ========== PLATFORM BANK (subscription EFT) ==========
+# --- Platform bank details for provider subscription EFT (recommended) ---
 APP_BANK_NAME=
 APP_BANK_ACCOUNT_NAME=
 APP_BANK_ACCOUNT_NUMBER=
 APP_BANK_BRANCH_CODE=
 APP_BANK_REFERENCE_HINT=Use your Provider Name as reference
 
-# ========== SUBSCRIPTION PRICING (ZAR / month) ==========
+# --- Subscription pricing ZAR / month (optional) ---
 APP_SUBSCRIPTION_BASIC_MONTHLY=199
 APP_SUBSCRIPTION_PREMIUM_MONTHLY=499
 
-# ========== FRONTEND SERVICE (separate Railway service) ==========
-# Root directory: frontend | Branch: PROD
-# These must be available at Docker build time:
+# --- SMS Twilio (optional) ---
+APP_SMS_ENABLED=false
+# TWILIO_ACCOUNT_SID=
+# TWILIO_AUTH_TOKEN=
+# TWILIO_FROM_NUMBER=
+# TWILIO_MESSAGING_SERVICE_SID=
+# APP_PHONE_COUNTRY_CODE=+27
+
+# =============================================================================
+# 3) VERCEL — Frontend
+#    Root directory: frontend
+#    Framework: Vite
+#    Build command: npm run build:prod   (or build:uat for staging)
+#    Output directory: dist
+#    Install: npm ci
+#
+# IMPORTANT: VITE_* are baked in at BUILD time. Redeploy after changing them.
+# After Railway gives you the backend URL, set VITE_API_BASE then redeploy Vercel.
+# =============================================================================
+
 VITE_APP_ENV=PROD
+# Staging: VITE_APP_ENV=UAT
+
+# Backend public origin ONLY — no trailing slash, no /api
 VITE_API_BASE=https://your-backend.up.railway.app
+
+# =============================================================================
+# Deploy order
+# =============================================================================
+# 1. Merge latest UAT/SIT into PROD and push (if deploying live).
+# 2. Railway: MySQL + backend with vars above → note backend public URL.
+# 3. Vercel: set VITE_* then deploy frontend → note frontend URL.
+# 4. Update Railway PUBLIC_APP_BASE_URL + PROD_CORS_ORIGINS to the Vercel URL;
+#    restart backend if CORS was wrong on first boot.
+# 5. Open frontend /setup → create first admin if needed.
+# 6. Check https://YOUR-BACKEND/actuator/health → {"status":"UP"}

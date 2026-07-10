@@ -9,8 +9,8 @@ Agricultural marketplace: **Spring Boot** API (`backend/`) + **Vue** frontend (`
 | Branch | Purpose |
 |--------|---------|
 | `SIT` | Local / integration (H2) |
-| `UAT` | Staging (PostgreSQL) |
-| `PROD` | Production (PostgreSQL) |
+| `UAT` | Staging (MySQL) |
+| `PROD` | Production (MySQL) |
 
 Deploy **from the matching branch**. Production changes must land on `PROD`.
 
@@ -18,14 +18,14 @@ Deploy **from the matching branch**. Production changes must land on `PROD`.
 
 | Component | UAT / PROD | Local dev |
 |-----------|------------|-----------|
-| API | Spring Boot 17, PostgreSQL | MySQL (`local` profile) |
+| API | Spring Boot 17, MySQL | MySQL (`local` profile) |
 | Web | Vue 3 + Vite | `npm run dev` |
 
 Full variable reference: **[ENV.md](ENV.md)**
 
 ## Pre-deploy checklist
 
-- [ ] PostgreSQL provisioned per environment
+- [ ] MySQL provisioned per environment
 - [ ] `SPRING_PROFILES_ACTIVE` = `uat` or `prod`
 - [ ] `APP_JWT_SECRET` — 32+ random characters (not a dev default)
 - [ ] `PUBLIC_APP_BASE_URL` + `UAT_CORS_ORIGINS` / `PROD_CORS_ORIGINS`
@@ -42,7 +42,7 @@ Startup **fails fast** if JWT, CORS, public URL, or SendGrid are misconfigured (
 
 ### Backend (`backend/`)
 
-1. New project → add **PostgreSQL**
+1. New project → add **MySQL**
 2. New service from this repo
    - **Root directory:** `backend`
    - **Branch:** `PROD` (or `UAT`)
@@ -53,9 +53,9 @@ Startup **fails fast** if JWT, CORS, public URL, or SendGrid are misconfigured (
 | Variable | PROD value |
 |----------|------------|
 | `SPRING_PROFILES_ACTIVE` | `prod` |
-| `PROD_DB_*` or Railway `PG*` | from Postgres plugin |
+| `SPRING_DATASOURCE_*` or Railway `MYSQL*` | from MySQL plugin (`jdbc:mysql://…`) |
 | `APP_JWT_SECRET` | long random secret |
-| `PUBLIC_APP_BASE_URL` | `https://your-frontend.up.railway.app` |
+| `PUBLIC_APP_BASE_URL` | `https://your-frontend.vercel.app` |
 | `PROD_CORS_ORIGINS` | same as public URL (comma-separated if multiple) |
 | `SENDGRID_API_KEY` | SendGrid key |
 | `EMAIL_FROM` | verified sender |
