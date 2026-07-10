@@ -17,6 +17,7 @@ import DataTableShell from '../components/ui/DataTableShell.vue';
 import TablePager from '../components/ui/TablePager.vue';
 import TextWithTooltip from '../components/ui/TextWithTooltip.vue';
 import { isNonEmptyString, isPositiveNumber, isMinInt } from '../utils/validation';
+import { firstMediaUrl, parseMediaUrls } from '../utils/mediaUrl';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -35,6 +36,8 @@ const listings = ref([]);
 const q = ref('');
 const PAGE_SIZE = 5;
 const page = ref(1);
+
+const isSearchActive = computed(() => !!(q.value || '').trim());
 
 const filteredListings = computed(() => {
   const raw = (q.value || '').trim().toLowerCase();
@@ -55,10 +58,15 @@ const filteredListings = computed(() => {
   });
 });
 
-const pageCount = computed(() => Math.max(1, Math.ceil(filteredListings.value.length / PAGE_SIZE)));
-const pagedListings = computed(() =>
-  filteredListings.value.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE),
-);
+const pageCount = computed(() => {
+  if (!isSearchActive.value) return 1;
+  return Math.max(1, Math.ceil(filteredListings.value.length / PAGE_SIZE));
+});
+const pagedListings = computed(() => {
+  const list = filteredListings.value;
+  if (!isSearchActive.value) return list;
+  return list.slice((page.value - 1) * PAGE_SIZE, page.value * PAGE_SIZE);
+});
 
 watch(q, () => {
   page.value = 1;
@@ -171,23 +179,14 @@ function onPickImages(e) {
 }
 
 function listingFirstImageUrl(l) {
-  const raw = (l?.imageUrls || '').split(',')[0]?.trim();
-  return raw || '';
+  return firstMediaUrl(l?.imageUrls);
 }
 
 function listingImageCount(l) {
-  return (l?.imageUrls || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean).length;
+  return parseMediaUrls(l?.imageUrls).length;
 }
 
-const existingDialogImageUrls = computed(() =>
-  (form.value.imageUrls || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean),
-);
+const existingDialogImageUrls = computed(() => parseMediaUrls(form.value.imageUrls));
 
 function resetForm() {
   form.value = {
@@ -394,7 +393,7 @@ async function deleteListing(id) {
           <FormField label="">
             <input v-model="q" type="text" placeholder="Search listings…" style="min-width: 240px" />
           </FormField>
-          <TablePager v-model:page="page" :page-count="pageCount" />
+          <TablePager v-if="isSearchActive" v-model:page="page" :page-count="pageCount" />
         </div>
         <p v-if="!canEdit" class="muted small">Only provider owner/admin can create or delete listings.</p>
         <ResponsiveRecordShell desktop-label="Your listings">

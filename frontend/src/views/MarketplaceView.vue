@@ -19,7 +19,26 @@ const showMobileFilters = ref(false);
 
 const entryListingType = ref('SALE'); // controlled by the Buy/Rent toggle
 
+const LISTING_PAGE_SIZE_FILTERED = 20;
+const LISTING_PAGE_SIZE_DEFAULT = 100;
+
 const hasSidebar = computed(() => true);
+
+const hasActiveFilters = computed(() => {
+  const f = filters.value;
+  return !!(
+    f.categoryId ||
+    f.providerId ||
+    f.minPrice ||
+    f.maxPrice ||
+    String(f.location || '').trim() ||
+    String(f.search || '').trim()
+  );
+});
+
+const listingPageSize = computed(() =>
+  hasActiveFilters.value ? LISTING_PAGE_SIZE_FILTERED : LISTING_PAGE_SIZE_DEFAULT,
+);
 
 const filters = ref({
   categoryId: '',
@@ -61,7 +80,7 @@ function patchRentField(id, field, value) {
 }
 
 const totalPages = computed(() =>
-  Math.max(1, Math.ceil((listings.value.totalElements || 0) / 20)),
+  Math.max(1, Math.ceil((listings.value.totalElements || 0) / listingPageSize.value)),
 );
 
 async function loadFiltersData() {
@@ -79,8 +98,8 @@ async function loadListings() {
   error.value = '';
   try {
     const params = {
-      page: filters.value.page,
-      size: 20,
+      page: hasActiveFilters.value ? filters.value.page : 0,
+      size: listingPageSize.value,
       listingType: entryListingType.value,
     };
     if (filters.value.categoryId) params.categoryId = filters.value.categoryId;
@@ -281,7 +300,11 @@ onMounted(async () => {
           </p>
 
         </div>
-        <PaginationBar v-if="!loading" :page="filters.page" :total-pages="totalPages" @prev="prevPage"
+        <PaginationBar
+          v-if="!loading && (hasActiveFilters || totalPages > 1)"
+          :page="filters.page"
+          :total-pages="totalPages"
+          @prev="prevPage"
           @next="nextPage" />
       </section>
     </div>

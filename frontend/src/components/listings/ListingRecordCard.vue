@@ -5,6 +5,7 @@ import ListingPriceSummary from './ListingPriceSummary.vue';
 import TextWithTooltip from '../ui/TextWithTooltip.vue';
 import { isLargeLivestockCategoryName } from '../../constants/listingCategories';
 import { countInclusiveRentalDays, estimateRentalAmount } from '../../utils/rentalPricing';
+import { firstMediaUrl, parseMediaUrls } from '../../utils/mediaUrl';
 
 const props = defineProps({
   listing: { type: Object, required: true },
@@ -70,25 +71,9 @@ function onAddToCart() {
   emit('add-to-cart', quantity.value);
 }
 
-const firstImageUrl = computed(() => {
-  const raw = props.listing?.imageUrls;
-  if (!raw) return '';
-  if (Array.isArray(raw)) return raw[0] || '';
-  return String(raw)
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)[0] || '';
-});
+const firstImageUrl = computed(() => firstMediaUrl(props.listing?.imageUrls));
 
-const allImageUrls = computed(() => {
-  const raw = props.listing?.imageUrls;
-  if (!raw) return [];
-  if (Array.isArray(raw)) return raw.filter(Boolean);
-  return String(raw)
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-});
+const allImageUrls = computed(() => parseMediaUrls(props.listing?.imageUrls));
 
 const currentLightboxImage = computed(() => allImageUrls.value[currentImageIndex.value] || '');
 
