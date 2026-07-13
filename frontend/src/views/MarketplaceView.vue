@@ -464,17 +464,19 @@ onMounted(async () => {
 
 .cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
   gap: 1.1rem;
 }
 
 .cards-grid--desktop {
   width: 100%;
+  min-width: 0;
 }
 
 .cards-grid--mobile {
   grid-template-columns: 1fr;
   width: 100%;
+  min-width: 0;
 }
 
 .muted {

@@ -82,6 +82,24 @@ Railway injects build args from service variables when using Docker. If the imag
 2. `GET https://your-backend.../actuator/health` → `{"status":"UP"}`
 3. Test forgot-password email (link uses `PUBLIC_APP_BASE_URL`)
 
+### Custom domain HTTPS (avoid Chrome “Not secure” / Advanced → Continue)
+
+Chrome shows **Your connection is not private** when the hostname’s certificate does not match.
+
+| Hostname | Status |
+|----------|--------|
+| `https://marketplace.sphilagroup.com` | Valid (`*.sphilagroup.com`) |
+| `https://www.marketplace.sphilagroup.com` | **Broken** — wildcard does not cover `www.marketplace…` |
+
+**Fix in Vercel (Project → Settings → Domains):**
+
+1. Keep **`marketplace.sphilagroup.com`** as the primary domain.
+2. Add **`www.marketplace.sphilagroup.com`** and set it to **Redirect to** `marketplace.sphilagroup.com` (Vercel will issue a matching certificate).
+3. Or remove the `www.marketplace` DNS A records if you do not want www at all.
+4. Always share / search-index the **https://** apex URL (no `www`, no `http://`).
+
+`frontend/vercel.json` also sends HSTS and related security headers once deployed.
+
 ---
 
 ## Option B — Docker Compose (single server)

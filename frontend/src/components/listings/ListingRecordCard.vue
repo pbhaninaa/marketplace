@@ -164,22 +164,26 @@ const displayDescription = computed(() => {
     </div>
 
     <div v-if="listing.listingType === 'RENT'" class="rent-inputs">
-      <label class="small" :for="'rent-start-' + listing.id">Start date</label>
-      <input
-        :id="'rent-start-' + listing.id"
-        :value="rentStart"
-        type="date"
-        class="field"
-        @input="emit('update:rentStart', $event.target.value)"
-      />
-      <label class="small" :for="'rent-end-' + listing.id">End date</label>
-      <input
-        :id="'rent-end-' + listing.id"
-        :value="rentEnd"
-        type="date"
-        class="field"
-        @input="emit('update:rentEnd', $event.target.value)"
-      />
+      <div class="rent-field">
+        <label class="small" :for="'rent-start-' + listing.id">Start date</label>
+        <input
+          :id="'rent-start-' + listing.id"
+          :value="rentStart"
+          type="date"
+          class="field field--date"
+          @input="emit('update:rentStart', $event.target.value)"
+        />
+      </div>
+      <div class="rent-field">
+        <label class="small" :for="'rent-end-' + listing.id">End date</label>
+        <input
+          :id="'rent-end-' + listing.id"
+          :value="rentEnd"
+          type="date"
+          class="field field--date"
+          @input="emit('update:rentEnd', $event.target.value)"
+        />
+      </div>
       <p v-if="rentalDays >= 1 && rentalEstimate != null" class="muted tiny rent-estimate">
         {{ rentalDays }} calendar day<span v-if="rentalDays !== 1">s</span>
         · Est. R {{ Number(rentalEstimate).toFixed(2) }}
@@ -246,6 +250,10 @@ const displayDescription = computed(() => {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
   transition:
     box-shadow 0.2s ease,
     border-color 0.2s ease;
@@ -312,10 +320,6 @@ const displayDescription = computed(() => {
   color: var(--color-muted);
   margin: 0;
   line-height: 1.45;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .listing-card__top {
@@ -363,20 +367,46 @@ const displayDescription = computed(() => {
 .rent-inputs {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  padding-top: 0.25rem;
+  gap: 0.65rem;
+  padding-top: 0.35rem;
   margin-top: 0.15rem;
   border-top: 1px dashed var(--color-border);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.rent-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+  width: 100%;
 }
 
 .field {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 0.5rem 0.65rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   font: inherit;
   font-size: 0.88rem;
   background: var(--color-surface);
+  box-sizing: border-box;
+}
+
+.field--date {
+  /* Native date controls are wide on mobile; keep them inside the card. */
+  -webkit-appearance: none;
+  appearance: none;
+  line-height: 1.35;
+}
+
+.field--date::-webkit-date-and-time-value {
+  text-align: left;
 }
 
 .field:focus {
@@ -394,6 +424,8 @@ const displayDescription = computed(() => {
   font-weight: 600;
   text-align: left;
   padding: 0.15rem 0;
+  align-self: flex-start;
+  max-width: 100%;
 }
 
 .linkish:hover {
@@ -405,11 +437,14 @@ const displayDescription = computed(() => {
   margin: 0;
   font-weight: 600;
   color: var(--color-canopy-mid);
+  word-break: break-word;
 }
 
 .listing-card__cta {
   width: 100%;
+  max-width: 100%;
   margin-top: 0.35rem;
+  box-sizing: border-box;
 }
 
 .stock-pill {
@@ -623,6 +658,25 @@ const displayDescription = computed(() => {
 }
 
 @media (max-width: 768px) {
+  .listing-card {
+    padding: 0.85rem 0.8rem 0.95rem;
+  }
+
+  .rent-inputs {
+    gap: 0.75rem;
+  }
+
+  .field,
+  .field--date {
+    font-size: 1rem; /* avoids iOS zoom; keeps native control readable */
+    min-height: 2.75rem;
+    padding: 0.55rem 0.6rem;
+  }
+
+  .listing-card__cta {
+    min-height: 2.75rem;
+  }
+
   .lightbox-container {
     width: 95%;
     height: 90vh;

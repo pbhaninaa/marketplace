@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 
 const props = defineProps({
   text: {
@@ -18,11 +18,14 @@ const props = defineProps({
 
 const isMobileView = ref(false);
 const showDialog = ref(false);
+const showHoverTip = ref(false);
+const tipStyle = ref({});
+const triggerEl = ref(null);
 let mq;
 let mqHandler;
 
 onMounted(() => {
-  // Mobile UX: show full text, no tooltip (no hover).
+  // Mobile UX: show full text in a dialog (no hover).
   mq = window.matchMedia('(hover: none), (max-width: 640px)');
   const update = () => {
     isMobileView.value = Boolean(mq?.matches);
@@ -41,11 +44,52 @@ onBeforeUnmount(() => {
 
 const isTruncated = computed(() => props.text.length > props.maxLength);
 const showThemedTooltip = computed(() => !isMobileView.value && props.text.length > props.maxLength);
-const displayText = computed(() => 
-  isTruncated.value 
-    ? props.text.substring(0, props.maxLength) + '…'
-    : props.text
+const displayText = computed(() =>
+  isTruncated.value ? props.text.substring(0, props.maxLength) + '…' : props.text,
 );
+
+function resolveTriggerEl() {
+  const el = triggerEl.value;
+  if (!el) return null;
+  return el instanceof HTMLElement ? el : el.$el instanceof HTMLElement ? el.$el : null;
+}
+
+function positionTip() {
+  const el = resolveTriggerEl();
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const maxWidth = Math.min(448, window.innerWidth * 0.7);
+  let left = rect.left;
+  if (left + maxWidth > window.innerWidth - 12) {
+    left = Math.max(12, window.innerWidth - maxWidth - 12);
+  }
+  const spaceAbove = rect.top;
+  const preferAbove = spaceAbove > 120;
+  tipStyle.value = preferAbove
+    ? {
+        left: `${left}px`,
+        bottom: `${window.innerHeight - rect.top + 8}px`,
+        top: 'auto',
+        maxWidth: `${maxWidth}px`,
+      }
+    : {
+        left: `${left}px`,
+        top: `${rect.bottom + 8}px`,
+        bottom: 'auto',
+        maxWidth: `${maxWidth}px`,
+      };
+}
+
+async function onMouseEnter() {
+  if (!showThemedTooltip.value) return;
+  showHoverTip.value = true;
+  await nextTick();
+  positionTip();
+}
+
+function onMouseLeave() {
+  showHoverTip.value = false;
+}
 
 function openFullText() {
   if (!isMobileView.value) return;
@@ -62,18 +106,33 @@ function closeFullText() {
   <span class="text-with-tooltip__wrap">
     <component
       :is="tag"
+      ref="triggerEl"
       class="text-with-tooltip"
       :class="{ 'text-with-tooltip--truncated': showThemedTooltip }"
-      :data-tooltip="showThemedTooltip ? text : null"
       :aria-label="showThemedTooltip ? text : null"
       :role="isMobileView && isTruncated ? 'button' : null"
       :tabindex="isMobileView && isTruncated ? 0 : null"
+      @mouseenter="onMouseEnter"
+      @mouseleave="onMouseLeave"
+      @focus="onMouseEnter"
+      @blur="onMouseLeave"
       @click="openFullText"
       @keydown.enter.prevent="openFullText"
       @keydown.space.prevent="openFullText"
     >
       {{ displayText }}
     </component>
+
+    <Teleport to="body">
+      <div
+        v-if="showHoverTip && showThemedTooltip"
+        class="twt-hover-tip"
+        role="tooltip"
+        :style="tipStyle"
+      >
+        {{ text }}
+      </div>
+    </Teleport>
 
     <dialog class="twt-dialog" :open="showDialog" @cancel.prevent="closeFullText">
       <div class="twt-dialog__backdrop" @click="closeFullText" />
@@ -97,56 +156,11 @@ function closeFullText() {
 }
 
 .text-with-tooltip--truncated {
-  position: relative;
-  display: inline-block;
-  cursor: help;
-}
-
-.text-with-tooltip--truncated:hover {
-  /* Keep hover tooltip behavior without underlines */
-}
-
-.text-with-tooltip--truncated::after {
-  content: attr(data-tooltip);
-  position: absolute;
-  left: 0;
-  bottom: calc(100% + 0.45rem);
-  z-index: 50;
-  max-width: min(28rem, 70vw);
-  padding: 0.55rem 0.65rem;
-  border-radius: 0.55rem;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-elevated);
-  color: var(--color-text, #111827);
-  box-shadow: var(--shadow-lg);
-  font-size: 0.85rem;
-  line-height: 1.35;
-  white-space: normal;
-  word-break: break-word;
-  opacity: 0;
-  transform: translateY(2px);
-  pointer-events: none;
-  transition:
-    opacity 0.12s ease,
-    transform 0.12s ease;
-}
-
-.text-with-tooltip--truncated:hover::after,
-.text-with-tooltip--truncated:focus-visible::after {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-@media (hover: none) {
-  .text-with-tooltip--truncated::after {
-    display: none;
-  }
-}
-
-@media (hover: none) {
-  .text-with-tooltip[role='button'] {
-    cursor: pointer;
-  }
+  display: inline;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 0.18em;
 }
 
 .twt-dialog {
@@ -215,5 +229,30 @@ function closeFullText() {
   .twt-dialog {
     display: none;
   }
+}
+
+@media (hover: none) {
+  .text-with-tooltip[role='button'] {
+    cursor: pointer;
+  }
+}
+</style>
+
+<style>
+/* Teleported to body — unscoped so it is not clipped by card overflow */
+.twt-hover-tip {
+  position: fixed;
+  z-index: 10050;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--color-border, #d9d3c7);
+  background: var(--color-surface-elevated, #fff);
+  color: var(--color-text, #111827);
+  box-shadow: 0 12px 28px rgba(28, 36, 24, 0.18);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  white-space: normal;
+  word-break: break-word;
+  pointer-events: none;
 }
 </style>
