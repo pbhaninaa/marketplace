@@ -137,10 +137,9 @@ async function submit() {
       <p class="page-hero__eyebrow">Account access</p>
       <h1 class="page-hero__title">Sign in</h1>
       <p class="page-hero__lead">
-  Sign in with your email and password to access your account and manage your workspace.
-  Providers can create a new account using the <strong>Sign up</strong> option below.
-  If you're having trouble accessing your account, you can reset your password at any time.
-</p>
+        Sign in with your email and password. Don’t have an account yet? Use
+        <strong>Create account</strong> below to register as a provider.
+      </p>
     </header>
 
     <form class="surface-panel login-form" @submit.prevent="submit">
@@ -174,27 +173,23 @@ async function submit() {
         {{ loading ? 'Signing in...' : 'Sign in' }}
       </button>
 
-      <nav class="login-links" aria-label="Account options">
-        <router-link
-          class="login-links__item login-links__item--primary"
-          to="/register"
-        >
-          Sign up
+      <div class="login-signup">
+        <p class="login-signup__prompt">Don’t have an account?</p>
+        <router-link class="btn btn-ghost login-signup__btn" to="/register">
+          Create account
         </router-link>
+      </div>
 
-        <span class="login-links__sep" aria-hidden="true">·</span>
-
-        <router-link class="login-links__item" to="/forgot-password">
-          Forgot password?
-        </router-link>
-      </nav>
+      <p class="login-forgot">
+        <router-link to="/forgot-password">Forgot password?</router-link>
+      </p>
 
       <!-- Setup callout -->
       <p v-if="setup.needsFirstAdmin === true" class="login-callout">
         <span class="login-callout__label">New site?</span>
         Create the
         <router-link to="/setup">platform administrator</router-link>
-        first. Provider sign-up stays available above but redirects to setup until an admin exists.
+        first. Provider registration stays available above but redirects to setup until an admin exists.
       </p>
     </form>
   </div>
@@ -215,6 +210,10 @@ async function submit() {
 
 .login-form .btn {
   margin-top: 0.75rem;
+  width: 100%;
+  justify-content: center;
+  text-align: center;
+  text-decoration: none;
 }
 
 /* Info + error states */
@@ -236,35 +235,41 @@ async function submit() {
   border: 1px solid rgba(180, 35, 24, 0.15);
 }
 
-.login-links {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.35rem 0.5rem;
-  margin-top: 1rem;
+.login-signup {
+  margin-top: 0.85rem;
   padding-top: 1rem;
   border-top: 1px solid rgba(21, 74, 122, 0.12);
-  font-size: 0.92rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
 }
 
-.login-links__item {
+.login-signup__prompt {
+  margin: 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--color-muted, #7a8695);
+}
+
+.login-signup__btn {
+  margin-top: 0 !important;
+}
+
+.login-forgot {
+  margin: 0.35rem 0 0;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.login-forgot a {
   font-weight: 500;
   color: var(--color-link, #1565b5);
   text-decoration: none;
 }
 
-.login-links__item:hover {
+.login-forgot a:hover {
   text-decoration: underline;
-}
-
-.login-links__item--primary {
-  font-weight: 600;
-}
-
-.login-links__sep {
-  color: var(--color-muted, #7a8695);
-  user-select: none;
 }
 
 .login-callout {

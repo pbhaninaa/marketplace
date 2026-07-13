@@ -126,6 +126,13 @@ onMounted(async () => {
           Cart
           <span v-if="cart.totalQuantity > 0" class="cart-badge">{{ cart.totalQuantity }}</span>
         </router-link>
+        <router-link
+          v-if="!auth.isAuthenticated"
+          to="/login"
+          class="top-icon-link top-icon-link--signin"
+        >
+          Sign in
+        </router-link>
         <span v-if="auth.isAuthenticated" class="top-user" :title="auth.email">{{ auth.displayLabel }}</span>
         <button
           type="button"
@@ -188,15 +195,13 @@ onMounted(async () => {
       <nav class="side-nav__links" @click="closeMenu">
         <template v-if="!auth.isAuthenticated">
           <router-link to="/">Browse</router-link>
-          <router-link to="/help/client">Help</router-link>
-          <router-link to="/order-invoice">Order invoice</router-link>
           <router-link to="/checkout">
             Cart
             <span v-if="cart.totalQuantity > 0" class="side-badge">{{ cart.totalQuantity }}</span>
           </router-link>
+          <router-link to="/order-invoice">Order invoice</router-link>
           <router-link v-if="setup.needsFirstAdmin === true" to="/setup">Setup</router-link>
-          <router-link to="/login" class="side-link--cta">Sign in</router-link>
-          <router-link to="/register">Sign up</router-link>
+          <router-link to="/help/client" class="side-nav__link--help">Help</router-link>
         </template>
 
         <template v-else-if="auth.isProviderUser">
@@ -213,13 +218,16 @@ onMounted(async () => {
               v-if="auth.isPremiumPlan"
               to="/provider/staff-payments"
             >{{ auth.canManageStaff ? 'Staff payments' : 'My income' }}</router-link>
+            <router-link to="/provider/subscription">Subscription</router-link>
             <router-link to="/provider/settings">Settings</router-link>
-            <router-link to="/provider/help">Help</router-link>
           </template>
-          <router-link to="/provider/subscription">Subscription</router-link>
-          <p v-if="!auth.providerSubValid" class="side-nav__hint muted small">
-            Choose and activate a plan to unlock your provider workspace.
-          </p>
+          <template v-else>
+            <router-link to="/provider/subscription">Subscription</router-link>
+            <p class="side-nav__hint muted small">
+              Choose and activate a plan to unlock your provider workspace.
+            </p>
+          </template>
+          <router-link to="/provider/help" class="side-nav__link--help">Help</router-link>
         </template>
 
         <template v-else-if="auth.isClientUser">
@@ -230,7 +238,7 @@ onMounted(async () => {
             <span v-if="cart.totalQuantity > 0" class="side-badge">{{ cart.totalQuantity }}</span>
           </router-link>
           <router-link to="/order-invoice">Order invoice</router-link>
-          <router-link to="/help/client">Help</router-link>
+          <router-link to="/help/client" class="side-nav__link--help">Help</router-link>
         </template>
 
         <template v-else-if="auth.isSupport && !auth.isPlatformAdmin">
@@ -245,13 +253,13 @@ onMounted(async () => {
         <template v-else-if="auth.isPlatformAdmin">
           <p class="side-nav__section">Admin</p>
           <router-link to="/admin">Dashboard</router-link>
-          <router-link to="/admin/settings">Settings</router-link>
-          <router-link to="/admin/manual-verifications">Manual verifications</router-link>
           <router-link to="/admin/providers">Providers</router-link>
           <router-link to="/admin/listings">Listings</router-link>
           <router-link to="/admin/users">Users</router-link>
-          <router-link to="/support">Support</router-link>
+          <router-link to="/admin/manual-verifications">Manual verifications</router-link>
           <router-link to="/admin/support-users">Support users</router-link>
+          <router-link to="/support">Support</router-link>
+          <router-link to="/admin/settings">Settings</router-link>
           <router-link to="/admin/password">Password</router-link>
         </template>
       </nav>
@@ -344,6 +352,16 @@ onMounted(async () => {
   background: var(--color-sage-soft);
   color: var(--color-canopy);
   text-decoration: none;
+}
+
+.top-icon-link--signin {
+  background: var(--color-canopy);
+  color: #fafdfb;
+}
+
+.top-icon-link--signin:hover {
+  background: var(--color-canopy-mid);
+  color: #fff;
 }
 
 .hamburger {
@@ -444,14 +462,14 @@ onMounted(async () => {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 0.75rem;
+  padding: 0.85rem 0.75rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.45rem;
 }
 
 .side-nav__section {
-  margin: 0.65rem 0.5rem 0.35rem;
+  margin: 0.15rem 0.5rem 0.15rem;
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -459,16 +477,23 @@ onMounted(async () => {
   color: var(--color-muted);
 }
 
+.side-nav__hint {
+  margin: 0 0.5rem;
+  line-height: 1.4;
+}
+
 .side-nav__links a {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.65rem 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.7rem 0.85rem;
   border-radius: 12px;
   color: var(--color-canopy);
   font-weight: 600;
   text-decoration: none;
+  box-sizing: border-box;
 }
 
 .side-nav__links a:hover {
@@ -481,15 +506,8 @@ onMounted(async () => {
   box-shadow: inset 3px 0 0 var(--color-sage);
 }
 
-.side-link--cta {
-  background: var(--color-canopy) !important;
-  color: #fafdfb !important;
-  margin-top: 0.35rem;
-}
-
-.side-link--cta:hover {
-  background: var(--color-canopy-mid) !important;
-  color: #fff !important;
+.side-nav__link--help {
+  margin-top: auto;
 }
 
 .side-badge {
