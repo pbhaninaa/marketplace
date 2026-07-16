@@ -103,6 +103,22 @@ class ProviderOrderCrudIntegrationTest extends AbstractIntegrationTest {
         String checkoutBody = checkoutResult.getResponse().getContentAsString();
         JsonNode checkoutJson = objectMapper.readTree(checkoutBody);
         orderId = checkoutJson.get("OrderIds").get(0).asLong();
+        verificationCode = checkoutJson.get("verificationCodes").get(0).asText();
+    }
+
+    private String verificationCode;
+
+    /** Server requires meetup-code verification before PENDING_PAYMENT → PAID. */
+    private void verifyMeetupCodeThenMarkPaid() throws Exception {
+        mockMvc.perform(post("/api/provider/me/verify/order/" + verificationCode)
+                        .header("Authorization", "Bearer " + providerToken))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(put("/api/provider/orders/" + orderId + "/status")
+                        .header("Authorization", "Bearer " + providerToken)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("status", "PAID"))))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -138,10 +154,10 @@ class ProviderOrderCrudIntegrationTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("PUT /api/provider/orders/{orderId}/status - Should update order status")
     void shouldUpdateOrderStatus() throws Exception {
-        mockMvc.perform(put("/api/provider/orders/" + orderId + "/status")
-                        .header("Authorization", "Bearer " + providerToken)
-                        .contentType(APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("status", "PAID"))))
+        verifyMeetupCodeThenMarkPaid();
+
+        mockMvc.perform(get("/api/provider/orders/" + orderId)
+                        .header("Authorization", "Bearer " + providerToken))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("PAID"));
 
@@ -166,12 +182,7 @@ class ProviderOrderCrudIntegrationTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("DELETE /api/provider/orders/{orderId}/cancel - Should NOT cancel PAID order")
     void shouldNotCancelPaidOrder() throws Exception {
-        // First update to PAID
-        mockMvc.perform(put("/api/provider/orders/" + orderId + "/status")
-                        .header("Authorization", "Bearer " + providerToken)
-                        .contentType(APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("status", "PAID"))))
-                .andExpect(status().isOk());
+        verifyMeetupCodeThenMarkPaid();
 
         // Try to cancel - should fail
         mockMvc.perform(delete("/api/provider/orders/" + orderId + "/cancel")
@@ -195,12 +206,7 @@ class ProviderOrderCrudIntegrationTest extends AbstractIntegrationTest {
     @Test
     @DisplayName("DELETE /api/provider/orders/{orderId} - Should NOT delete PAID order")
     void shouldNotDeletePaidOrder() throws Exception {
-        // First update to PAID
-        mockMvc.perform(put("/api/provider/orders/" + orderId + "/status")
-                        .header("Authorization", "Bearer " + providerToken)
-                        .contentType(APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("status", "PAID"))))
-                .andExpect(status().isOk());
+        verifyMeetupCodeThenMarkPaid();
 
         // Try to delete - should fail
         mockMvc.perform(delete("/api/provider/orders/" + orderId)
@@ -221,12 +227,7 @@ class ProviderOrderCrudIntegrationTest extends AbstractIntegrationTest {
         JsonNode json1 = objectMapper.readTree(result1.getResponse().getContentAsString());
         assertThat(json1.get("paymentStatus").asText()).isEqualTo("PENDING");
 
-        // Update to PAID
-        mockMvc.perform(put("/api/provider/orders/" + orderId + "/status")
-                        .header("Authorization", "Bearer " + providerToken)
-                        .contentType(APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("status", "PAID"))))
-                .andExpect(status().isOk());
+        verifyMeetupCodeThenMarkPaid();
 
         // Verify payment status updated
         Order order = orderRepository.findById(orderId).orElseThrow();

@@ -119,16 +119,12 @@ public class OrderManagementService {
         validateStatusTransition(current, newStatus);
 
         if (current == OrderStatus.PENDING_PAYMENT && newStatus == OrderStatus.PAID) {
-            // Temporarily skip meetup code verification so providers can progress order
-            // statuses
-            // during testing/demos. Re-enable this check once the verification flow is back
-            // in scope.
-            // if (order.getVerifiedAt() == null) {
-            // throw new ApiException(
-            // HttpStatus.BAD_REQUEST,
-            // "VERIFY_CODE_REQUIRED",
-            // "Verify the guest's meetup code before confirming payment.");
-            // }
+            if (order.getVerifiedAt() == null) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "VERIFY_CODE_REQUIRED",
+                        "Verify the guest's meetup code before confirming payment.");
+            }
             purchaseInventoryService.finalizePaidPurchase(order);
             markPurchasePaymentCompleted(order);
             order.setPaymentStatus(PaymentStatus.PAID);
@@ -380,6 +376,18 @@ public class OrderManagementService {
 
         if (!rental.getProvider().getId().equals(providerId)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You don't have access to this rental");
+        }
+
+        BookingStatus current = rental.getStatus();
+        if (current == newStatus) {
+            return rental;
+        }
+        if (current == BookingStatus.PENDING_PAYMENT && newStatus == BookingStatus.PAID
+                && rental.getVerifiedAt() == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "VERIFY_CODE_REQUIRED",
+                    "Verify the guest's meetup code before confirming payment.");
         }
 
         // Update rental status
