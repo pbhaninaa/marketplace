@@ -51,7 +51,8 @@ public record OrderResponse(
                 order.getTotalAmount(),
                 order.getDeliveryDistanceKm(),
                 order.getDeliveryFee(),
-                order.getVerificationCode(),
+                // Never expose the meetup code to providers — guest must speak it; staff enter it.
+                null,
                 order.getVerifiedAt(),
                 order.getCreatedAt(),
                 order.isInventoryFinalized(),

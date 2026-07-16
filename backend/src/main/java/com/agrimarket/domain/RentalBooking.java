@@ -76,6 +76,7 @@ public class RentalBooking {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name = "verification_code", nullable = false, unique = true, length = 9)
     private String verificationCode;
 

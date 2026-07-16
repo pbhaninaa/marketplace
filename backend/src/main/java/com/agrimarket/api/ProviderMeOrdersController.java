@@ -215,10 +215,14 @@ public class ProviderMeOrdersController {
     public OrderVerificationResponse verifyPurchaseCode(
             @AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable String code) {
         TenantAccess.requireProviderUser(actor);
-        Order o = orderRepository.findByVerificationCode(code)
+        String normalized = code == null ? "" : code.trim();
+        Order o = orderRepository.findByVerificationCode(normalized)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CODE", "Order not found for this code"));
         if (o.getProvider() == null || !o.getProvider().getId().equals(actor.getProviderId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not your order");
+        }
+        if (o.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CODE", "Order is not awaiting payment verification");
         }
         o.setVerifiedAt(Instant.now());
         orderRepository.save(o);
@@ -229,10 +233,14 @@ public class ProviderMeOrdersController {
     public BookingVerificationResponse verifyBookingCode(
             @AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable String code) {
         TenantAccess.requireProviderUser(actor);
-        RentalBooking b = rentalBookingRepository.findByVerificationCode(code)
+        String normalized = code == null ? "" : code.trim();
+        RentalBooking b = rentalBookingRepository.findByVerificationCode(normalized)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CODE", "Booking not found for this code"));
         if (b.getProvider() == null || !b.getProvider().getId().equals(actor.getProviderId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not your booking");
+        }
+        if (b.getStatus() != BookingStatus.PENDING_PAYMENT) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CODE", "Booking is not awaiting payment verification");
         }
         b.setVerifiedAt(Instant.now());
         rentalBookingRepository.save(b);
