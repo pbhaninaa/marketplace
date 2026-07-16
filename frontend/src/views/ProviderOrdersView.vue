@@ -53,7 +53,7 @@ const canRejectOrder = computed(() => {
   return isPurchase.value && (isPendingPayment.value || isPaid.value);
 });
 const canDeleteOrder = computed(() => !!selectedOrder.value);
-/** Confirm payment deducts stock (and may remove listing when sold out); verification is temporarily skipped. */
+/** Confirm payment requires the guest meetup code (verified server-side; codes are not listed to providers). */
 const canConfirmPayment = computed(() => {
   return isPurchase.value && isPendingPayment.value;
 });
@@ -150,10 +150,8 @@ async function confirmOrder() {
   if (!selectedOrder.value) return;
 
   const code = customerCode.value?.trim();
-  const expected = selectedOrder.value.verificationCode;
-
-  if (!code || code !== expected) {
-    codeErrorMessage.value = 'Invalid customer verification code. Please try again.';
+  if (!code) {
+    codeErrorMessage.value = 'Enter the customer verification code they show you.';
     showCodeError.value = true;
     return;
   }
@@ -162,15 +160,24 @@ async function confirmOrder() {
   actionError.value = '';
 
   try {
+    // Server verifies the code (codes are not returned to the provider UI).
     if (tab.value === 'rentals') {
+      await providerOrdersApi.verifyBookingCode(code);
       await providerOrdersApi.updateRentalStatus(selectedOrder.value.id, 'PAID');
     } else {
+      await providerOrdersApi.verifyPurchaseCode(code);
       await providerOrdersApi.updatePurchaseStatus(selectedOrder.value.id, 'PAID');
     }
     await load();
     closeDialog();
   } catch (e) {
-    actionError.value = e.response?.data?.message || e.message;
+    const msg = e.response?.data?.message || e.message || 'Could not confirm payment.';
+    if (String(msg).toLowerCase().includes('code') || e.response?.status === 404) {
+      codeErrorMessage.value = 'Invalid customer verification code. Please try again.';
+      showCodeError.value = true;
+    } else {
+      actionError.value = msg;
+    }
   } finally {
     actionLoading.value = false;
   }

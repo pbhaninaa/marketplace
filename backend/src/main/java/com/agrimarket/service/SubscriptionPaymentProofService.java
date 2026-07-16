@@ -249,11 +249,37 @@ public class SubscriptionPaymentProofService {
         }
 
         boolean approve = Boolean.TRUE.equals(req.approve());
+        Subscription sub = proof.getSubscription();
+
+        if (approve) {
+            // Re-check amount + reference on approve; soft failures (e.g. date) still allow support review.
+            ExtractedPaymentDetails extracted = extractPaymentDetails(
+                    proof.getData(),
+                    proof.getContentType(),
+                    sub.getAmountDue(),
+                    sub.getPaymentReference());
+            boolean amountOk = extracted.amount() != null
+                    && sub.getAmountDue() != null
+                    && extracted.amount().compareTo(sub.getAmountDue()) == 0;
+            String expectedRef = sub.getPaymentReference() == null ? "" : sub.getPaymentReference().trim();
+            String actualRef = extracted.reference() == null ? "" : extracted.reference().trim();
+            boolean refOk = !expectedRef.isEmpty() && expectedRef.equalsIgnoreCase(actualRef);
+            if (!amountOk || !refOk) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "PROOF",
+                        "Cannot approve: the proof does not match the expected amount and/or payment reference. "
+                                + "Reject and ask the provider to upload a correct statement.");
+            }
+            proof.setPaymentDate(extracted.date());
+            proof.setPaymentAmount(extracted.amount());
+            proof.setPaymentReference(extracted.reference());
+        }
+
         proof.setReviewedAt(Instant.now());
         proof.setReviewNote(req.note());
         proof.setStatus(approve ? SubscriptionProofStatus.APPROVED : SubscriptionProofStatus.REJECTED);
 
-        Subscription sub = proof.getSubscription();
         if (approve) {
             subscriptionService.approveSubscription(sub);
         } else {
