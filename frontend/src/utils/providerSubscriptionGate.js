@@ -5,6 +5,20 @@ export function isSubscriptionActive(subStatus, auth) {
   return !!auth?.providerSubValid;
 }
 
+export function isOnFreeTrial(subStatus, auth) {
+  if (subStatus != null) return !!subStatus.onTrial;
+  return !!auth?.providerOnTrial;
+}
+
+export function trialDaysRemaining(subStatus, auth) {
+  if (subStatus != null) {
+    const n = Number(subStatus.trialDaysRemaining);
+    return Number.isFinite(n) ? Math.max(0, n) : 0;
+  }
+  const n = Number(auth?.providerTrialDaysRemaining);
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+
 export function isPlanPremium(subStatus, auth) {
   const plan = String(subStatus?.plan || auth?.providerPlan || '').toUpperCase();
   return plan === 'PREMIUM';
@@ -19,15 +33,20 @@ export async function refreshProviderSubscription(auth) {
     return data;
   } catch {
     if (!auth.providerSubValid) {
-      auth.setProviderSubscriptionStatus({ valid: false, plan: null });
+      auth.setProviderSubscriptionStatus({
+        valid: false,
+        plan: null,
+        onTrial: false,
+        trialDaysRemaining: 0,
+      });
     }
     return null;
   }
 }
 
 /**
- * Inactive subscription → subscription page only.
- * Active subscription → routes allowed per plan (Premium for team/payroll).
+ * Inactive subscription (and no live free trial) → subscription page only.
+ * Active paid or free-trial entitlement → routes allowed per plan (Premium for team/payroll).
  * @returns {null|{ path: string, query?: object }}
  */
 export function providerRouteGuard(to, auth, subStatus) {
