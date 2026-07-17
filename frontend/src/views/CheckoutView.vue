@@ -59,6 +59,7 @@ function roundMoney(n) {
 /* ================= PAYMENT METHODS ================= */
 const PAYMENT_LABELS = {
   CASH: 'Cash on collection / delivery',
+  EFT: 'EFT (bank transfer)',
   PEACH: 'Pay online (card / instant EFT)',
 };
 
@@ -74,7 +75,7 @@ publicPeachApi
 
 const acceptedPaymentMethods = computed(() => {
   const list = (cart.lockedProviderAcceptedPaymentMethods || []).filter(
-    (m) => m === 'CASH' || (m === 'PEACH' && peachAvailable.value),
+    (m) => m === 'CASH' || m === 'EFT' || (m === 'PEACH' && peachAvailable.value),
   );
   return list;
 });
@@ -91,6 +92,14 @@ watch(
     }
   },
   { immediate: true },
+);
+
+watch(paymentMethod, (method) => {
+  if (method !== 'PEACH') peachPaymentMethod.value = '';
+});
+
+const showBankDetails = computed(() =>
+  paymentMethod.value === 'EFT' && !!cart.lockedProviderBank
 );
 
 /* ================= DELIVERY SETTINGS ================= */
@@ -405,6 +414,9 @@ async function handleLimitWarning({ message, type }) {
           <p v-if="paymentMethod === 'CASH'" class="muted small" style="margin-top: -0.5rem;">
             Pay the provider in person when you collect or receive delivery. Keep your verification code ready.
           </p>
+          <p v-else-if="paymentMethod === 'EFT'" class="muted small" style="margin-top: -0.5rem;">
+            Transfer to the provider’s bank account below, then show your verification code when they confirm payment.
+          </p>
           <p v-else-if="paymentMethod === 'PEACH'" class="muted small" style="margin-top: -0.5rem;">
             Choose how you want to pay within Peach:
           </p>
@@ -416,6 +428,18 @@ async function handleLimitWarning({ message, type }) {
             <p class="muted small" style="margin: 0;">
               Only your chosen method will appear on the secure Peach Payments page.
             </p>
+          </div>
+
+          <!-- BANK DETAILS -->
+          <div v-if="showBankDetails" class="bank-box">
+            <h3>EFT payment details</h3>
+            <p class="muted small">Pay the <strong>provider</strong> (not the platform). Use your name as reference if none is shown.</p>
+
+            <p><strong>Bank:</strong> {{ cart.lockedProviderBank?.bankName }}</p>
+            <p><strong>Account:</strong> {{ cart.lockedProviderBank?.accountName }}</p>
+            <p><strong>Number:</strong> {{ cart.lockedProviderBank?.accountNumber }}</p>
+            <p><strong>Branch:</strong> {{ cart.lockedProviderBank?.branchCode }}</p>
+            <p v-if="cart.lockedProviderBank?.reference"><strong>Reference:</strong> {{ cart.lockedProviderBank.reference }}</p>
           </div>
 
           <!-- TOTAL -->
@@ -549,6 +573,14 @@ async function handleLimitWarning({ message, type }) {
   font-weight: 700;
   border-top: 1px solid #ddd;
   padding-top: 0.5rem;
+}
+
+/* BANK */
+.bank-box {
+  margin-top: 1rem;
+  padding: 0.8rem;
+  background: #f4f7ff;
+  border-radius: 12px;
 }
 
 /* HEADINGS */

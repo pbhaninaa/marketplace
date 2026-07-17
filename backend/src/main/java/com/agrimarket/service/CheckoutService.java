@@ -78,11 +78,20 @@ public class CheckoutService {
                             + " payment. Accepted: "
                             + accepted.stream().map(PaymentMethod::name).sorted().toList());
         }
-        if (chosen == PaymentMethod.CASH && req.peachPaymentMethod() != null) {
+        if (chosen != PaymentMethod.PEACH && req.peachPaymentMethod() != null) {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "PEACH_PAYMENT_METHOD",
                     "peachPaymentMethod is only valid when paymentMethod is PEACH.");
+        }
+        if (chosen == PaymentMethod.EFT) {
+            String acc = cart.getProvider().getBankAccountNumber();
+            if (acc == null || acc.isBlank()) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "BANK_DETAILS",
+                        "This provider accepts EFT but has not published bank details yet. Choose Cash or contact the provider.");
+            }
         }
         PeachPaymentMethod peachMethod = chosen == PaymentMethod.PEACH ? req.peachPaymentMethod() : null;
         if (chosen == PaymentMethod.PEACH && peachMethod == null) {
@@ -95,7 +104,7 @@ public class CheckoutService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "PEACH_NOT_CONFIGURED",
-                    "Online payments are not available right now. Choose Cash.");
+                    "Online payments are not available right now. Choose Cash or Manual EFT.");
         }
 
         List<CartLine> lines = new ArrayList<>(cart.getLines());

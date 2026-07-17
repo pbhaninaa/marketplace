@@ -117,6 +117,11 @@ async function save() {
     return;
   }
 
+  if (form.value.acceptedPaymentMethods.includes('EFT') && !isNonEmptyString(form.value.bankAccountNumber)) {
+    error.value = 'Bank account number is required when accepting Manual EFT.';
+    return;
+  }
+
   if (form.value.deliveryAvailable && !isPositiveNumber(form.value.deliveryPricePerKm)) {
     error.value = 'Enter valid delivery price.';
     return;
@@ -178,6 +183,11 @@ async function save() {
                 <span>Cash on collection / delivery</span>
               </label>
 
+              <label class="check-card">
+                <input type="checkbox" :disabled="!canEdit" value="EFT" v-model="form.acceptedPaymentMethods" />
+                <span>Manual EFT (bank transfer)</span>
+              </label>
+
               <label v-if="peachAvailable" class="check-card">
                 <input type="checkbox" :disabled="!canEdit" value="PEACH" v-model="form.acceptedPaymentMethods" />
                 <span>Pay online (card / instant EFT via Peach)</span>
@@ -185,9 +195,8 @@ async function save() {
 
             </div>
             <p class="muted small" style="margin-top: 0.5rem;">
-              Clients choose Cash and/or online checkout (Peach). Manual bank EFT is disabled — Peach covers card and
-              instant EFT. Online payments use the platform Peach account and confirm automatically. Platform
-              subscriptions are paid online from the Subscription page.
+              Clients choose Cash, Manual EFT, and/or Peach at checkout. Manual EFT requires your bank details below.
+              Peach covers card and instant EFT online. Platform subscriptions are paid online from the Subscription page.
             </p>
           </FormField>
         </section>
@@ -217,8 +226,7 @@ async function save() {
         <section class="card">
           <h2>🏦 Banking</h2>
           <p class="muted small" style="margin-bottom: 0.75rem;">
-            Optional account details for your records. Clients no longer pay by manual bank EFT — they use Cash or
-            Peach (card / instant EFT).
+            Required when you accept Manual EFT. Shown to clients at checkout so they can transfer to your account.
           </p>
 
           <FormField label="Bank name">
@@ -302,6 +310,7 @@ async function save() {
 /* PAYMENT */
 .payment-grid {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 

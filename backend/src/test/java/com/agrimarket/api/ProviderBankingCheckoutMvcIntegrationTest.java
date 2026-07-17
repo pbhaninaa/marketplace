@@ -76,13 +76,13 @@ class ProviderBankingCheckoutMvcIntegrationTest extends AbstractIntegrationTest 
 
         String token = jwtService.createToken(owner.getId(), owner.getEmail(), owner.getRole(), p.getId());
 
-        // Historical EFT remains readable but is normalized to Peach in the current settings API.
+        // Manual EFT remains a first-class accepted method in settings.
         mockMvc.perform(get("/api/provider/me/settings")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.acceptedPaymentMethods[0]").value("PEACH"));
+                .andExpect(jsonPath("$.acceptedPaymentMethods[0]").value("EFT"));
 
-        // New provider settings must not accept manual EFT.
+        // Reject Manual EFT without a bank account number.
         mockMvc.perform(patch("/api/provider/me/settings")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
@@ -90,14 +90,15 @@ class ProviderBankingCheckoutMvcIntegrationTest extends AbstractIntegrationTest 
                                 "location", "Joburg",
                                 "bankName", "Test Bank",
                                 "bankAccountName", "Banked Provider PTY",
-                                "bankAccountNumber", "1234567890",
+                                "bankAccountNumber", "",
                                 "bankBranchCode", "250655",
                                 "bankReference", "Use email",
                                 "acceptedPaymentMethods", new String[] {"EFT"}
                         ))))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("BANK_DETAILS"));
 
-        // Update settings with a current top-level method.
+        // Update settings with Manual EFT + bank details.
         mockMvc.perform(patch("/api/provider/me/settings")
                         .header("Authorization", "Bearer " + token)
                         .contentType(APPLICATION_JSON)
@@ -108,10 +109,11 @@ class ProviderBankingCheckoutMvcIntegrationTest extends AbstractIntegrationTest 
                                 "bankAccountNumber", "1234567890",
                                 "bankBranchCode", "250655",
                                 "bankReference", "Use email",
-                                "acceptedPaymentMethods", new String[] {"CASH"}
+                                "acceptedPaymentMethods", new String[] {"EFT", "CASH"}
                         ))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.bankName").value("Test Bank"));
+                .andExpect(jsonPath("$.bankName").value("Test Bank"))
+                .andExpect(jsonPath("$.acceptedPaymentMethods").isArray());
 
         // Listing
         var c = categoryRepository.save(new com.agrimarket.domain.Category("Cat", "cat"));
@@ -148,13 +150,12 @@ class ProviderBankingCheckoutMvcIntegrationTest extends AbstractIntegrationTest 
                         })))
                 .andExpect(status().isOk());
 
-        // Cart response should include banking details
+        // Cart response should include banking details and EFT among accepted methods
         mockMvc.perform(get("/api/public/cart").header("X-Session-Id", sessionId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.lockedProviderId").value(p.getId()))
                 .andExpect(jsonPath("$.lockedProviderBankName").value("Test Bank"))
                 .andExpect(jsonPath("$.lockedProviderBankAccountNumber").value("1234567890"))
-                .andExpect(jsonPath("$.lockedProviderAcceptedPaymentMethods[0]").value("CASH"));
+                .andExpect(jsonPath("$.lockedProviderAcceptedPaymentMethods", org.hamcrest.Matchers.hasItem("EFT")));
     }
 }
-

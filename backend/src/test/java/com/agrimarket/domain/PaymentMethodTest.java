@@ -9,33 +9,35 @@ import org.junit.jupiter.api.Test;
 class PaymentMethodTest {
 
     @Test
-    void defaultAccepted_isCashAndPeach() {
-        assertThat(PaymentMethod.defaultAccepted()).containsExactlyInAnyOrder(PaymentMethod.CASH, PaymentMethod.PEACH);
+    void defaultAccepted_isCashEftAndPeach() {
+        assertThat(PaymentMethod.defaultAccepted())
+                .containsExactlyInAnyOrder(PaymentMethod.CASH, PaymentMethod.EFT, PaymentMethod.PEACH);
     }
 
     @Test
-    void normalizeAccepted_mapsLegacyEftToPeach() {
+    void normalizeAccepted_preservesManualEft() {
         Set<PaymentMethod> out = PaymentMethod.normalizeAccepted(EnumSet.of(PaymentMethod.EFT));
-        assertThat(out).containsExactly(PaymentMethod.PEACH);
+        assertThat(out).containsExactly(PaymentMethod.EFT);
     }
 
     @Test
-    void normalizeAccepted_mapsLegacyBothToCashAndPeach() {
+    void normalizeAccepted_mapsLegacyBothToCashAndManualEft() {
         Set<PaymentMethod> out = PaymentMethod.normalizeAccepted(EnumSet.of(PaymentMethod.BOTH));
-        assertThat(out).containsExactlyInAnyOrder(PaymentMethod.CASH, PaymentMethod.PEACH);
+        assertThat(out).containsExactlyInAnyOrder(PaymentMethod.CASH, PaymentMethod.EFT);
     }
 
     @Test
-    void normalizeAccepted_preservesCashAndPeach() {
-        Set<PaymentMethod> out =
-                PaymentMethod.normalizeAccepted(EnumSet.of(PaymentMethod.CASH, PaymentMethod.PEACH));
-        assertThat(out).containsExactlyInAnyOrder(PaymentMethod.CASH, PaymentMethod.PEACH);
+    void normalizeAccepted_preservesCashEftAndPeach() {
+        Set<PaymentMethod> out = PaymentMethod.normalizeAccepted(
+                EnumSet.of(PaymentMethod.CASH, PaymentMethod.EFT, PaymentMethod.PEACH));
+        assertThat(out)
+                .containsExactlyInAnyOrder(PaymentMethod.CASH, PaymentMethod.EFT, PaymentMethod.PEACH);
     }
 
     @Test
-    void isCheckoutSelectable_includesOnlyCashAndPeach() {
+    void isCheckoutSelectable_includesCashEftAndPeach() {
         assertThat(PaymentMethod.CASH.isCheckoutSelectable()).isTrue();
-        assertThat(PaymentMethod.EFT.isCheckoutSelectable()).isFalse();
+        assertThat(PaymentMethod.EFT.isCheckoutSelectable()).isTrue();
         assertThat(PaymentMethod.PEACH.isCheckoutSelectable()).isTrue();
         assertThat(PaymentMethod.BOTH.isCheckoutSelectable()).isFalse();
     }
