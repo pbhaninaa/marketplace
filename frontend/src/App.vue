@@ -256,7 +256,6 @@ onMounted(async () => {
           <router-link to="/admin/providers">Providers</router-link>
           <router-link to="/admin/listings">Listings</router-link>
           <router-link to="/admin/users">Users</router-link>
-          <router-link to="/admin/manual-verifications">Manual verifications</router-link>
           <router-link to="/admin/support-users">Support users</router-link>
           <router-link to="/support">Support</router-link>
           <router-link to="/admin/settings">Settings</router-link>

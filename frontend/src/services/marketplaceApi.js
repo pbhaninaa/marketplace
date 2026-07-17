@@ -243,22 +243,8 @@ export const providerSubscriptionApi = {
       throw e;
     });
   },
-  bankDetails() {
-    return api.get('/api/provider/me/subscription/bank-details');
-  },
   quote(plan) {
     return api.get('/api/provider/me/subscription/quote', { params: { plan } });
-  },
-  uploadProof({ file, intentId }) {
-    const form = new FormData();
-    form.append('intentId', String(intentId));
-    form.append('file', file);
-    return api.post('/api/provider/me/subscription/proof', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-  },
-  select(body) {
-    return api.post('/api/provider/me/subscription/select', body);
   },
   peachConfigured() {
     return api.get('/api/provider/me/subscription/peach-configured').catch((e) => {
@@ -277,22 +263,6 @@ export const providerSubscriptionApi = {
 export const adminDashboardApi = {
   stats(params) {
     return api.get('/api/admin/dashboard/stats', { params });
-  },
-};
-
-export const adminSubscriptionProofsApi = {
-  pending() {
-    return api.get('/api/admin/subscription-proofs/pending');
-  },
-  async openFile(proofId) {
-    const res = await api.get(`/api/admin/subscription-proofs/${proofId}/file`, { responseType: 'blob' });
-    const url = URL.createObjectURL(res.data);
-    window.open(url, '_blank', 'noopener,noreferrer');
-    // let the browser load the blob URL first
-    setTimeout(() => URL.revokeObjectURL(url), 30_000);
-  },
-  decide(proofId, body) {
-    return api.post(`/api/admin/subscription-proofs/${proofId}/decide`, body);
   },
 };
 

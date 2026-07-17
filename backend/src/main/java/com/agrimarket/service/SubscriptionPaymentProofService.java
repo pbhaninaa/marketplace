@@ -44,6 +44,7 @@ public class SubscriptionPaymentProofService {
     @Transactional
     public SubscriptionPaymentProof upload(
             Long providerId, Long intentId, MultipartFile file) {
+        rejectRetiredManualFlow();
         if (file == null || file.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "UPLOAD", "Proof of payment file is required");
         }
@@ -126,7 +127,6 @@ public class SubscriptionPaymentProofService {
                 saved.setReviewedAt(Instant.now());
                 saved.setReviewNote("Auto-verified");
                 proofRepository.save(saved);
-                subscriptionService.approveSubscription(sub);
                 try {
                     appNotificationService.notifySubscriptionDecision(provider, true, "Auto-verified");
                 } catch (Exception ignored) {
@@ -240,6 +240,7 @@ public class SubscriptionPaymentProofService {
 
     @Transactional
     public void decide(Long proofId, AdminProofDecisionRequest req) {
+        rejectRetiredManualFlow();
         SubscriptionPaymentProof proof = proofRepository
                 .findById(proofId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PROOF", "Proof not found"));
@@ -280,9 +281,7 @@ public class SubscriptionPaymentProofService {
         proof.setReviewNote(req.note());
         proof.setStatus(approve ? SubscriptionProofStatus.APPROVED : SubscriptionProofStatus.REJECTED);
 
-        if (approve) {
-            subscriptionService.approveSubscription(sub);
-        } else {
+        if (!approve) {
             sub.setStatus(SubscriptionStatus.REJECTED);
             subscriptionRepository.save(sub);
         }
@@ -291,6 +290,13 @@ public class SubscriptionPaymentProofService {
             appNotificationService.notifySubscriptionDecision(proof.getProvider(), approve, req.note());
         } catch (Exception ignored) {
         }
+    }
+
+    private static void rejectRetiredManualFlow() {
+        throw new ApiException(
+                HttpStatus.GONE,
+                "SUBSCRIPTION_PAYMENT_RETIRED",
+                "Manual subscription payments and proof decisions are no longer supported.");
     }
 }
 

@@ -1,14 +1,11 @@
 package com.agrimarket.api;
 
-import com.agrimarket.api.dto.AdminProofDecisionRequest;
 import com.agrimarket.api.dto.AdminProofRow;
 import com.agrimarket.api.error.ApiException;
 import com.agrimarket.domain.SubscriptionProofStatus;
 import com.agrimarket.domain.UserRole;
 import com.agrimarket.repo.SubscriptionPaymentProofRepository;
 import com.agrimarket.security.MarketUserPrincipal;
-import com.agrimarket.service.SubscriptionPaymentProofService;
-import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -19,7 +16,6 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -29,7 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class SupportSubscriptionProofsController {
 
     private final SubscriptionPaymentProofRepository proofRepository;
-    private final SubscriptionPaymentProofService proofService;
 
     private void requireSupport(MarketUserPrincipal actor) {
         if (actor == null) {
@@ -74,10 +69,12 @@ public class SupportSubscriptionProofsController {
     @PostMapping("/{proofId}/decide")
     public void decide(
             @AuthenticationPrincipal MarketUserPrincipal actor,
-            @PathVariable Long proofId,
-            @Valid @RequestBody AdminProofDecisionRequest req) {
+            @PathVariable Long proofId) {
         requireSupport(actor);
-        proofService.decide(proofId, req);
+        throw new ApiException(
+                HttpStatus.GONE,
+                "SUBSCRIPTION_PAYMENT_RETIRED",
+                "Manual subscription proof decisions are no longer supported.");
     }
 }
 

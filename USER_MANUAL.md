@@ -191,15 +191,19 @@ Headers: X-Session-Id: {your-session-id}
 
 #### Step 4: Checkout
 ```
-POST /api/public/checkout/guest
+POST /api/public/cart/checkout
 {
   "guestName": "John Doe",
   "guestEmail": "john@example.com",
   "guestPhone": "+1234567890",
   "deliveryOrPickup": "Delivery to 123 Farm Road",
-  "paymentMethod": "CARD"
+  "paymentMethod": "PEACH",
+  "peachPaymentMethod": "CARD"
 }
 ```
+
+Customer carts expose only `CASH` or `PEACH`. For Peach, choose `CARD` or `EFT`; Hosted Checkout
+maps `EFT` to Pay by Bank (`PAYBYBANK`). Manual EFT and proof uploads are unavailable.
 
 ### Order Validation
 
@@ -242,7 +246,7 @@ The system automatically validates:
 1. **Register as Provider**
    - Submit provider application
    - Await admin approval
-   - Activate subscription
+   - Activate a subscription through Peach Hosted Checkout using Card or Instant EFT
 
 2. **Access Provider Portal**
    - Login with provider credentials
@@ -507,6 +511,14 @@ DELETE /api/provider/me/orders/purchases/{orderId}
 
 ### Provider Endpoints
 
+#### Subscription payments
+
+- Create a server-priced intent with `GET /api/provider/me/subscription/quote?plan=BASIC|PREMIUM`.
+- Start Hosted Checkout with `POST /api/provider/me/subscription/peach-checkout` and `CARD` or `EFT`.
+- Only a verified, idempotent Peach callback activates the subscription.
+- Legacy bank-details, proof-upload, plan-select, and proof-decision routes return `410 Gone`.
+- Authorized admin/support users can still read historical proof files.
+
 #### Listings Management
 
 | Method | Endpoint | Description |
@@ -558,7 +570,7 @@ DELETE /api/provider/me/orders/purchases/{orderId}
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/public/listings` | Browse all listings |
-| POST | `/api/public/checkout/guest` | Complete purchase |
+| POST | `/api/public/cart/checkout` | Complete purchase with Cash or Peach |
 
 ---
 
@@ -772,5 +784,5 @@ Monitor at: `/api/public/health`
 ---
 
 **Version:** 1.0  
-**Last Updated:** April 18, 2026  
+**Last Updated:** July 17, 2026  
 **Platform:** Agricultural Marketplace

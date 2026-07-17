@@ -168,26 +168,6 @@ async function load() {
   }
 }
 
-async function selectPlan() {
-  error.value = '';
-  message.value = '';
-  activating.value = true;
-  try {
-    const { data } = await providerSubscriptionApi.select({
-      plan: selectForm.value.plan,
-      billingCycle: 'MONTHLY',
-    });
-    status.value = data;
-    message.value = 'Plan selected. Pay online with Peach (card or instant EFT) to activate.';
-    paymentAmount.value = data?.amountDue != null ? String(data.amountDue) : '';
-    paymentRef.value = data?.paymentReference || '';
-  } catch (e) {
-    error.value = e.response?.data?.message || e.message;
-  } finally {
-    activating.value = false;
-  }
-}
-
 function continueAfterSubscription() {
   const raw = typeof route.query.redirect === 'string' ? route.query.redirect.trim() : '';
   const target =
