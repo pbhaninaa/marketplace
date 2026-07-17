@@ -5,12 +5,13 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * Top-level client payment methods. New checkout/settings flows expose only {@link #CASH} and
- * {@link #PEACH}. {@link #EFT} and {@link #BOTH} remain readable for historical database records.
+ * Top-level client payment methods for cart checkout. Selectable values are {@link #CASH},
+ * {@link #EFT} (manual bank transfer), and {@link #PEACH} (online Hosted Checkout). {@link #BOTH}
+ * remains readable for historical database records and expands to Cash + Manual EFT.
  */
 public enum PaymentMethod {
     CASH,
-    /** Legacy manual bank transfer; never selectable for a new checkout. */
+    /** Manual bank transfer to the provider. */
     EFT,
     /** Online card / instant EFT via Peach Payments Hosted Checkout (platform merchant account). */
     PEACH,
@@ -35,12 +36,11 @@ public enum PaymentMethod {
     }
 
     public static Set<PaymentMethod> defaultAccepted() {
-        return EnumSet.of(CASH, PEACH);
+        return EnumSet.of(CASH, EFT, PEACH);
     }
 
     /**
-     * Converts legacy provider settings to the current model. Historical EFT becomes Peach online
-     * payment, while BOTH becomes Cash + Peach; the legacy enum values themselves remain readable.
+     * Expands legacy {@link #BOTH} to Cash + Manual EFT. Leaves CASH, EFT, and PEACH unchanged.
      */
     public static Set<PaymentMethod> normalizeAccepted(Set<PaymentMethod> raw) {
         EnumSet<PaymentMethod> out = EnumSet.noneOf(PaymentMethod.class);
@@ -51,9 +51,7 @@ public enum PaymentMethod {
                 }
                 if (m == BOTH) {
                     out.add(CASH);
-                    out.add(PEACH);
-                } else if (m == EFT) {
-                    out.add(PEACH);
+                    out.add(EFT);
                 } else {
                     out.add(m);
                 }
@@ -66,13 +64,13 @@ public enum PaymentMethod {
     }
 
     public boolean isCheckoutSelectable() {
-        return this == CASH || this == PEACH;
+        return this == CASH || this == EFT || this == PEACH;
     }
 
     public String clientLabel() {
         return switch (this) {
             case CASH -> "Cash on collection / delivery";
-            case EFT -> "Legacy manual EFT";
+            case EFT -> "EFT (bank transfer)";
             case PEACH -> "Pay online (card / instant EFT)";
             case BOTH -> "Legacy Cash + manual EFT";
         };
@@ -81,7 +79,7 @@ public enum PaymentMethod {
     public String providerLabel() {
         return switch (this) {
             case CASH -> "Cash";
-            case EFT -> "Legacy manual EFT";
+            case EFT -> "Manual EFT";
             case PEACH -> "Pay online (Peach)";
             case BOTH -> "Legacy Cash + manual EFT";
         };

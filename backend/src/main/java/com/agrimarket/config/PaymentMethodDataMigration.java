@@ -15,6 +15,9 @@ import org.springframework.stereotype.Component;
 /**
  * Idempotently upgrades legacy payment-method rows after Hibernate has created any new columns.
  * This runs on clean and upgraded databases, so deployment never depends on a manual SQL step.
+ *
+ * <p>Current selectable cart methods are CASH, EFT (manual), and PEACH. Legacy BOTH expands to
+ * CASH+EFT; historical CARD provider rows and payment records map to PEACH.
  */
 @Component
 @Order(2)
@@ -33,12 +36,13 @@ public class PaymentMethodDataMigration implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) throws Exception {
         if (tableExists("provider_accepted_payment_methods")) {
-            addCurrentProviderMethod("PEACH");
-            addCurrentProviderMethod("CASH");
-            int removed = jdbcTemplate.update(
-                    "DELETE FROM provider_accepted_payment_methods WHERE payment_method IN ('EFT', 'BOTH', 'CARD')");
+            expandBothToCashAndEft();
+            mapCardProviderMethodToPeach();
+            int removed =
+                    jdbcTemplate.update(
+                            "DELETE FROM provider_accepted_payment_methods WHERE payment_method IN ('BOTH', 'CARD')");
             if (removed > 0) {
-                log.info("Normalized {} legacy provider payment-method rows to CASH/PEACH", removed);
+                log.info("Normalized {} legacy provider payment-method rows (BOTH/CARD)", removed);
             }
         }
 
@@ -51,25 +55,40 @@ public class PaymentMethodDataMigration implements ApplicationRunner {
         }
     }
 
-    private void addCurrentProviderMethod(String currentMethod) {
-        String applicableLegacy = "PEACH".equals(currentMethod)
-                ? "('EFT', 'BOTH', 'CARD')"
-                : "('BOTH')";
+    private void expandBothToCashAndEft() {
+        for (String method : new String[] {"CASH", "EFT"}) {
+            jdbcTemplate.update(
+                    """
+                    INSERT INTO provider_accepted_payment_methods (provider_id, payment_method)
+                    SELECT DISTINCT legacy.provider_id, ?
+                    FROM provider_accepted_payment_methods legacy
+                    WHERE legacy.payment_method = 'BOTH'
+                      AND NOT EXISTS (
+                        SELECT 1
+                        FROM provider_accepted_payment_methods current_method
+                        WHERE current_method.provider_id = legacy.provider_id
+                          AND current_method.payment_method = ?
+                      )
+                    """,
+                    method,
+                    method);
+        }
+    }
+
+    private void mapCardProviderMethodToPeach() {
         jdbcTemplate.update(
                 """
                 INSERT INTO provider_accepted_payment_methods (provider_id, payment_method)
-                SELECT DISTINCT legacy.provider_id, ?
+                SELECT DISTINCT legacy.provider_id, 'PEACH'
                 FROM provider_accepted_payment_methods legacy
-                WHERE legacy.payment_method IN %s
+                WHERE legacy.payment_method = 'CARD'
                   AND NOT EXISTS (
                     SELECT 1
                     FROM provider_accepted_payment_methods current_method
                     WHERE current_method.provider_id = legacy.provider_id
-                      AND current_method.payment_method = ?
+                      AND current_method.payment_method = 'PEACH'
                   )
-                """.formatted(applicableLegacy),
-                currentMethod,
-                currentMethod);
+                """);
     }
 
     private boolean tableExists(String tableName) throws Exception {
