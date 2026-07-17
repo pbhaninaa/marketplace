@@ -3,6 +3,7 @@ import { useAuthStore } from './stores/auth';
 import { useSetupStore } from './stores/setup';
 import MarketplaceView from './views/MarketplaceView.vue';
 import CheckoutView from './views/CheckoutView.vue';
+import PeachReturnView from './views/PeachReturnView.vue';
 import SetupView from './views/SetupView.vue';
 import LoginView from './views/LoginView.vue';
 import RegisterView from './views/RegisterView.vue';
@@ -45,6 +46,7 @@ const router = createRouter({
     { path: '/help/client', name: 'help-client', component: ClientHelpView, meta: { title: 'Help' } },
     { path: '/order-invoice', name: 'order-invoice', component: OrderInvoiceLookupView, meta: { title: 'Order invoice' } },
     { path: '/checkout', name: 'checkout', component: CheckoutView },
+    { path: '/peach/return', name: 'peach-return', component: PeachReturnView, meta: { title: 'Payment status' } },
     { path: '/setup', name: 'setup', component: SetupView, meta: { title: 'Setup' } },
     { path: '/login', name: 'login', component: LoginView, meta: { title: 'Login' } },
     { path: '/register', name: 'register', component: RegisterView, meta: { title: 'Sign up' } },

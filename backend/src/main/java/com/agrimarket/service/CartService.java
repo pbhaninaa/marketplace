@@ -20,6 +20,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ public class CartService {
     private final RentalBookingRepository rentalBookingRepository;
     private final RentalPricingService rentalPricingService;
     private final AppProperties appProperties;
+    private final PeachPaymentService peachPaymentService;
 
     @Transactional
     public CartResponse addItem(String sessionKey, CartAddRequest req) {
@@ -315,6 +317,12 @@ public class CartService {
         Set<PaymentMethod> accepted = PaymentMethod.defaultAccepted();
         if (cart.getProvider() != null) {
             accepted = PaymentMethod.normalizeAccepted(cart.getProvider().getAcceptedPaymentMethods());
+            // Do not advertise Peach at checkout when the platform merchant account is offline.
+            if (!peachPaymentService.isConfigured()) {
+                EnumSet<PaymentMethod> withoutPeach = EnumSet.copyOf(accepted);
+                withoutPeach.remove(PaymentMethod.PEACH);
+                accepted = withoutPeach;
+            }
         }
         Boolean deliveryAvailable = cart.getProvider() != null ? cart.getProvider().isDeliveryAvailable() : null;
         BigDecimal deliveryPricePerKm = cart.getProvider() != null ? cart.getProvider().getDeliveryPricePerKm() : null;

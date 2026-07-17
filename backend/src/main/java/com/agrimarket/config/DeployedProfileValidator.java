@@ -13,10 +13,13 @@ public class DeployedProfileValidator {
 
     private final Environment environment;
     private final EmailProperties emailProperties;
+    private final PeachProperties peachProperties;
 
-    public DeployedProfileValidator(Environment environment, EmailProperties emailProperties) {
+    public DeployedProfileValidator(
+            Environment environment, EmailProperties emailProperties, PeachProperties peachProperties) {
         this.environment = environment;
         this.emailProperties = emailProperties;
+        this.peachProperties = peachProperties;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -55,6 +58,12 @@ public class DeployedProfileValidator {
             if (apiKey.isEmpty() || from.isEmpty()) {
                 throw new IllegalStateException("Email is enabled: set SENDGRID_API_KEY and EMAIL_FROM");
             }
+        }
+
+        if (peachProperties.isEnabled() && !peachProperties.isConfigured()) {
+            throw new IllegalStateException(
+                    "PEACH_ENABLED=true requires PEACH_CLIENT_ID, PEACH_CLIENT_SECRET, "
+                            + "PEACH_MERCHANT_ID, PEACH_ENTITY_ID, and PEACH_SECRET_TOKEN");
         }
     }
 

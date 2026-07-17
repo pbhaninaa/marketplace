@@ -12,6 +12,7 @@ import com.agrimarket.domain.Provider;
 import com.agrimarket.support.TestFixtures;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,12 +46,7 @@ class CheckoutMvcIntegrationTest extends AbstractIntegrationTest {
 
     @Test
     void guestCheckout_createsOrder() throws Exception {
-        mockMvc.perform(post("/api/public/cart/add")
-                        .header("X-Session-Id", sessionId)
-                        .contentType(APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(
-                                Map.of("listingId", listing.getId(), "quantity", 2))))
-                .andExpect(status().isOk());
+        addItemToCart();
 
         Map<String, Object> checkoutBody = Map.of(
                 "guestName", "Test Guest",
@@ -66,5 +62,51 @@ class CheckoutMvcIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.purchaseOrderIds").isArray())
                 .andExpect(jsonPath("$.providerId").value(listing.getProvider().getId().intValue()));
+    }
+
+    @Test
+    void guestCheckout_rejectsLegacyManualEft() throws Exception {
+        addItemToCart();
+        Map<String, Object> body = checkoutBody("EFT");
+
+        mockMvc.perform(post("/api/public/cart/checkout")
+                        .header("X-Session-Id", sessionId)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PAYMENT_METHOD"));
+    }
+
+    @Test
+    void guestCheckout_rejectsPeachSubtypeForCash() throws Exception {
+        addItemToCart();
+        Map<String, Object> body = checkoutBody("CASH");
+        body.put("peachPaymentMethod", "CARD");
+
+        mockMvc.perform(post("/api/public/cart/checkout")
+                        .header("X-Session-Id", sessionId)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PEACH_PAYMENT_METHOD"));
+    }
+
+    private void addItemToCart() throws Exception {
+        mockMvc.perform(post("/api/public/cart/add")
+                        .header("X-Session-Id", sessionId)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("listingId", listing.getId(), "quantity", 2))))
+                .andExpect(status().isOk());
+    }
+
+    private Map<String, Object> checkoutBody(String paymentMethod) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("guestName", "Test Guest");
+        body.put("guestEmail", "guest+" + UUID.randomUUID() + "@checkout.test");
+        body.put("guestPhone", "0820000000");
+        body.put("deliveryOrPickup", "Collect at gate 3");
+        body.put("paymentMethod", paymentMethod);
+        return body;
     }
 }

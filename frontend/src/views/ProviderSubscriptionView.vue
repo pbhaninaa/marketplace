@@ -1,9 +1,9 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
-import FormField from '../components/ui/FormField.vue';
-import { providerSubscriptionApi } from '../services/marketplaceApi';
+import { providerSubscriptionApi, publicPeachApi } from '../services/marketplaceApi';
+import { PEACH_PAYMENT_METHODS } from '../utils/paymentModel';
 
 const router = useRouter();
 const route = useRoute();
@@ -14,15 +14,16 @@ const error = ref('');
 const message = ref('');
 
 const status = ref(null);
-const bank = ref(null);
-const proofFile = ref(null);
-const uploading = ref(false);
 const showActivateDialog = ref(false);
 const activating = ref(false);
 const paymentDate = ref('');
 const paymentAmount = ref('');
 const paymentRef = ref('');
 const quoteIntentId = ref(null);
+const peachAvailable = ref(false);
+const peachRedirecting = ref(false);
+const peachPaymentMethod = ref('');
+let peachPollTimer = null;
 /** Last subscription quote (plan price + usage fees) */
 const quoteDetail = ref(null);
 
@@ -57,7 +58,6 @@ const dialogRefText = computed(() => {
 function formatMoney(v) {
   const n = typeof v === 'number' ? v : Number(v);
   if (!Number.isFinite(n)) return '—';
-  // Keep formatting simple + consistent with ZAR style used elsewhere.
   return new Intl.NumberFormat('en-ZA', {
     style: 'currency',
     currency: 'ZAR',
@@ -78,20 +78,83 @@ onMounted(async () => {
     router.replace({ path: '/login', query: { redirect: '/provider/subscription' } });
     return;
   }
+  try {
+    const { data } = await providerSubscriptionApi.peachConfigured();
+    peachAvailable.value = !!data?.configured;
+  } catch {
+    peachAvailable.value = false;
+  }
   await load();
+
+  // Returned from Peach Hosted Checkout — poll status until the webhook activates the subscription.
+  if (route.query.peachRef) {
+    startPeachPolling();
+  }
 });
+
+onBeforeUnmount(() => {
+  stopPeachPolling();
+});
+
+function stopPeachPolling() {
+  if (peachPollTimer) {
+    clearInterval(peachPollTimer);
+    peachPollTimer = null;
+  }
+}
+
+function startPeachPolling() {
+  stopPeachPolling();
+  message.value = 'Confirming your Peach payment…';
+  let attempts = 0;
+  peachPollTimer = setInterval(async () => {
+    attempts += 1;
+    await load();
+    let peachStatus = '';
+    try {
+      const { data } = await publicPeachApi.status(String(route.query.peachRef || ''));
+      peachStatus = data?.status || '';
+    } catch {
+      // The authenticated subscription status remains the source of truth.
+    }
+    if (peachStatus === 'CANCELLED') {
+      stopPeachPolling();
+      error.value = 'The Peach payment was cancelled. Choose a payment method and try again.';
+      return;
+    }
+    if (status.value?.valid || attempts >= 15) {
+      stopPeachPolling();
+      message.value = status.value?.valid
+        ? 'Payment confirmed — your subscription is now active.'
+        : 'Still waiting for payment confirmation. Refresh in a moment if this does not update.';
+    }
+  }, 2000);
+}
+
+async function payWithPeach() {
+  if (!quoteIntentId.value) return;
+  error.value = '';
+  peachRedirecting.value = true;
+  try {
+    const { data } = await providerSubscriptionApi.peachCheckout(
+      quoteIntentId.value,
+      peachPaymentMethod.value,
+    );
+    if (!data?.redirectUrl) throw new Error('Could not start Peach checkout');
+    window.location.href = data.redirectUrl;
+  } catch (e) {
+    error.value = e.response?.data?.message || e.message;
+    peachRedirecting.value = false;
+  }
+}
 
 async function load() {
   loading.value = true;
   error.value = '';
   message.value = '';
   try {
-    const [{ data: st }, { data: bk }] = await Promise.all([
-      providerSubscriptionApi.status(),
-      providerSubscriptionApi.bankDetails().catch(() => ({ data: null })),
-    ]);
+    const { data: st } = await providerSubscriptionApi.status();
     status.value = st;
-    bank.value = bk;
     auth.setProviderSubscriptionStatus(st);
     if (st?.plan) {
       selectForm.value.plan = st.plan;
@@ -115,33 +178,13 @@ async function selectPlan() {
       billingCycle: 'MONTHLY',
     });
     status.value = data;
-    message.value = 'Plan selected. Please pay via bank transfer and upload proof of payment for verification.';
+    message.value = 'Plan selected. Pay online with Peach (card or instant EFT) to activate.';
     paymentAmount.value = data?.amountDue != null ? String(data.amountDue) : '';
     paymentRef.value = data?.paymentReference || '';
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
   } finally {
     activating.value = false;
-  }
-}
-
-async function uploadProof() {
-  if (!proofFile.value) return;
-  uploading.value = true;
-  error.value = '';
-  message.value = '';
-  try {
-    await providerSubscriptionApi.uploadProof({
-      file: proofFile.value,
-      intentId: quoteIntentId.value,
-    });
-    message.value = 'Proof uploaded. If auto-verification succeeds your subscription will activate immediately; otherwise Support will verify it manually.';
-    proofFile.value = null;
-    await load();
-  } catch (e) {
-    error.value = e.response?.data?.message || e.message;
-  } finally {
-    uploading.value = false;
   }
 }
 
@@ -167,7 +210,6 @@ function closeActivateDialog() {
 async function activatePlan(plan) {
   selectForm.value.plan = plan;
   openActivateDialog();
-  // Fetch a quote (amount + ref) without activating anything yet.
   try {
     const { data } = await providerSubscriptionApi.quote(plan);
     quoteIntentId.value = data?.intentId ?? null;
@@ -194,8 +236,8 @@ function initPaymentFields() {
       <p class="page-hero__eyebrow">Provider</p>
       <h1 class="page-hero__title">Subscription</h1>
       <p class="page-hero__lead">
-        Choose a plan first to unlock your merchant workspace. Pay using the platform bank details and your
-        payment reference, then upload proof. Monthly access runs for 30 days from approval, then lapses until you renew.
+        Choose a plan first to unlock your merchant workspace. Pay online with Peach (card or instant EFT).
+        Monthly access runs for 30 days from payment, then lapses until you renew.
       </p>
     </header>
 
@@ -286,70 +328,51 @@ function initPaymentFields() {
             aria-label="Close">✕</button>
           <h2 class="activate-dialog__title">Activate subscription</h2>
           <p class="muted small">
-            Pay using the admin banking details below, then upload your proof of payment. Your subscription only
-            activates after verification succeeds.
+            Pay online with Peach (card or instant EFT). Your subscription activates automatically once payment
+            succeeds — no proof upload needed.
           </p>
 
-
-
-       <div class="amount-card">
-
-  <!-- LEFT: Amount Info -->
-  <div class="amount-card__section">
-    <span class="label">Amount to pay (this quote)</span>
-
-    <div class="amount-card__value">
-      {{ dialogAmountText }}
-    </div>
-
-    <div class="meta">
-      <div><span>Plan</span><strong>{{ formatMoney(quoteDetail?.baseMonthly ?? 0) }}</strong></div>
-      <div><span>Paid orders</span><strong>{{ quoteDetail?.paidTransactionsCounted ?? 0 }}</strong></div>
-      <div><span>Volume</span><strong>{{ formatMoney(quoteDetail?.paidOrderTotalsSum ?? 0) }}</strong></div>
-      <div><span>Usage %</span><strong>{{ formatPercent(quoteDetail?.usageFeePercent ?? 0) }}</strong></div>
-      <div><span>Usage fee</span><strong>{{ formatMoney(quoteDetail?.usageFeesTotal ?? 0) }}</strong></div>
-    </div>
-
-    <div class="meta meta--secondary">
-      <div><span>Date</span><strong>{{ paymentDate || '—' }}</strong></div>
-      <div><span>Plan</span><strong>{{ selectForm.plan }}</strong></div>
-      <div><span>Cycle</span><strong>MONTHLY</strong></div>
-    </div>
-  </div>
-
-  <!-- RIGHT: Bank Info -->
-  <div class="amount-card__section">
-    <span class="label">Bank Details</span>
-
-    <div class="meta">
-      <div><span>Bank Name</span><strong>{{ bank?.bankName || '—' }}</strong></div>
-      <div><span>Account Name</span><strong>{{ bank?.accountName || '—' }}</strong></div>
-      <div><span>Account Number</span><strong>{{ bank?.accountNumber || '—' }}</strong></div>
-      <div><span>Branch Code</span><strong>{{ bank?.branchCode || '—' }}</strong></div>
-    </div>
-  </div>
-
-</div>
-
-          <div class="ref-card">
-            <span class="muted small">Auto-generated reference</span>
-            <strong class="ref-card__value">{{ dialogRefText }}</strong>
-            <p class="muted tiny">
-              Use this exact reference when paying. We will verify it against your proof of payment.
-            </p>
+          <div class="amount-card">
+            <div class="amount-card__section">
+              <span class="label">Amount to pay (this quote)</span>
+              <div class="amount-card__value">
+                {{ dialogAmountText }}
+              </div>
+              <div class="meta">
+                <div><span>Plan</span><strong>{{ formatMoney(quoteDetail?.baseMonthly ?? 0) }}</strong></div>
+                <div><span>Paid orders</span><strong>{{ quoteDetail?.paidTransactionsCounted ?? 0 }}</strong></div>
+                <div><span>Volume</span><strong>{{ formatMoney(quoteDetail?.paidOrderTotalsSum ?? 0) }}</strong></div>
+                <div><span>Usage %</span><strong>{{ formatPercent(quoteDetail?.usageFeePercent ?? 0) }}</strong></div>
+                <div><span>Usage fee</span><strong>{{ formatMoney(quoteDetail?.usageFeesTotal ?? 0) }}</strong></div>
+              </div>
+              <div class="meta meta--secondary">
+                <div><span>Date</span><strong>{{ paymentDate || '—' }}</strong></div>
+                <div><span>Plan</span><strong>{{ selectForm.plan }}</strong></div>
+                <div><span>Cycle</span><strong>MONTHLY</strong></div>
+                <div><span>Reference</span><strong>{{ dialogRefText }}</strong></div>
+              </div>
+            </div>
           </div>
 
-          <div class="proof-upload proof-upload--dialog">
-            <h3 class="proof-upload__title">Upload proof of payment</h3>
-            <FormField label="Proof file (image or PDF)">
-              <input type="file" accept="image/*,application/pdf"
-                @change="(e) => (proofFile = e.target.files?.[0] || null)" />
-            </FormField>
+          <div v-if="peachAvailable" class="proof-upload proof-upload--dialog">
+            <h3 class="proof-upload__title">Pay online</h3>
+            <p class="muted small">
+              Choose a Peach payment method. Your subscription activates automatically once payment succeeds.
+            </p>
+            <div class="peach-methods">
+              <label v-for="method in PEACH_PAYMENT_METHODS" :key="method.value" class="peach-method">
+                <input v-model="peachPaymentMethod" type="radio" :value="method.value" />
+                <span>{{ method.label }}</span>
+              </label>
+            </div>
             <button type="button" class="btn btn-primary"
-              :disabled="!quoteIntentId || !proofFile || uploading || activating" @click="uploadProof">
-              {{ uploading ? 'Uploading…' : activating ? 'Preparing…' : 'Submit proof' }}
+              :disabled="!quoteIntentId || !peachPaymentMethod || peachRedirecting || activating" @click="payWithPeach">
+              {{ peachRedirecting ? 'Redirecting…' : 'Pay online with Peach' }}
             </button>
           </div>
+          <p v-else class="err-toast" style="margin-top: 1rem;">
+            Online payments are not configured yet. Contact platform support to enable Peach before activating a plan.
+          </p>
         </div>
       </dialog>
     </template>
@@ -483,37 +506,6 @@ function initPaymentFields() {
   }
 }
 
-.bank-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-top: 0.85rem;
-}
-
-.bank-row {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-elevated);
-  border-radius: 12px;
-  padding: 0.75rem 0.85rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.proof-upload {
-  margin-top: 1rem;
-  display: flex;
-  align-items: flex-end;
-  gap: 0.85rem;
-  flex-wrap: wrap;
-}
-
-@media (max-width: 900px) {
-  .bank-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 .activate-dialog {
   all: revert;
   border: none;
@@ -589,27 +581,36 @@ function initPaymentFields() {
   margin-top: 0.15rem;
 }
 
-.ref-card {
-  border: 1px solid rgba(26, 60, 52, 0.18);
-  background: rgba(26, 60, 52, 0.05);
-  border-radius: 14px;
-  padding: 0.85rem 0.9rem;
+.meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 0.75rem;
   margin-top: 0.75rem;
+  font-size: 0.85rem;
 }
 
-.ref-card__value {
-  display: block;
-  margin-top: 0.2rem;
-  font-size: 1.05rem;
-  letter-spacing: 0.02em;
-  word-break: break-word;
-}
-
-.dialog-actions {
-  margin-top: 0.95rem;
+.meta div {
   display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.meta span {
+  color: var(--color-text-secondary);
+}
+
+.meta--secondary {
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed rgba(61, 122, 102, 0.25);
+}
+
+.proof-upload {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.65rem;
 }
 
 .proof-upload--dialog {
@@ -618,32 +619,25 @@ function initPaymentFields() {
   border-top: 1px dashed var(--color-border);
 }
 
-.proof-meta {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.proof-meta__row {
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-elevated);
-  border-radius: 12px;
-  padding: 0.7rem 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-@media (max-width: 900px) {
-  .proof-meta {
-    grid-template-columns: 1fr;
-  }
-}
-
 .proof-upload__title {
-  margin: 0 0 0.65rem;
+  margin: 0;
   font-size: 1rem;
   color: var(--color-canopy);
+}
+
+.peach-methods {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.peach-method {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  cursor: pointer;
 }
 </style>

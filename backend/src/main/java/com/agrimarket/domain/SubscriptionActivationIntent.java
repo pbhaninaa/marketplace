@@ -68,6 +68,17 @@ public class SubscriptionActivationIntent {
     @Column(name = "used", nullable = false)
     private boolean used = false;
 
+    /** Peach checkoutId returned when the Hosted Checkout session was created. */
+    @Column(name = "gateway_checkout_id", length = 64)
+    private String gatewayCheckoutId;
+
+    /** Peach merchantTransactionId (8-16 chars) — set when a Peach checkout is initiated for this quote. */
+    @Column(name = "gateway_merchant_ref", length = 32)
+    private String gatewayMerchantRef;
+
+    @Column(name = "gateway_result_code", length = 32)
+    private String gatewayResultCode;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 }
