@@ -1,12 +1,9 @@
 package com.agrimarket.api;
 
-import com.agrimarket.api.dto.AdminProofDecisionRequest;
 import com.agrimarket.api.dto.AdminProofRow;
 import com.agrimarket.api.error.ApiException;
 import com.agrimarket.domain.SubscriptionProofStatus;
 import com.agrimarket.repo.SubscriptionPaymentProofRepository;
-import com.agrimarket.service.SubscriptionPaymentProofService;
-import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -16,7 +13,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminSubscriptionProofsController {
 
     private final SubscriptionPaymentProofRepository proofRepository;
-    private final SubscriptionPaymentProofService proofService;
 
     @GetMapping("/pending")
     public List<AdminProofRow> pending() {
@@ -58,8 +53,11 @@ public class AdminSubscriptionProofsController {
     }
 
     @PostMapping("/{proofId}/decide")
-    public void decide(@PathVariable Long proofId, @Valid @RequestBody AdminProofDecisionRequest req) {
-        proofService.decide(proofId, req);
+    public void decide(@PathVariable Long proofId) {
+        throw new ApiException(
+                HttpStatus.GONE,
+                "SUBSCRIPTION_PAYMENT_RETIRED",
+                "Manual subscription proof decisions are no longer supported.");
     }
 }
 

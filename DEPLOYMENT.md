@@ -31,6 +31,7 @@ Full variable reference: **[ENV.md](ENV.md)**
 - [ ] `PUBLIC_APP_BASE_URL` + `UAT_CORS_ORIGINS` / `PROD_CORS_ORIGINS`
 - [ ] `SENDGRID_API_KEY` + `EMAIL_DOMAIN` (verified domain), or fallback `EMAIL_FROM`
 - [ ] `VITE_API_BASE` on frontend build when API is on a different host
+- [ ] Peach Hosted Checkout credentials, Card + Pay by Bank, and signed callback URLs configured
 - [ ] First admin created via setup UI after deploy
 - [ ] `app.seed-demo-data=false` (default on UAT/PROD)
 
@@ -127,6 +128,13 @@ cd frontend && npm run test:run
 ```
 
 CI runs the same on push/PR to `SIT`, `UAT`, `PROD`, and `main`.
+
+### Subscription payment smoke
+
+1. Create a Basic or Premium quote as a provider.
+2. Complete Peach Hosted Checkout with Card, then repeat with Instant EFT (Pay by Bank).
+3. Confirm only a valid signed callback activates the subscription and duplicate callbacks create no duplicate subscription.
+4. Confirm retired manual subscription routes return `410 Gone`; historical admin/support proof-file downloads still work.
 
 ### Staff / payroll smoke (Premium)
 

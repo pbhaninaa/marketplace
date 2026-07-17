@@ -3,7 +3,6 @@ export function resolveNotificationFallback(notification, auth) {
   if (!type) return '';
 
   if (auth?.isPlatformAdmin) {
-    if (type === 'SUBSCRIPTION_PROOF_PENDING') return '/admin/manual-verifications';
     if (type === 'SUBSCRIPTION_REMINDER') return '/admin/providers';
     return '/admin';
   }

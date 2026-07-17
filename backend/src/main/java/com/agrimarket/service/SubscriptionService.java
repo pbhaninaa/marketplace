@@ -105,7 +105,7 @@ public class SubscriptionService {
     }
 
     @Transactional
-    public Subscription approveSubscription(Subscription s) {
+    Subscription activateFromVerifiedPeachCallback(Subscription s) {
         if (s == null) {
             throw new ApiException(HttpStatus.NOT_FOUND, "SUBSCRIPTION", "Subscription not found");
         }

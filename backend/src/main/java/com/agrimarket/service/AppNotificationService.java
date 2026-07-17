@@ -310,7 +310,7 @@ public class AppNotificationService {
         String body = "Provider " + (providerName != null ? providerName : ("#" + providerId))
                 + " uploaded a subscription payment proof.";
         for (UserAccount admin : userAccountRepository.findByRoleOrderByEmailAsc(UserRole.PLATFORM_ADMIN)) {
-            saveInApp(admin, AppNotificationType.SUBSCRIPTION_PROOF_PENDING, title, body, "/admin/manual-verifications");
+            saveInApp(admin, AppNotificationType.SUBSCRIPTION_PROOF_PENDING, title, body, "/admin");
             sendEmail(
                     EmailPurpose.BILLING,
                     admin.getEmail(),
