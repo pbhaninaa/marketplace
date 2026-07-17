@@ -202,8 +202,10 @@ POST /api/public/cart/checkout
 }
 ```
 
-Customer carts expose only `CASH` or `PEACH`. For Peach, choose `CARD` or `EFT`; Hosted Checkout
-maps `EFT` to Pay by Bank (`PAYBYBANK`). Manual EFT and proof uploads are unavailable.
+Customer carts expose `CASH`, `EFT` (manual bank transfer), or `PEACH`. For Peach, choose `CARD`
+or Instant EFT (`EFT`); Hosted Checkout maps Peach Instant EFT to Pay by Bank (`PAYBYBANK`).
+Manual EFT requires the provider to publish bank details. Subscription activation remains Peach-only
+(legacy subscription proof routes return `410 Gone`).
 
 ### Order Validation
 
@@ -521,7 +523,7 @@ DELETE /api/provider/me/orders/purchases/{orderId}
 - Only a verified, idempotent Peach callback activates the paid subscription.
 - Legacy bank-details, proof-upload, plan-select, and proof-decision routes return `410 Gone`.
 - Authorized admin/support users can still read historical proof files.
-- Customer cart checkout still supports Cash and Peach; that path is separate from provider subscriptions.
+- Customer cart checkout still supports Cash, Manual EFT, and Peach; that path is separate from provider subscriptions.
 
 #### Listings Management
 

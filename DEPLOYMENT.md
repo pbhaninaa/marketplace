@@ -137,7 +137,7 @@ CI runs the same on push/PR to `SIT`, `UAT`, `PROD`, and `main`.
 4. Complete Peach Hosted Checkout with Card, then repeat with Instant EFT (Pay by Bank).
 5. Confirm only a valid signed callback activates the paid subscription and duplicate callbacks create no duplicate subscription.
 6. Confirm retired manual subscription routes return `410 Gone`; historical admin/support proof-file downloads still work.
-7. Confirm customer cart still accepts Cash and Peach independently of provider subscription billing.
+7. Confirm customer cart still accepts Cash, Manual EFT, and Peach independently of provider subscription billing.
 
 ### Staff / payroll smoke (Premium)
 

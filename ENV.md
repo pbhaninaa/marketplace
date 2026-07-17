@@ -75,11 +75,13 @@ If `SPRING_DATASOURCE_*` is unset, UAT/PROD fall back to **`MYSQLHOST`**, **`MYS
 | `APP_SUBSCRIPTION_PREMIUM_MONTHLY` | `499` |
 
 ### Peach Payments Hosted Checkout V2 — optional, platform account only
-Single platform Peach merchant account (not per-provider). Client checkout exposes **Cash** and
-**Peach**. After selecting Peach, the client chooses **Card** or **Instant EFT**; Hosted Checkout is
-forced to that method (`CARD` or `PAYBYBANK`). Providers opt in to PEACH via **Provider → Settings →
-payment methods**. New providers get a one-time 30-day free trial; after expiry, subscriptions are paid
-through Peach and activate from the signed callback. Customer cart Cash/Peach is unchanged.
+Single platform Peach merchant account (not per-provider). Client checkout exposes **Cash**,
+**Manual EFT**, and **Peach**. After selecting Peach, the client chooses **Card** or **Instant EFT**;
+Hosted Checkout is forced to that method (`CARD` or `PAYBYBANK`). Providers opt in to Cash, Manual
+EFT, and/or Peach via **Provider → Settings → payment methods** (Manual EFT requires bank details).
+New providers get a one-time 30-day free trial; after expiry, subscriptions are paid through Peach
+and activate from the signed callback. Customer cart Cash / Manual EFT / Peach is independent of
+subscription billing.
 Legacy subscription bank-details, proof-upload, plan-select, and proof-decision endpoints return
 `410 Gone`; authorized historical proof-file reads are retained.
 
