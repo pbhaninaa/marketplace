@@ -4,7 +4,6 @@ import com.agrimarket.api.error.ApiException;
 import com.agrimarket.domain.SubscriptionPlan;
 import com.agrimarket.security.MarketUserPrincipal;
 import com.agrimarket.service.SubscriptionService;
-import java.time.Instant;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -44,8 +43,7 @@ public class ProviderSubscriptionGateInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        var active = subscriptionService.currentActive(p.getProviderId()).orElse(null);
-        boolean valid = active != null && active.getExpiresAt() != null && active.getExpiresAt().isAfter(Instant.now());
+        boolean valid = subscriptionService.hasActiveSubscription(p.getProviderId());
         if (!valid) {
             throw new ApiException(
                     HttpStatus.PAYMENT_REQUIRED,
@@ -53,9 +51,12 @@ public class ProviderSubscriptionGateInterceptor implements HandlerInterceptor {
                     "Subscription required. Please choose a plan to continue.");
         }
 
-        // Plan feature gate (Premium-only provider tools).
+        // Plan feature gate (Premium-only provider tools). Trial grants Basic-level access only.
         if (requiresPremium(uri)) {
-            SubscriptionPlan plan = active.getPlan() == null ? SubscriptionPlan.BASIC : active.getPlan();
+            var active = subscriptionService.currentActive(p.getProviderId()).orElse(null);
+            SubscriptionPlan plan = active == null || active.getPlan() == null
+                    ? SubscriptionPlan.BASIC
+                    : active.getPlan();
             if (plan != SubscriptionPlan.PREMIUM) {
                 throw new ApiException(
                         HttpStatus.PAYMENT_REQUIRED,
@@ -72,4 +73,3 @@ public class ProviderSubscriptionGateInterceptor implements HandlerInterceptor {
         return uri.startsWith("/api/provider/me/staff");
     }
 }
-

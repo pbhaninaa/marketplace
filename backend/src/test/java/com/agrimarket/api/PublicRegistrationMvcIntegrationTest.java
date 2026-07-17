@@ -57,7 +57,7 @@ class PublicRegistrationMvcIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void registerProvider_afterFirstAdmin_returnsCreated_withoutActiveSubscription() throws Exception {
+    void registerProvider_afterFirstAdmin_returnsCreated_withFreeTrial_withoutPaidSubscription() throws Exception {
         String adminEmail = "platform-admin-" + UUID.randomUUID() + "@integration.test";
         mockMvc.perform(post("/api/public/first-admin")
                         .contentType(APPLICATION_JSON)
@@ -80,6 +80,11 @@ class PublicRegistrationMvcIntegrationTest extends AbstractIntegrationTest {
         assertThat(owner.getProvider()).isNotNull();
         assertThat(subscriptionRepository.findTopByProviderIdOrderByCreatedAtDesc(owner.getProvider().getId()))
                 .isEmpty();
+        var provider = owner.getProvider();
+        assertThat(provider.getTrialStartedAt()).isNotNull();
+        assertThat(provider.getTrialEndsAt()).isNotNull();
+        assertThat(provider.getTrialEndsAt()).isAfter(provider.getTrialStartedAt());
+        assertThat(provider.getStatus()).isEqualTo(com.agrimarket.domain.ProviderStatus.ACTIVE);
     }
 
     @Test

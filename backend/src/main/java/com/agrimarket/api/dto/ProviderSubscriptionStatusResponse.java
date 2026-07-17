@@ -13,5 +13,8 @@ public record ProviderSubscriptionStatusResponse(
         SubscriptionStatus status,
         Instant expiresAt,
         BigDecimal amountDue,
-        String paymentReference) {}
-
+        String paymentReference,
+        boolean onTrial,
+        Instant trialStartedAt,
+        Instant trialEndsAt,
+        long trialDaysRemaining) {}
