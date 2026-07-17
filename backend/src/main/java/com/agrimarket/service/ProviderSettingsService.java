@@ -70,7 +70,14 @@ public class ProviderSettingsService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "PAYMENT_METHODS_REQUIRED",
-                    "Select at least one payment method (EFT and/or CASH).");
+                    "Select at least one payment method (Cash and/or Peach).");
+        }
+        if (req.acceptedPaymentMethods().contains(PaymentMethod.EFT)
+                || req.acceptedPaymentMethods().contains(PaymentMethod.BOTH)) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "PAYMENT_METHOD",
+                    "Manual EFT is no longer available. Select Cash and/or Peach.");
         }
         Set<PaymentMethod> accepted = PaymentMethod.normalizeAccepted(req.acceptedPaymentMethods());
         // Persist only selectable methods (never BOTH)
@@ -84,11 +91,7 @@ public class ProviderSettingsService {
             throw new ApiException(
                     HttpStatus.BAD_REQUEST,
                     "PAYMENT_METHODS_REQUIRED",
-                    "Select at least one payment method (EFT and/or CASH).");
-        }
-        if (toStore.contains(PaymentMethod.EFT)
-                && (blankToNull(req.bankAccountNumber()) == null && blankToNull(p.getBankAccountNumber()) == null)) {
-            // soft warning not hard fail — bank may already be on provider from earlier fields set above
+                    "Select at least one payment method (Cash and/or Peach).");
         }
         p.setAcceptedPaymentMethods(toStore);
 

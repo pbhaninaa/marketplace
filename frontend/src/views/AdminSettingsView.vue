@@ -164,7 +164,11 @@ async function downloadStaffInvoice() {
         </FormField>
       </div>
 
-      <h2 class="mt">Admin banking details (EFT)</h2>
+      <h2 class="mt">Admin banking details (legacy)</h2>
+      <p class="muted small">
+        Kept for historical reference. New provider subscriptions are paid online via Peach — manual EFT + proof is
+        disabled.
+      </p>
       <div class="grid grid--2">
         <FormField label="Bank name">
           <input v-model="form.bankName" type="text" />
