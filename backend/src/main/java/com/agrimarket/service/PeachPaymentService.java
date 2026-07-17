@@ -328,7 +328,7 @@ public class PeachPaymentService {
         intent.setUsed(true);
         intentRepository.save(intent);
 
-        subscriptionService.approveSubscription(sub);
+        subscriptionService.activateFromVerifiedPeachCallback(sub);
         try {
             appNotificationService.notifySubscriptionDecision(provider, true, "Paid via Peach online checkout");
         } catch (Exception ignored) {

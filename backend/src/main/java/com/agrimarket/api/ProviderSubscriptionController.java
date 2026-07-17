@@ -3,21 +3,16 @@ package com.agrimarket.api;
 import com.agrimarket.api.dto.PeachCheckoutResponse;
 import com.agrimarket.api.dto.PeachSubscriptionCheckoutRequest;
 import com.agrimarket.api.dto.ProviderSubscriptionStatusResponse;
-import com.agrimarket.api.dto.BankDetailsResponse;
-import com.agrimarket.api.dto.SelectSubscriptionRequest;
 import com.agrimarket.api.dto.SubscriptionQuoteResponse;
-import com.agrimarket.api.dto.UploadProofResponse;
+import com.agrimarket.api.error.ApiException;
 import com.agrimarket.security.MarketUserPrincipal;
 import com.agrimarket.service.PeachPaymentService;
-import com.agrimarket.service.SubscriptionPaymentProofService;
 import com.agrimarket.service.SubscriptionQuoteService;
 import com.agrimarket.service.SubscriptionService;
 import com.agrimarket.service.TenantAccess;
-import com.agrimarket.service.PlatformSettingsService;
-import jakarta.validation.Valid;
-import java.time.Instant;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -25,7 +20,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.multipart.MultipartFile;
 import com.agrimarket.domain.SubscriptionPlan;
 
 @RestController
@@ -34,9 +28,7 @@ import com.agrimarket.domain.SubscriptionPlan;
 public class ProviderSubscriptionController {
 
     private final SubscriptionService subscriptionService;
-    private final SubscriptionPaymentProofService proofService;
     private final SubscriptionQuoteService quoteService;
-    private final PlatformSettingsService platformSettingsService;
     private final PeachPaymentService peachPaymentService;
 
     @GetMapping("/status")
@@ -58,15 +50,9 @@ public class ProviderSubscriptionController {
     }
 
     @GetMapping("/bank-details")
-    public BankDetailsResponse bankDetails(@AuthenticationPrincipal MarketUserPrincipal user) {
+    public void bankDetails(@AuthenticationPrincipal MarketUserPrincipal user) {
         TenantAccess.requireProviderUser(user);
-        var s = platformSettingsService.getOrCreate();
-        return new BankDetailsResponse(
-                s.getBankName(),
-                s.getAccountName(),
-                s.getAccountNumber(),
-                s.getBranchCode(),
-                s.getReferenceHint());
+        throw retiredManualPaymentRoute();
     }
 
     @GetMapping("/peach-configured")
@@ -84,13 +70,9 @@ public class ProviderSubscriptionController {
     }
 
     @PostMapping("/proof")
-    public UploadProofResponse uploadProof(
-            @AuthenticationPrincipal MarketUserPrincipal user,
-            @RequestParam("intentId") Long intentId,
-            @RequestParam("file") MultipartFile file) {
+    public void uploadProof(@AuthenticationPrincipal MarketUserPrincipal user) {
         TenantAccess.requireProviderUser(user);
-        var proof = proofService.upload(user.getProviderId(), intentId, file);
-        return new UploadProofResponse(proof.getId(), proof.getStatus(), proof.getCreatedAt());
+        throw retiredManualPaymentRoute();
     }
 
     @GetMapping("/quote")
@@ -112,21 +94,16 @@ public class ProviderSubscriptionController {
     }
 
     @PostMapping("/select")
-    public ProviderSubscriptionStatusResponse select(
-            @AuthenticationPrincipal MarketUserPrincipal user, @Valid @RequestBody SelectSubscriptionRequest req) {
+    public void select(@AuthenticationPrincipal MarketUserPrincipal user) {
         TenantAccess.requireProviderUser(user);
-        var s = subscriptionService.selectPlan(user.getProviderId(), req.plan(), req.billingCycle());
-        boolean valid = s.getStatus() == com.agrimarket.domain.SubscriptionStatus.ACTIVE
-                && s.getExpiresAt() != null
-                && s.getExpiresAt().isAfter(Instant.now());
-        return new ProviderSubscriptionStatusResponse(
-                valid,
-                s.getPlan(),
-                s.getBillingCycle(),
-                s.getStatus(),
-                s.getExpiresAt(),
-                s.getAmountDue(),
-                s.getPaymentReference());
+        throw retiredManualPaymentRoute();
+    }
+
+    private static ApiException retiredManualPaymentRoute() {
+        return new ApiException(
+                HttpStatus.GONE,
+                "SUBSCRIPTION_PAYMENT_RETIRED",
+                "Provider subscriptions must be paid through Peach Hosted Checkout.");
     }
 }
 
