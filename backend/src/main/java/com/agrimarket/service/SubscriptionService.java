@@ -9,6 +9,7 @@ import com.agrimarket.domain.SubscriptionPlan;
 import com.agrimarket.domain.SubscriptionStatus;
 import com.agrimarket.repo.ProviderRepository;
 import com.agrimarket.repo.SubscriptionRepository;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -25,18 +26,22 @@ public class SubscriptionService {
     private final SubscriptionRepository subscriptionRepository;
     private final ProviderRepository providerRepository;
     private final SubscriptionUsageBilling usageBilling;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public boolean hasActiveSubscription(Long providerId) {
-        return !subscriptionRepository
-                .findActiveForProviderOrderByExpiresAtDesc(providerId, SubscriptionStatus.ACTIVE, Instant.now())
-                .isEmpty();
+        Instant now = Instant.now(clock);
+        if (hasPaidActiveSubscription(providerId, now)) {
+            return true;
+        }
+        return providerRepository.findById(providerId).map(p -> ProviderTrialSupport.isOnTrial(p, now)).orElse(false);
     }
 
     @Transactional(readOnly = true)
     public Optional<Subscription> currentActive(Long providerId) {
+        Instant now = Instant.now(clock);
         return subscriptionRepository
-                .findActiveForProviderOrderByExpiresAtDesc(providerId, SubscriptionStatus.ACTIVE, Instant.now())
+                .findActiveForProviderOrderByExpiresAtDesc(providerId, SubscriptionStatus.ACTIVE, now)
                 .stream()
                 .findFirst();
     }
@@ -47,27 +52,41 @@ public class SubscriptionService {
     }
 
     /**
-     * Status for UI + gates: prefer a non-expired ACTIVE row; otherwise fall back to the latest row
-     * (e.g. pending verification).
+     * Status for UI + gates: prefer a non-expired ACTIVE paid row; otherwise a live free trial;
+     * otherwise fall back to the latest subscription row (e.g. pending verification).
      */
     @Transactional(readOnly = true)
     public SubscriptionStatusSnapshot resolveStatusSnapshot(Long providerId) {
+        Instant now = Instant.now(clock);
+        Provider provider = providerRepository.findById(providerId).orElse(null);
+
         Optional<Subscription> active = currentActive(providerId);
         if (active.isPresent()) {
-            return new SubscriptionStatusSnapshot(true, active.get());
+            return paidSnapshot(true, active.get(), provider, now);
         }
+
+        if (ProviderTrialSupport.isOnTrial(provider, now)) {
+            return trialSnapshot(provider, now);
+        }
+
         Optional<Subscription> latest = currentLatest(providerId);
         if (latest.isEmpty()) {
-            return new SubscriptionStatusSnapshot(false, null);
+            return emptySnapshot(provider, now);
         }
         Subscription cur = latest.get();
         boolean valid = cur.getStatus() == SubscriptionStatus.ACTIVE
                 && cur.getExpiresAt() != null
-                && cur.getExpiresAt().isAfter(Instant.now());
-        return new SubscriptionStatusSnapshot(valid, cur);
+                && cur.getExpiresAt().isAfter(now);
+        return paidSnapshot(valid, cur, provider, now);
     }
 
-    public record SubscriptionStatusSnapshot(boolean valid, Subscription subscription) {}
+    public record SubscriptionStatusSnapshot(
+            boolean valid,
+            Subscription subscription,
+            boolean onTrial,
+            Instant trialStartedAt,
+            Instant trialEndsAt,
+            long trialDaysRemaining) {}
 
     @Transactional
     public Subscription selectPlan(Long providerId, SubscriptionPlan plan, BillingCycle billingCycle) {
@@ -78,9 +97,10 @@ public class SubscriptionService {
                 .findById(providerId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PROVIDER", "Provider not found"));
 
+        Instant now = Instant.now(clock);
         // Cancel any existing active rows (keep history).
         subscriptionRepository
-                .findActiveForProviderOrderByExpiresAtDesc(providerId, SubscriptionStatus.ACTIVE, Instant.now())
+                .findActiveForProviderOrderByExpiresAtDesc(providerId, SubscriptionStatus.ACTIVE, now)
                 .forEach(existing -> existing.setStatus(SubscriptionStatus.CANCELLED));
 
         Subscription s = new Subscription();
@@ -89,7 +109,6 @@ public class SubscriptionService {
         s.setBillingCycle(billingCycle);
         s.setStatus(SubscriptionStatus.PENDING_VERIFICATION);
 
-        Instant now = Instant.now();
         // Column is non-null in DB; treat as the end of the current billing cycle even before approval.
         s.setExpiresAt(now.plus(30, ChronoUnit.DAYS));
         s.setCreatedAt(now);
@@ -112,7 +131,7 @@ public class SubscriptionService {
         if (s.getStatus() != SubscriptionStatus.PENDING_VERIFICATION) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "SUBSCRIPTION", "Subscription is not pending verification");
         }
-        Instant now = Instant.now();
+        Instant now = Instant.now(clock);
         Instant exp = s.getBillingCycle() == BillingCycle.YEARLY
                 ? now.plus(365, ChronoUnit.DAYS)
                 : now.plus(30, ChronoUnit.DAYS);
@@ -120,6 +139,46 @@ public class SubscriptionService {
         s.setExpiresAt(exp);
         activateProviderForMarketplace(s.getProvider());
         return subscriptionRepository.save(s);
+    }
+
+    private boolean hasPaidActiveSubscription(Long providerId, Instant now) {
+        return !subscriptionRepository
+                .findActiveForProviderOrderByExpiresAtDesc(providerId, SubscriptionStatus.ACTIVE, now)
+                .isEmpty();
+    }
+
+    private SubscriptionStatusSnapshot paidSnapshot(
+            boolean valid, Subscription subscription, Provider provider, Instant now) {
+        Instant trialStart = provider != null ? provider.getTrialStartedAt() : null;
+        Instant trialEnd = provider != null ? provider.getTrialEndsAt() : null;
+        boolean onTrial = ProviderTrialSupport.isOnTrial(provider, now);
+        long days = ProviderTrialSupport.trialDaysRemaining(now, trialEnd);
+        // Paid entitlement wins for gates; trial flags remain informative for UI history.
+        return new SubscriptionStatusSnapshot(valid, subscription, onTrial && !valid, trialStart, trialEnd, days);
+    }
+
+    private SubscriptionStatusSnapshot trialSnapshot(Provider provider, Instant now) {
+        Instant trialStart = provider.getTrialStartedAt();
+        Instant trialEnd = provider.getTrialEndsAt();
+        return new SubscriptionStatusSnapshot(
+                true,
+                null,
+                true,
+                trialStart,
+                trialEnd,
+                ProviderTrialSupport.trialDaysRemaining(now, trialEnd));
+    }
+
+    private SubscriptionStatusSnapshot emptySnapshot(Provider provider, Instant now) {
+        Instant trialStart = provider != null ? provider.getTrialStartedAt() : null;
+        Instant trialEnd = provider != null ? provider.getTrialEndsAt() : null;
+        return new SubscriptionStatusSnapshot(
+                false,
+                null,
+                false,
+                trialStart,
+                trialEnd,
+                ProviderTrialSupport.trialDaysRemaining(now, trialEnd));
     }
 
     private void activateProviderForMarketplace(Provider provider) {
