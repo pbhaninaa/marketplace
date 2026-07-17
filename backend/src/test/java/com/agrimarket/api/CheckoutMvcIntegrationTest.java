@@ -8,10 +8,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.agrimarket.AbstractIntegrationTest;
 import com.agrimarket.domain.Category;
 import com.agrimarket.domain.Listing;
+import com.agrimarket.domain.PaymentMethod;
 import com.agrimarket.domain.Provider;
+import com.agrimarket.repo.ProviderRepository;
 import com.agrimarket.support.TestFixtures;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -30,6 +33,9 @@ class CheckoutMvcIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private TestFixtures fixtures;
+
+    @Autowired
+    private ProviderRepository providerRepository;
 
     private String sessionId;
     private Listing listing;
@@ -65,7 +71,7 @@ class CheckoutMvcIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void guestCheckout_rejectsLegacyManualEft() throws Exception {
+    void guestCheckout_rejectsManualEftWithoutBankDetails() throws Exception {
         addItemToCart();
         Map<String, Object> body = checkoutBody("EFT");
 
@@ -74,7 +80,29 @@ class CheckoutMvcIntegrationTest extends AbstractIntegrationTest {
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(body)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value("PAYMENT_METHOD"));
+                .andExpect(jsonPath("$.code").value("BANK_DETAILS"));
+    }
+
+    @Test
+    void guestCheckout_acceptsManualEftWhenProviderHasBankDetails() throws Exception {
+        Provider provider = listing.getProvider();
+        provider.setAcceptedPaymentMethods(EnumSet.of(PaymentMethod.EFT, PaymentMethod.CASH));
+        provider.setBankName("Test Bank");
+        provider.setBankAccountName("Checkout Co");
+        provider.setBankAccountNumber("1234567890");
+        provider.setBankBranchCode("250655");
+        providerRepository.save(provider);
+
+        addItemToCart();
+        Map<String, Object> body = checkoutBody("EFT");
+
+        mockMvc.perform(post("/api/public/cart/checkout")
+                        .header("X-Session-Id", sessionId)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.purchaseOrderIds").isArray())
+                .andExpect(jsonPath("$.providerId").value(listing.getProvider().getId().intValue()));
     }
 
     @Test

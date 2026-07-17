@@ -11,7 +11,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 class PaymentMethodDataMigrationTest {
 
     @Test
-    void normalizesLegacyProviderMethodsAndHistoricalCardIdempotently() throws Exception {
+    void expandsBothKeepsEftAndMapsCardIdempotently() throws Exception {
         DriverManagerDataSource dataSource =
                 new DriverManagerDataSource("jdbc:h2:mem:payment_migration;DB_CLOSE_DELAY=-1", "sa", "");
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
@@ -33,7 +33,7 @@ class PaymentMethodDataMigrationTest {
                         + "ORDER BY provider_id, payment_method");
         assertThat(providerMethods)
                 .extracting(row -> row.get("PAYMENT_METHOD"))
-                .containsExactly("CASH", "PEACH", "PEACH", "CASH", "PEACH");
+                .containsExactly("CASH", "EFT", "EFT", "CASH", "PEACH");
         assertThat(jdbc.queryForObject("SELECT method FROM payments WHERE id = 1", String.class))
                 .isEqualTo("PEACH");
         assertThat(jdbc.queryForObject("SELECT method FROM payments WHERE id = 2", String.class))

@@ -4,18 +4,23 @@ import {
   peachPaymentPayload,
 } from '../src/utils/paymentModel';
 
-describe('WheelHub payment model', () => {
-  it('normalizes historical manual EFT settings to Peach', () => {
-    expect(normalizeAcceptedPaymentMethods(['EFT'])).toEqual(['PEACH']);
-    expect(normalizeAcceptedPaymentMethods(['BOTH'])).toEqual(['CASH', 'PEACH']);
+describe('payment model', () => {
+  it('keeps manual EFT and expands legacy BOTH to Cash + Manual EFT', () => {
+    expect(normalizeAcceptedPaymentMethods(['EFT'])).toEqual(['EFT']);
+    expect(normalizeAcceptedPaymentMethods(['BOTH'])).toEqual(['CASH', 'EFT']);
   });
 
-  it('keeps only current top-level payment methods', () => {
-    expect(normalizeAcceptedPaymentMethods(['CASH', 'PEACH'])).toEqual(['CASH', 'PEACH']);
+  it('keeps current top-level payment methods', () => {
+    expect(normalizeAcceptedPaymentMethods(['CASH', 'EFT', 'PEACH'])).toEqual([
+      'CASH',
+      'EFT',
+      'PEACH',
+    ]);
   });
 
   it('sends a subtype only for Peach', () => {
     expect(peachPaymentPayload('PEACH', 'EFT')).toEqual({ peachPaymentMethod: 'EFT' });
     expect(peachPaymentPayload('CASH', 'CARD')).toEqual({});
+    expect(peachPaymentPayload('EFT', 'CARD')).toEqual({});
   });
 });
