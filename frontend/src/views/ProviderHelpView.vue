@@ -83,7 +83,7 @@ async function load() {
           <strong>Subscription required</strong>
           <p class="muted small">
             Your provider tools are locked until a subscription is active.
-            Go to <router-link to="/provider/subscription">Subscription</router-link> to select a plan and upload proof.
+            Go to <router-link to="/provider/subscription">Subscription</router-link> to select a plan and pay online with Peach.
           </p>
         </div>
 
@@ -128,8 +128,8 @@ async function load() {
           <details open>
             <summary>How do I activate or upgrade my plan?</summary>
             <p class="muted small">
-              Open <router-link to="/provider/subscription">Subscription</router-link>, choose a plan, then upload proof of payment.
-              If auto-verification fails, an admin will verify it manually.
+              Open <router-link to="/provider/subscription">Subscription</router-link>, choose a plan, then pay online
+              with Peach (card or instant EFT). Your plan activates automatically once payment succeeds.
             </p>
           </details>
           <details>

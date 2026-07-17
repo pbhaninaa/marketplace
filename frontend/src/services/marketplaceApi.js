@@ -61,6 +61,15 @@ export const publicCatalogApi = {
   },
 };
 
+export const publicPeachApi = {
+  configured() {
+    return api.get('/api/public/peach/configured');
+  },
+  status(ref) {
+    return api.get('/api/public/peach/status', { params: { ref } });
+  },
+};
+
 export const publicCartApi = {
   getCart(sessionId) {
     return api.get('/api/public/cart', withSession(sessionId));
@@ -250,6 +259,18 @@ export const providerSubscriptionApi = {
   },
   select(body) {
     return api.post('/api/provider/me/subscription/select', body);
+  },
+  peachConfigured() {
+    return api.get('/api/provider/me/subscription/peach-configured').catch((e) => {
+      if (e?.response?.status === 404) return { data: { configured: false } };
+      throw e;
+    });
+  },
+  peachCheckout(intentId, peachPaymentMethod) {
+    return api.post('/api/provider/me/subscription/peach-checkout', {
+      intentId,
+      peachPaymentMethod,
+    });
   },
 };
 

@@ -70,9 +70,32 @@ If `SPRING_DATASOURCE_*` is unset, UAT/PROD fall back to **`MYSQLHOST`**, **`MYS
 | Variable | Default |
 |----------|---------|
 | `UAT_PAYMENT_PROVIDER` | `stub` |
-| `APP_BANK_*` | Platform EFT details for subscriptions |
+| `APP_BANK_*` | Legacy platform banking details (not used by new subscription payments) |
 | `APP_SUBSCRIPTION_BASIC_MONTHLY` | `199` |
 | `APP_SUBSCRIPTION_PREMIUM_MONTHLY` | `499` |
+
+### Peach Payments Hosted Checkout V2 — optional, platform account only
+Single platform Peach merchant account (not per-provider). Client checkout exposes **Cash** and
+**Peach**. After selecting Peach, the client chooses **Card** or **Instant EFT**; Hosted Checkout is
+forced to that method (`CARD` or `PAYBYBANK`). Providers opt in to PEACH via **Provider → Settings →
+payment methods**. New subscriptions are paid through Peach and activate from the signed callback.
+
+| Variable | Notes |
+|----------|--------|
+| `PEACH_ENABLED` | `true` to expose the "Pay online" option. Default `false`. |
+| `PEACH_SANDBOX` | `true` for sandbox (`testsecure.peachpayments.com`), `false` for live. Default `true`. |
+| `PEACH_CLIENT_ID` / `PEACH_CLIENT_SECRET` / `PEACH_MERCHANT_ID` | OAuth credentials for `/api/oauth/token`. |
+| `PEACH_ENTITY_ID` | Checkout `authentication.entityId`. |
+| `PEACH_SECRET_TOKEN` | Required when enabled; verifies every webhook/return HMAC-SHA256 signature. |
+
+Webhook: `POST /api/public/peach/webhook`. Shopper return: `POST /api/public/peach/return`, which
+verifies/processes the callback and responds with a 303 to the frontend polling route. Forwarded
+headers are used to derive the public backend callback URLs; `PUBLIC_APP_BASE_URL` is the frontend
+origin and the required Checkout V2 `Referer`.
+
+In the Peach dashboard, allowlist the exact `PUBLIC_APP_BASE_URL` origin, register the public backend
+webhook domain, and activate both Card and Pay by Bank/Instant EFT for the entity. These are
+account-side steps; no database SQL is required during deployment.
 
 ---
 

@@ -13,10 +13,13 @@ public class DeployedProfileValidator {
 
     private final Environment environment;
     private final EmailProperties emailProperties;
+    private final PeachProperties peachProperties;
 
-    public DeployedProfileValidator(Environment environment, EmailProperties emailProperties) {
+    public DeployedProfileValidator(
+            Environment environment, EmailProperties emailProperties, PeachProperties peachProperties) {
         this.environment = environment;
         this.emailProperties = emailProperties;
+        this.peachProperties = peachProperties;
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -59,6 +62,12 @@ public class DeployedProfileValidator {
                 throw new IllegalStateException(
                         "EMAIL_DOMAIN must be a domain such as example.com (without a scheme, path, or @)");
             }
+        }
+
+        if (peachProperties.isEnabled() && !peachProperties.isConfigured()) {
+            throw new IllegalStateException(
+                    "PEACH_ENABLED=true requires PEACH_CLIENT_ID, PEACH_CLIENT_SECRET, "
+                            + "PEACH_MERCHANT_ID, PEACH_ENTITY_ID, and PEACH_SECRET_TOKEN");
         }
     }
 
