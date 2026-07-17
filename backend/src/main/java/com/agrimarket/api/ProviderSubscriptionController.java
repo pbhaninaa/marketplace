@@ -1,11 +1,14 @@
 package com.agrimarket.api;
 
+import com.agrimarket.api.dto.PeachCheckoutResponse;
+import com.agrimarket.api.dto.PeachSubscriptionCheckoutRequest;
 import com.agrimarket.api.dto.ProviderSubscriptionStatusResponse;
 import com.agrimarket.api.dto.BankDetailsResponse;
 import com.agrimarket.api.dto.SelectSubscriptionRequest;
 import com.agrimarket.api.dto.SubscriptionQuoteResponse;
 import com.agrimarket.api.dto.UploadProofResponse;
 import com.agrimarket.security.MarketUserPrincipal;
+import com.agrimarket.service.PeachPaymentService;
 import com.agrimarket.service.SubscriptionPaymentProofService;
 import com.agrimarket.service.SubscriptionQuoteService;
 import com.agrimarket.service.SubscriptionService;
@@ -13,6 +16,7 @@ import com.agrimarket.service.TenantAccess;
 import com.agrimarket.service.PlatformSettingsService;
 import jakarta.validation.Valid;
 import java.time.Instant;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,6 +37,7 @@ public class ProviderSubscriptionController {
     private final SubscriptionPaymentProofService proofService;
     private final SubscriptionQuoteService quoteService;
     private final PlatformSettingsService platformSettingsService;
+    private final PeachPaymentService peachPaymentService;
 
     @GetMapping("/status")
     public ProviderSubscriptionStatusResponse status(@AuthenticationPrincipal MarketUserPrincipal user) {
@@ -62,6 +67,20 @@ public class ProviderSubscriptionController {
                 s.getAccountNumber(),
                 s.getBranchCode(),
                 s.getReferenceHint());
+    }
+
+    @GetMapping("/peach-configured")
+    public Map<String, Boolean> peachConfigured() {
+        return Map.of("configured", peachPaymentService.isConfigured());
+    }
+
+    @PostMapping("/peach-checkout")
+    public PeachCheckoutResponse peachCheckout(
+            @AuthenticationPrincipal MarketUserPrincipal user,
+            @jakarta.validation.Valid @RequestBody PeachSubscriptionCheckoutRequest req) {
+        TenantAccess.requireProviderUser(user);
+        return peachPaymentService.initiateSubscriptionCheckout(
+                user.getProviderId(), req.intentId(), req.peachPaymentMethod());
     }
 
     @PostMapping("/proof")

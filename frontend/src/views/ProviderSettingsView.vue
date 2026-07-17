@@ -1,11 +1,12 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { providerSettingsApi } from '../services/marketplaceApi';
+import { providerSettingsApi, publicPeachApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import { isNonEmptyString, isPositiveNumber } from '../utils/validation';
 import { getCurrentLocation } from '../utils/getCurrentLocation';
+import { normalizeAcceptedPaymentMethods } from '../utils/paymentModel';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -13,6 +14,16 @@ const auth = useAuthStore();
 const loading = ref(true);
 const error = ref('');
 const message = ref('');
+const peachAvailable = ref(false);
+
+publicPeachApi
+  .configured()
+  .then((res) => {
+    peachAvailable.value = !!res?.data?.configured;
+  })
+  .catch(() => {
+    peachAvailable.value = false;
+  });
 
 /* ================= SWITCH (ADDED) ================= */
 const useCurrentLocation = ref(false);
@@ -55,7 +66,7 @@ const form = ref({
   bankAccountNumber: '',
   bankBranchCode: '',
   bankReference: '',
-  acceptedPaymentMethods: ['EFT', 'CASH'],
+  acceptedPaymentMethods: ['CASH'],
   deliveryAvailable: false,
   deliveryPricePerKm: '',
 });
@@ -84,9 +95,7 @@ async function load() {
       bankAccountNumber: data.bankAccountNumber || '',
       bankBranchCode: data.bankBranchCode || '',
       bankReference: data.bankReference || '',
-      acceptedPaymentMethods: data.acceptedPaymentMethods?.length
-        ? data.acceptedPaymentMethods
-        : ['EFT', 'CASH'],
+      acceptedPaymentMethods: normalizeAcceptedPaymentMethods(data.acceptedPaymentMethods),
       deliveryAvailable: data.deliveryAvailable || false,
       deliveryPricePerKm: data.deliveryPricePerKm || '',
     };
@@ -165,18 +174,20 @@ async function save() {
             <div class="payment-grid">
 
               <label class="check-card">
-                <input type="checkbox" :disabled="!canEdit" value="EFT" v-model="form.acceptedPaymentMethods" />
-                <span>EFT (bank transfer)</span>
-              </label>
-
-              <label class="check-card">
                 <input type="checkbox" :disabled="!canEdit" value="CASH" v-model="form.acceptedPaymentMethods" />
                 <span>Cash on collection / delivery</span>
               </label>
 
+              <label v-if="peachAvailable" class="check-card">
+                <input type="checkbox" :disabled="!canEdit" value="PEACH" v-model="form.acceptedPaymentMethods" />
+                <span>Pay online (card / instant EFT via Peach)</span>
+              </label>
+
             </div>
             <p class="muted small" style="margin-top: 0.5rem;">
-              Same as Wheel Hub: clients choose Cash or EFT at checkout. Subscriptions to the platform are always EFT + proof.
+              Clients choose Cash and/or online checkout (Peach). Manual bank EFT is disabled — Peach covers card and
+              instant EFT. Online payments use the platform Peach account and confirm automatically. Platform
+              subscriptions are paid online from the Subscription page.
             </p>
           </FormField>
         </section>
@@ -205,6 +216,10 @@ async function save() {
         <!-- BANKING -->
         <section class="card">
           <h2>🏦 Banking</h2>
+          <p class="muted small" style="margin-bottom: 0.75rem;">
+            Optional account details for your records. Clients no longer pay by manual bank EFT — they use Cash or
+            Peach (card / instant EFT).
+          </p>
 
           <FormField label="Bank name">
             <input v-model="form.bankName" :disabled="!canEdit" />

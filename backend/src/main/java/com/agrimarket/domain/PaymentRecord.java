@@ -53,6 +53,18 @@ public class PaymentRecord {
     @Column(nullable = false, precision = 14, scale = 2)
     private BigDecimal amount;
 
+    /** Peach checkoutId returned when the Hosted Checkout session was created. */
+    @Column(name = "gateway_checkout_id", length = 64)
+    private String gatewayCheckoutId;
+
+    /** Peach merchantTransactionId (8-16 chars) — shared across all payment records in one cart checkout. */
+    @Column(name = "gateway_merchant_ref", length = 32)
+    private String gatewayMerchantRef;
+
+    /** Latest Peach result code, retained so return-page polling can report cancellation/uncertainty. */
+    @Column(name = "gateway_result_code", length = 32)
+    private String gatewayResultCode;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 }

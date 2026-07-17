@@ -8,12 +8,12 @@ import com.agrimarket.domain.CartLine;
 import com.agrimarket.domain.CartSession;
 import com.agrimarket.domain.Listing;
 import com.agrimarket.domain.ListingType;
-import com.agrimarket.domain.CartLine;
 import com.agrimarket.domain.OrderStatus;
 import com.agrimarket.domain.PaymentRecord;
 import com.agrimarket.domain.PaymentStatus;
 import com.agrimarket.domain.Order;
 import com.agrimarket.domain.PaymentMethod;
+import com.agrimarket.domain.PeachPaymentMethod;
 import com.agrimarket.domain.RentalBooking;
 import com.agrimarket.repo.CartSessionRepository;
 import com.agrimarket.repo.ListingRepository;
@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,6 +49,7 @@ public class CheckoutService {
     private final ListingRepository listingRepository;
     private final VerificationCodeService verificationCodeService;
     private final AppNotificationService appNotificationService;
+    private final PeachPaymentService peachPaymentService;
 
     @Transactional
     public Map<String, Object> guestCheckout(String sessionKey, GuestCheckoutRequest req) {
@@ -76,14 +78,24 @@ public class CheckoutService {
                             + " payment. Accepted: "
                             + accepted.stream().map(PaymentMethod::name).sorted().toList());
         }
-        if (chosen == PaymentMethod.EFT) {
-            String acc = cart.getProvider().getBankAccountNumber();
-            if (acc == null || acc.isBlank()) {
-                throw new ApiException(
-                        HttpStatus.BAD_REQUEST,
-                        "BANK_DETAILS",
-                        "This provider accepts EFT but has not published bank details yet. Choose Cash or contact the provider.");
-            }
+        if (chosen == PaymentMethod.CASH && req.peachPaymentMethod() != null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "PEACH_PAYMENT_METHOD",
+                    "peachPaymentMethod is only valid when paymentMethod is PEACH.");
+        }
+        PeachPaymentMethod peachMethod = chosen == PaymentMethod.PEACH ? req.peachPaymentMethod() : null;
+        if (chosen == PaymentMethod.PEACH && peachMethod == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "PEACH_PAYMENT_METHOD",
+                    "Choose Card or Instant EFT.");
+        }
+        if (chosen == PaymentMethod.PEACH && !peachPaymentService.isConfigured()) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "PEACH_NOT_CONFIGURED",
+                    "Online payments are not available right now. Choose Cash.");
         }
 
         List<CartLine> lines = new ArrayList<>(cart.getLines());
@@ -202,6 +214,7 @@ public class CheckoutService {
 
         List<Order> createdOrders = new ArrayList<>();
         List<RentalBooking> createdRentals = new ArrayList<>();
+        List<PaymentRecord> createdPayments = new ArrayList<>();
 
         if (!saleLines.isEmpty()) {
             Order order = new Order();
@@ -240,6 +253,7 @@ public class CheckoutService {
             pay.setAmount(order.getTotalAmount());
             pay.setStatus(com.agrimarket.domain.PaymentRecordStatus.PENDING_PAYMENT);
             paymentRecordRepository.save(pay);
+            createdPayments.add(pay);
         }
 
         for (CartLine line : rentLines) {
@@ -272,12 +286,25 @@ public class CheckoutService {
             pay.setAmount(b.getTotalAmount());
             pay.setStatus(com.agrimarket.domain.PaymentRecordStatus.PENDING_PAYMENT);
             paymentRecordRepository.save(pay);
+            createdPayments.add(pay);
         }
 
         cart.getLines().clear();
         cart.setProvider(null);
         cart.setUpdatedAt(java.time.Instant.now());
         cartSessionRepository.save(cart);
+
+        // Online checkout: create the Peach Hosted Checkout session covering all payment records
+        // from this cart before returning — the whole checkout rolls back if this fails.
+        String peachRedirectUrl = null;
+        String peachCheckoutId = null;
+        String peachMerchantRef = null;
+        if (chosen == PaymentMethod.PEACH) {
+            var checkout = peachPaymentService.initiateCartCheckout(createdPayments, peachMethod);
+            peachRedirectUrl = checkout.redirectUrl();
+            peachCheckoutId = checkout.checkoutId();
+            peachMerchantRef = checkout.merchantTransactionId();
+        }
 
         // Unified channels: in-app + email + SMS (Wheel Hub fan-out).
         try {
@@ -294,13 +321,19 @@ public class CheckoutService {
         }
 
         // Backward-compatible response keys (older clients/tests used OrderIds/bookingIds)
-        return Map.of(
-                "purchaseOrderIds", orderIds,
-                "OrderIds", orderIds,
-                "rentalBookingIds", bookingIds,
-                "bookingIds", bookingIds,
-                "providerId", providerId,
-                "verificationCodes", verificationCodes);
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("purchaseOrderIds", orderIds);
+        response.put("OrderIds", orderIds);
+        response.put("rentalBookingIds", bookingIds);
+        response.put("bookingIds", bookingIds);
+        response.put("providerId", providerId);
+        response.put("verificationCodes", verificationCodes);
+        if (peachRedirectUrl != null) {
+            response.put("redirectUrl", peachRedirectUrl);
+            response.put("peachCheckoutId", peachCheckoutId);
+            response.put("peachRef", peachMerchantRef);
+        }
+        return response;
     }
 
     /**

@@ -48,7 +48,7 @@ EMAIL_FROM=no-reply@yourdomain.com
 PROD_PAYMENT_PROVIDER=stub
 # UAT_PAYMENT_PROVIDER=stub
 
-# --- Platform bank details for provider subscription EFT (recommended) ---
+# --- Platform bank details (legacy / historical; manual subscription EFT is disabled) ---
 APP_BANK_NAME=
 APP_BANK_ACCOUNT_NAME=
 APP_BANK_ACCOUNT_NUMBER=
@@ -66,6 +66,21 @@ APP_SMS_ENABLED=false
 # TWILIO_FROM_NUMBER=
 # TWILIO_MESSAGING_SERVICE_SID=
 # APP_PHONE_COUNTRY_CODE=+27
+
+# --- Peach Payments Hosted Checkout V2 (optional; platform merchant account only) ---
+# Leave PEACH_ENABLED=false (or unset) to keep online checkout hidden — clients get CASH only (manual EFT disabled).
+PEACH_ENABLED=false
+# Sandbox: https://sandbox-dashboard.peachpayments.com/api/oauth/token + testsecure.peachpayments.com
+# Live:    https://dashboard.peachpayments.com/api/oauth/token + secure.peachpayments.com
+PEACH_SANDBOX=true
+# PEACH_CLIENT_ID=
+# PEACH_CLIENT_SECRET=
+# PEACH_MERCHANT_ID=
+# PEACH_ENTITY_ID=
+# Required when enabled: Checkout secret token used to verify every notification/return payload.
+# PEACH_SECRET_TOKEN=
+# Peach dashboard: allowlist PUBLIC_APP_BASE_URL as the Checkout Referer, register this backend's
+# public /api/public/peach/webhook URL, and activate CARD plus PAYBYBANK for the entity.
 
 # =============================================================================
 # 3) VERCEL — Frontend
