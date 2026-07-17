@@ -36,17 +36,47 @@ public class ProviderSubscriptionController {
         TenantAccess.requireProviderUser(user);
         var snapshot = subscriptionService.resolveStatusSnapshot(user.getProviderId());
         var cur = snapshot.subscription();
+        if (cur == null && !snapshot.onTrial()) {
+            return new ProviderSubscriptionStatusResponse(
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    false,
+                    snapshot.trialStartedAt(),
+                    snapshot.trialEndsAt(),
+                    snapshot.trialDaysRemaining());
+        }
         if (cur == null) {
-            return new ProviderSubscriptionStatusResponse(false, null, null, null, null, null, null);
+            // Live free trial with no paid subscription row yet.
+            return new ProviderSubscriptionStatusResponse(
+                    true,
+                    null,
+                    null,
+                    null,
+                    snapshot.trialEndsAt(),
+                    null,
+                    null,
+                    true,
+                    snapshot.trialStartedAt(),
+                    snapshot.trialEndsAt(),
+                    snapshot.trialDaysRemaining());
         }
         return new ProviderSubscriptionStatusResponse(
                 snapshot.valid(),
                 cur.getPlan(),
                 cur.getBillingCycle(),
                 cur.getStatus(),
-                cur.getExpiresAt(),
+                snapshot.onTrial() ? snapshot.trialEndsAt() : cur.getExpiresAt(),
                 cur.getAmountDue(),
-                cur.getPaymentReference());
+                cur.getPaymentReference(),
+                snapshot.onTrial(),
+                snapshot.trialStartedAt(),
+                snapshot.trialEndsAt(),
+                snapshot.trialDaysRemaining());
     }
 
     @GetMapping("/bank-details")
@@ -106,4 +136,3 @@ public class ProviderSubscriptionController {
                 "Provider subscriptions must be paid through Peach Hosted Checkout.");
     }
 }
-

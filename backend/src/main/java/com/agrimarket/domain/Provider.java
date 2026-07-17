@@ -79,6 +79,16 @@ public class Provider {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 
+    /**
+     * One-time free-trial window. Set once at registration (or deterministic backfill) and never
+     * reset on login/profile edits.
+     */
+    @Column(name = "trial_started_at")
+    private Instant trialStartedAt;
+
+    @Column(name = "trial_ends_at")
+    private Instant trialEndsAt;
+
     public Provider(String name, String slug, String description, String location) {
         this.name = name;
         this.slug = slug;

@@ -32,8 +32,30 @@ const selectForm = ref({
 });
 
 const isValid = computed(() => !!status.value?.valid);
+const isOnTrial = computed(() => !!status.value?.onTrial);
+const trialDaysLeft = computed(() => {
+  const n = Number(status.value?.trialDaysRemaining);
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+});
 const isPending = computed(() => status.value?.status === 'PENDING_VERIFICATION');
 const isRejected = computed(() => status.value?.status === 'REJECTED');
+const statusLabel = computed(() => {
+  if (isOnTrial.value) return 'Free Trial';
+  if (isValid.value) return 'Active';
+  if (isPending.value) return 'Pending verification';
+  if (isRejected.value) return 'Rejected';
+  return 'Not active';
+});
+const planLabel = computed(() => {
+  if (isOnTrial.value && !status.value?.plan) return 'Free Trial';
+  return status.value?.plan || '—';
+});
+const expiresLabel = computed(() => {
+  const raw = isOnTrial.value
+    ? status.value?.trialEndsAt || status.value?.expiresAt
+    : status.value?.expiresAt;
+  return raw ? String(raw).slice(0, 19) : '—';
+});
 
 const amountLabel = computed(() => {
   const n = status.value?.amountDue;
@@ -216,8 +238,8 @@ function initPaymentFields() {
       <p class="page-hero__eyebrow">Provider</p>
       <h1 class="page-hero__title">Subscription</h1>
       <p class="page-hero__lead">
-        Choose a plan first to unlock your merchant workspace. Pay online with Peach (card or instant EFT).
-        Monthly access runs for 30 days from payment, then lapses until you renew.
+        New providers get a one-time 30-day free trial with no plan payment. After the trial, activate a plan with
+        Peach (card or instant EFT). Monthly paid access runs for 30 days from payment, then lapses until you renew.
       </p>
     </header>
 
@@ -230,26 +252,29 @@ function initPaymentFields() {
         <div class="sub-status">
           <div class="sub-status__card">
             <span class="muted small">Current plan</span>
-            <strong>{{ status?.plan || '—' }}</strong>
+            <strong>{{ planLabel }}</strong>
           </div>
           <div class="sub-status__card">
             <span class="muted small">Billing cycle</span>
-            <strong>MONTHLY</strong>
+            <strong>{{ isOnTrial ? '—' : 'MONTHLY' }}</strong>
           </div>
           <div class="sub-status__card">
             <span class="muted small">Status</span>
-            <strong>
-              <span v-if="isValid">Active</span>
-              <span v-else-if="isPending">Pending verification</span>
-              <span v-else-if="isRejected">Rejected</span>
-              <span v-else>Not active</span>
-            </strong>
+            <strong>{{ statusLabel }}</strong>
           </div>
           <div class="sub-status__card">
-            <span class="muted small">Expires</span>
-            <strong>{{ status?.expiresAt ? String(status.expiresAt).slice(0, 19) : '—' }}</strong>
+            <span class="muted small">{{ isOnTrial ? 'Trial ends' : 'Expires' }}</span>
+            <strong>{{ expiresLabel }}</strong>
           </div>
         </div>
+        <p v-if="isOnTrial" class="trial-banner">
+          Free Trial — {{ trialDaysLeft }} day{{ trialDaysLeft === 1 ? '' : 's' }} remaining.
+          You can use your merchant workspace now; choose a Peach-paid plan before the trial ends to stay online.
+        </p>
+        <p v-else-if="!isValid" class="trial-banner trial-banner--expired">
+          Your free trial has ended. Activate Basic or Premium with Peach (Card or Instant EFT) to continue.
+          Cash and manual EFT are not available for subscriptions.
+        </p>
         <div class="sub-actions">
           <button type="button" class="btn btn-ghost" @click="load">Refresh</button>
           <button v-if="isValid" type="button" class="btn btn-primary" @click="continueAfterSubscription">Continue
@@ -258,7 +283,10 @@ function initPaymentFields() {
       </section>
 
       <section class="surface-panel sub-panel">
-        <h2>Choose your plan</h2>
+        <h2>{{ isOnTrial ? 'Upgrade to a paid plan' : 'Choose your plan' }}</h2>
+        <p v-if="isOnTrial" class="muted small">
+          Optional during your trial. After expiry, Peach payment is required.
+        </p>
         <div class="sub-grid">
           <label class="plan-card" :class="{ 'plan-card--selected': selectForm.plan === 'BASIC' }">
             <input v-model="selectForm.plan" type="radio" value="BASIC" />
@@ -368,6 +396,20 @@ function initPaymentFields() {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.75rem;
+}
+
+.trial-banner {
+  margin: 0.85rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(61, 122, 102, 0.1);
+  color: var(--color-text);
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.trial-banner--expired {
+  background: rgba(180, 83, 9, 0.12);
 }
 
 .sub-status__card {

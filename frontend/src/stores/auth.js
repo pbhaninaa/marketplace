@@ -10,6 +10,8 @@ const PROVIDER_KEY = 'agri_provider_id';
 const SHADOW_BACKUP_KEY = 'agri_shadow_backup';
 const PROVIDER_PLAN_KEY = 'agri_provider_plan';
 const PROVIDER_SUB_VALID_KEY = 'agri_provider_sub_valid';
+const PROVIDER_ON_TRIAL_KEY = 'agri_provider_on_trial';
+const PROVIDER_TRIAL_DAYS_KEY = 'agri_provider_trial_days';
 
 export const useAuthStore = defineStore('auth', () => {
   const token = ref(localStorage.getItem(TOKEN_KEY) || '');
@@ -19,6 +21,8 @@ export const useAuthStore = defineStore('auth', () => {
   const providerId = ref(localStorage.getItem(PROVIDER_KEY) || '');
   const providerPlan = ref(localStorage.getItem(PROVIDER_PLAN_KEY) || '');
   const providerSubValid = ref(localStorage.getItem(PROVIDER_SUB_VALID_KEY) === 'true');
+  const providerOnTrial = ref(localStorage.getItem(PROVIDER_ON_TRIAL_KEY) === 'true');
+  const providerTrialDaysRemaining = ref(Number(localStorage.getItem(PROVIDER_TRIAL_DAYS_KEY) || 0));
 
   const displayLabel = computed(() => displayName.value?.trim() || email.value || '');
 
@@ -101,6 +105,8 @@ export const useAuthStore = defineStore('auth', () => {
     providerId.value = '';
     providerPlan.value = '';
     providerSubValid.value = false;
+    providerOnTrial.value = false;
+    providerTrialDaysRemaining.value = 0;
     try {
       localStorage.clear();
       sessionStorage.clear();
@@ -154,12 +160,17 @@ export const useAuthStore = defineStore('auth', () => {
     // status is from /api/provider/me/subscription/status
     providerPlan.value = status?.plan ? String(status.plan) : '';
     providerSubValid.value = !!status?.valid;
+    providerOnTrial.value = !!status?.onTrial;
+    const days = Number(status?.trialDaysRemaining);
+    providerTrialDaysRemaining.value = Number.isFinite(days) ? Math.max(0, days) : 0;
     if (providerPlan.value) {
       localStorage.setItem(PROVIDER_PLAN_KEY, providerPlan.value);
     } else {
       localStorage.removeItem(PROVIDER_PLAN_KEY);
     }
     localStorage.setItem(PROVIDER_SUB_VALID_KEY, providerSubValid.value ? 'true' : 'false');
+    localStorage.setItem(PROVIDER_ON_TRIAL_KEY, providerOnTrial.value ? 'true' : 'false');
+    localStorage.setItem(PROVIDER_TRIAL_DAYS_KEY, String(providerTrialDaysRemaining.value));
   }
 
   return {
@@ -171,6 +182,8 @@ export const useAuthStore = defineStore('auth', () => {
     providerId,
     providerPlan,
     providerSubValid,
+    providerOnTrial,
+    providerTrialDaysRemaining,
     isAuthenticated,
     isPlatformAdmin,
     isSupport,
