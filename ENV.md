@@ -78,6 +78,8 @@ Single platform Peach merchant account (not per-provider). Client checkout expos
 **Peach**. After selecting Peach, the client chooses **Card** or **Instant EFT**; Hosted Checkout is
 forced to that method (`CARD` or `PAYBYBANK`). Providers opt in to PEACH via **Provider → Settings →
 payment methods**. New subscriptions are paid through Peach and activate from the signed callback.
+Legacy subscription bank-details, proof-upload, plan-select, and proof-decision endpoints return
+`410 Gone`; authorized historical proof-file reads are retained.
 
 | Variable | Notes |
 |----------|--------|

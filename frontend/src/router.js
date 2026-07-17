@@ -19,7 +19,6 @@ import AdminProviderSupportView from './views/AdminProviderSupportView.vue';
 import AdminSupportUsersView from './views/AdminSupportUsersView.vue';
 import AdminPasswordView from './views/AdminPasswordView.vue';
 import AdminSettingsView from './views/AdminSettingsView.vue';
-import AdminManualVerificationsView from './views/AdminManualVerificationsView.vue';
 import OrderInvoiceLookupView from './views/OrderInvoiceLookupView.vue';
 import SupportDashboardView from './views/SupportDashboardView.vue';
 import SupportUsersView from './views/SupportUsersView.vue';
@@ -61,7 +60,6 @@ const router = createRouter({
     { path: '/admin/users', name: 'admin-users', component: AdminUsersView, meta: { requiresAdmin: true } },
     { path: '/admin/providers/:id', name: 'admin-provider-support', component: AdminProviderSupportView, meta: { requiresAdmin: true } },
     { path: '/admin/support-users', name: 'admin-support-users', component: AdminSupportUsersView, meta: { requiresAdmin: true } },
-    { path: '/admin/manual-verifications', name: 'admin-manual-verifications', component: AdminManualVerificationsView, meta: { requiresAdmin: true, title: 'Manual verifications' } },
     { path: '/admin/password', name: 'admin-password', component: AdminPasswordView, meta: { requiresAdmin: true } },
     { path: '/admin/maintenance', redirect: { name: 'admin-settings', hash: '#maintenance' } },
     { path: '/support', name: 'support', component: SupportDashboardView, meta: { requiresSupport: true } },

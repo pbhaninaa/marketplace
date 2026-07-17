@@ -84,15 +84,11 @@ const activityScore = computed(() => {
       <div class="tools-grid">
         <router-link to="/admin/settings" class="tool-card">
           <strong>Settings</strong>
-          <span class="muted small">Name, pricing, usage %, bank details</span>
+          <span class="muted small">Name, pricing, and usage fees</span>
         </router-link>
         <router-link to="/admin/providers" class="tool-card">
           <strong>Providers</strong>
           <span class="muted small">Approve & support providers</span>
-        </router-link>
-        <router-link to="/admin/manual-verifications" class="tool-card">
-          <strong>Manual verifications</strong>
-          <span class="muted small">Approve/reject subscription payment proofs</span>
         </router-link>
         <router-link to="/admin/listings" class="tool-card">
           <strong>Listings</strong>

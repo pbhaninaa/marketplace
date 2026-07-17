@@ -310,12 +310,24 @@ public class AppNotificationService {
         String body = "Provider " + (providerName != null ? providerName : ("#" + providerId))
                 + " uploaded a subscription payment proof.";
         for (UserAccount admin : userAccountRepository.findByRoleOrderByEmailAsc(UserRole.PLATFORM_ADMIN)) {
-            saveInApp(admin, AppNotificationType.SUBSCRIPTION_PROOF_PENDING, title, body, "/admin/manual-verifications");
-            sendEmail(admin.getEmail(), title, body, body, List.of("Provider: " + providerName, "ID: " + providerId));
+            saveInApp(admin, AppNotificationType.SUBSCRIPTION_PROOF_PENDING, title, body, "/admin");
+            sendEmail(
+                    EmailPurpose.BILLING,
+                    admin.getEmail(),
+                    title,
+                    body,
+                    body,
+                    List.of("Provider: " + providerName, "ID: " + providerId));
         }
         for (UserAccount support : userAccountRepository.findByRoleOrderByEmailAsc(UserRole.SUPPORT)) {
             saveInApp(support, AppNotificationType.SUBSCRIPTION_PROOF_PENDING, title, body, "/support");
-            sendEmail(support.getEmail(), title, body, body, List.of("Provider: " + providerName, "ID: " + providerId));
+            sendEmail(
+                    EmailPurpose.BILLING,
+                    support.getEmail(),
+                    title,
+                    body,
+                    body,
+                    List.of("Provider: " + providerName, "ID: " + providerId));
         }
     }
 
@@ -332,7 +344,13 @@ public class AppNotificationService {
         for (UserAccount owner : ownersOf(provider)) {
             saveInApp(owner, AppNotificationType.SUBSCRIPTION_PROOF_DECISION, title, body, "/provider/subscription");
             // Subscription decisions always email (like Wheel Hub EFT-pending exception — critical path)
-            sendEmail(owner.getEmail(), title, body, body, List.of("Provider: " + provider.getName()));
+            sendEmail(
+                    EmailPurpose.BILLING,
+                    owner.getEmail(),
+                    title,
+                    body,
+                    body,
+                    List.of("Provider: " + provider.getName()));
             if (owner.getPhoneNumber() != null && !owner.getPhoneNumber().isBlank()) {
                 smsService.sendSms(owner.getPhoneNumber(), title + " — " + body);
             }
@@ -428,13 +446,23 @@ public class AppNotificationService {
     }
 
     private void sendEmail(String to, String subject, String lead, String intro, List<String> lines) {
+        sendEmail(EmailPurpose.INFO, to, subject, lead, intro, lines);
+    }
+
+    private void sendEmail(
+            EmailPurpose purpose,
+            String to,
+            String subject,
+            String lead,
+            String intro,
+            List<String> lines) {
         if (to == null || to.isBlank()) {
             return;
         }
         try {
             String plain = EmailTemplates.simpleText(subject, lines, null);
             String html = EmailTemplates.layout(subject, intro, lead, lines, null);
-            emailService.send(to, subject, plain, html);
+            emailService.send(purpose, to, subject, plain, html);
         } catch (Exception e) {
             log.debug("Email failed to {}: {}", to, e.getMessage());
         }

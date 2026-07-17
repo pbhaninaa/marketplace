@@ -131,7 +131,7 @@ async function downloadStaffInvoice() {
       <p class="page-hero__eyebrow">Admin</p>
       <h1 class="page-hero__title">Settings</h1>
       <p class="page-hero__lead">
-        Platform name, subscription pricing, usage fee, banking details, invoices, order tools, and maintenance.
+        Platform name, subscription pricing, usage fee, invoices, order tools, and maintenance.
       </p>
     </header>
 
@@ -161,29 +161,6 @@ async function downloadStaffInvoice() {
             Applied to each order total once the order is PAID. First subscription invoice: plan price plus the sum of
             (order total × this percent ÷ 100) for paid orders in the billing window.
           </p>
-        </FormField>
-      </div>
-
-      <h2 class="mt">Admin banking details (legacy)</h2>
-      <p class="muted small">
-        Kept for historical reference. New provider subscriptions are paid online via Peach — manual EFT + proof is
-        disabled.
-      </p>
-      <div class="grid grid--2">
-        <FormField label="Bank name">
-          <input v-model="form.bankName" type="text" />
-        </FormField>
-        <FormField label="Account name">
-          <input v-model="form.accountName" type="text" />
-        </FormField>
-        <FormField label="Account number">
-          <input v-model="form.accountNumber" type="text" />
-        </FormField>
-        <FormField label="Branch code (optional)">
-          <input v-model="form.branchCode" type="text" />
-        </FormField>
-        <FormField label="Reference hint (optional)">
-          <input v-model="form.referenceHint" type="text" />
         </FormField>
       </div>
 
