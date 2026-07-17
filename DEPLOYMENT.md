@@ -29,7 +29,7 @@ Full variable reference: **[ENV.md](ENV.md)**
 - [ ] `SPRING_PROFILES_ACTIVE` = `uat` or `prod`
 - [ ] `APP_JWT_SECRET` — 32+ random characters (not a dev default)
 - [ ] `PUBLIC_APP_BASE_URL` + `UAT_CORS_ORIGINS` / `PROD_CORS_ORIGINS`
-- [ ] `SENDGRID_API_KEY` + `EMAIL_FROM` (verified sender)
+- [ ] `SENDGRID_API_KEY` + `EMAIL_DOMAIN` (verified domain), or fallback `EMAIL_FROM`
 - [ ] `VITE_API_BASE` on frontend build when API is on a different host
 - [ ] First admin created via setup UI after deploy
 - [ ] `app.seed-demo-data=false` (default on UAT/PROD)
@@ -58,7 +58,8 @@ Startup **fails fast** if JWT, CORS, public URL, or SendGrid are misconfigured (
 | `PUBLIC_APP_BASE_URL` | `https://your-frontend.vercel.app` |
 | `PROD_CORS_ORIGINS` | same as public URL (comma-separated if multiple) |
 | `SENDGRID_API_KEY` | SendGrid key |
-| `EMAIL_FROM` | verified sender |
+| `EMAIL_DOMAIN` | verified domain; sends from `info@`, `security@`, `billing@`, etc. |
+| `EMAIL_FROM` | optional verified-sender fallback when `EMAIL_DOMAIN` is unset |
 
 ### Frontend (`frontend/`)
 

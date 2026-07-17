@@ -23,6 +23,11 @@ public class SendGridEmailService implements EmailService {
 
     @Override
     public void send(String to, String subject, String plainTextBody, String htmlBody) {
+        send(EmailPurpose.NO_REPLY, to, subject, plainTextBody, htmlBody);
+    }
+
+    @Override
+    public void send(EmailPurpose purpose, String to, String subject, String plainTextBody, String htmlBody) {
         if (to == null || to.isBlank()) return;
 
         // In local/dev we often run without configured SendGrid.
@@ -32,9 +37,13 @@ public class SendGridEmailService implements EmailService {
         }
 
         String apiKey = props.getSendgridApiKey() == null ? "" : props.getSendgridApiKey().trim();
-        String from = props.getFrom() == null ? "" : props.getFrom().trim();
+        String from = props.resolveFrom(purpose);
         if (apiKey.isEmpty() || from.isEmpty()) {
-            log.warn("[email misconfigured] enabled=true but missing apiKey/from. to={} subject={}", to, subject);
+            log.warn("[email misconfigured] enabled=true but missing apiKey/sender. to={} subject={}", to, subject);
+            return;
+        }
+        if (!props.hasValidConfiguredDomain()) {
+            log.warn("[email misconfigured] EMAIL_DOMAIN is invalid. to={} subject={}", to, subject);
             return;
         }
 

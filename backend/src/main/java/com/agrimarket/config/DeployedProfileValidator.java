@@ -51,9 +51,13 @@ public class DeployedProfileValidator {
             String apiKey = emailProperties.getSendgridApiKey() == null
                     ? ""
                     : emailProperties.getSendgridApiKey().trim();
-            String from = emailProperties.getFrom() == null ? "" : emailProperties.getFrom().trim();
-            if (apiKey.isEmpty() || from.isEmpty()) {
-                throw new IllegalStateException("Email is enabled: set SENDGRID_API_KEY and EMAIL_FROM");
+            if (apiKey.isEmpty() || !emailProperties.hasConfiguredSender()) {
+                throw new IllegalStateException(
+                        "Email is enabled: set SENDGRID_API_KEY and either EMAIL_DOMAIN or EMAIL_FROM");
+            }
+            if (!emailProperties.hasValidConfiguredDomain()) {
+                throw new IllegalStateException(
+                        "EMAIL_DOMAIN must be a domain such as example.com (without a scheme, path, or @)");
             }
         }
     }

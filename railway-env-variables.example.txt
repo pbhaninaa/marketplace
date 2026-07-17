@@ -36,7 +36,9 @@ PROD_CORS_ORIGINS=https://marketplace.sphilagroup.com
 
 # --- Email SendGrid (REQUIRED on UAT/PROD — startup fails if missing) ---
 SENDGRID_API_KEY=
-EMAIL_FROM=no-reply@yourdomain.com
+EMAIL_DOMAIN=yourdomain.com
+# Optional verified-sender fallback when EMAIL_DOMAIN is unset:
+EMAIL_FROM=
 
 # --- Database (LendHand-style OR Railway MySQL refs) ---
 # SPRING_DATASOURCE_URL=${{MySQL.MYSQL_URL}}   # rewrite to jdbc:mysql:// if needed

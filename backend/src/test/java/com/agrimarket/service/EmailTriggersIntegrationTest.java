@@ -1,6 +1,7 @@
 package com.agrimarket.service;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.verify;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -63,7 +64,7 @@ class EmailTriggersIntegrationTest extends AbstractIntegrationTest {
                                 "paymentMethod", "Cash"))))
                 .andExpect(status().isOk());
 
-        verify(emailService, atLeastOnce()).send(any(), any(), any(), any());
+        verify(emailService, atLeastOnce()).send(eq(EmailPurpose.INFO), any(), any(), any(), any());
     }
 }
 

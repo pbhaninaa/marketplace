@@ -53,7 +53,8 @@ If `SPRING_DATASOURCE_*` is unset, UAT/PROD fall back to **`MYSQLHOST`**, **`MYS
 | Variable | Notes |
 |----------|--------|
 | `SENDGRID_API_KEY` | SendGrid API key |
-| `EMAIL_FROM` | Verified sender |
+| `EMAIL_DOMAIN` | Verified domain (for example `example.com`); creates purpose senders such as `security@example.com` |
+| `EMAIL_FROM` | Verified sender fallback when `EMAIL_DOMAIN` is unset |
 
 ### SMS (Twilio) — optional
 | Variable | Notes |
@@ -129,7 +130,7 @@ Paste-ready lists: **[railway-env-variables.example.txt](railway-env-variables.e
 |----------|---------|
 | `LOCAL_DB_PASSWORD` | MySQL root password |
 | `APP_JWT_SECRET` | Optional local override |
-| `SENDGRID_API_KEY` / `EMAIL_FROM` | Optional local email |
+| `SENDGRID_API_KEY` / `EMAIL_DOMAIN` (or `EMAIL_FROM`) | Optional local email |
 
 Run: `mvn spring-boot:run -Dspring-boot.run.profiles=local`
 
