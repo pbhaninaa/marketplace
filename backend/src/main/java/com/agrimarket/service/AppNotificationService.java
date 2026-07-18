@@ -4,6 +4,8 @@ import com.agrimarket.api.dto.AppNotificationResponse;
 import com.agrimarket.api.error.ApiException;
 import com.agrimarket.domain.AppNotification;
 import com.agrimarket.domain.AppNotificationType;
+import com.agrimarket.domain.CartLine;
+import com.agrimarket.domain.Listing;
 import com.agrimarket.domain.Order;
 import com.agrimarket.domain.Provider;
 import com.agrimarket.domain.ProviderPermissionKey;
@@ -15,10 +17,13 @@ import com.agrimarket.repo.AppNotificationRepository;
 import com.agrimarket.repo.ProviderStaffPermissionRepository;
 import com.agrimarket.repo.UserAccountRepository;
 import com.agrimarket.security.MarketUserPrincipal;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -91,8 +96,6 @@ public class AppNotificationService {
             String guestPhone,
             String paymentMethod,
             String deliveryOrPickup) {
-        List<Long> orderIds = orders == null ? List.of() : orders.stream().map(Order::getId).toList();
-        List<Long> bookingIds = rentals == null ? List.of() : rentals.stream().map(RentalBooking::getId).toList();
         Provider provider = null;
         if (orders != null && !orders.isEmpty()) {
             provider = orders.get(0).getProvider();
@@ -103,9 +106,15 @@ public class AppNotificationService {
             return;
         }
 
+        List<String> purchaseItems = formatPurchaseItems(orders);
+        List<String> rentalItems = formatRentalItems(rentals);
+        String paymentLabel = formatPaymentMethod(paymentMethod);
+        List<String> emailLines = buildCheckoutEmailLines(
+                purchaseItems, rentalItems, paymentLabel, deliveryOrPickup, orders, rentals);
+
         // Client confirmation (email + SMS always; in-app if CLIENT account)
         String clientTitle = "Order confirmation";
-        String clientBody = "Purchases: " + orderIds + ". Rentals: " + bookingIds + ". Payment: " + paymentMethod + ".";
+        String clientBody = summarizeCheckout(purchaseItems, rentalItems, paymentLabel);
         deliverClient(
                 guestEmail,
                 guestPhone,
@@ -113,30 +122,32 @@ public class AppNotificationService {
                 AppNotificationType.NEW_ORDER,
                 clientTitle,
                 clientBody,
+                emailLines,
                 "/",
                 true,
                 true);
 
         // Provider: in-app to order-permission staff; email/SMS to owners (Premium email)
         String providerTitle = "New order received";
-        String providerBody = "Customer " + nullToEmpty(guestName) + " (" + nullToEmpty(guestPhone) + "). Purchases: "
-                + orderIds + ". Rentals: " + bookingIds + ".";
+        String providerBody = "Customer " + nullToEmpty(guestName) + " (" + nullToEmpty(guestPhone) + "). "
+                + clientBody;
         List<UserAccount> staffRecipients = recipientsForOrders(provider);
         for (UserAccount u : staffRecipients) {
             saveInApp(u, AppNotificationType.NEW_ORDER, providerTitle, providerBody, "/provider/orders");
         }
         boolean premiumEmail = providerEmailAlertsEnabled(provider.getId());
+        List<String> providerEmailLines = new ArrayList<>();
+        providerEmailLines.add(
+                "Customer: " + nullToEmpty(guestName) + " (" + nullToEmpty(guestPhone) + ")");
+        providerEmailLines.addAll(emailLines);
         for (UserAccount owner : ownersOf(provider)) {
             if (premiumEmail) {
                 sendEmail(
                         owner.getEmail(),
                         providerTitle,
-                        providerBody,
                         "A customer placed an order on your store.",
-                        List.of(
-                                "Purchases: " + orderIds,
-                                "Rentals: " + bookingIds,
-                                "Customer: " + nullToEmpty(guestName) + " (" + nullToEmpty(guestPhone) + ")"));
+                        "New order",
+                        providerEmailLines);
             }
             if (owner.getPhoneNumber() != null && !owner.getPhoneNumber().isBlank()) {
                 smsService.sendSms(owner.getPhoneNumber(), providerTitle + ": " + providerBody);
@@ -145,12 +156,13 @@ public class AppNotificationService {
 
         if (rentals != null) {
             for (RentalBooking b : rentals) {
+                String rentalLabel = formatRentalItem(b);
                 for (UserAccount u : recipientsForRentals(provider)) {
                     saveInApp(
                             u,
                             AppNotificationType.NEW_RENTAL,
                             "New rental #" + b.getId(),
-                            "Guest " + nullToEmpty(guestName) + " booked a rental.",
+                            "Guest " + nullToEmpty(guestName) + " booked: " + rentalLabel + ".",
                             "/provider/orders");
                 }
             }
@@ -205,6 +217,7 @@ public class AppNotificationService {
                 AppNotificationType.ORDER_STATUS,
                 title,
                 body,
+                null,
                 "/",
                 true,
                 true);
@@ -246,6 +259,7 @@ public class AppNotificationService {
                 AppNotificationType.ORDER_CANCELLED,
                 title,
                 body,
+                null,
                 "/",
                 true,
                 true);
@@ -278,6 +292,7 @@ public class AppNotificationService {
                 AppNotificationType.RENTAL_STATUS,
                 title,
                 body,
+                null,
                 "/",
                 true,
                 true);
@@ -370,6 +385,7 @@ public class AppNotificationService {
             AppNotificationType type,
             String title,
             String body,
+            List<String> emailLines,
             String link,
             boolean emailOn,
             boolean smsOn) {
@@ -380,17 +396,164 @@ public class AppNotificationService {
                 }
             });
             if (emailOn) {
-                sendEmail(
-                        email,
-                        title,
-                        body,
-                        "Hello " + nullToEmpty(name),
-                        List.of(body));
+                if (emailLines != null && !emailLines.isEmpty()) {
+                    sendEmail(
+                            email,
+                            title,
+                            "Thanks for your order. Details are listed below.",
+                            "Hello " + nullToEmpty(name),
+                            emailLines);
+                } else {
+                    sendEmail(
+                            email,
+                            title,
+                            body,
+                            "Hello " + nullToEmpty(name),
+                            List.of(body));
+                }
             }
         }
         if (smsOn && phone != null && !phone.isBlank()) {
             smsService.sendSms(phone, title + " — " + body);
         }
+    }
+
+    private static final DateTimeFormatter RENTAL_DATE =
+            DateTimeFormatter.ofPattern("dd MMM yyyy").withZone(ZoneId.of("Africa/Johannesburg"));
+
+    private static List<String> formatPurchaseItems(List<Order> orders) {
+        List<String> items = new ArrayList<>();
+        if (orders == null) {
+            return items;
+        }
+        for (Order order : orders) {
+            if (order.getLines() == null) {
+                continue;
+            }
+            for (CartLine line : order.getLines()) {
+                items.add(formatPurchaseItem(line));
+            }
+        }
+        return items;
+    }
+
+    private static String formatPurchaseItem(CartLine line) {
+        Listing listing = line.getListing();
+        String title = listing != null && listing.getTitle() != null && !listing.getTitle().isBlank()
+                ? listing.getTitle().trim()
+                : "Item";
+        String price = listing != null && listing.getUnitPrice() != null
+                ? " @ " + OrderInvoiceService.formatMoney(listing.getUnitPrice())
+                : "";
+        return line.getQuantity() + " × " + title + price;
+    }
+
+    private static List<String> formatRentalItems(List<RentalBooking> rentals) {
+        List<String> items = new ArrayList<>();
+        if (rentals == null) {
+            return items;
+        }
+        for (RentalBooking booking : rentals) {
+            items.add(formatRentalItem(booking));
+        }
+        return items;
+    }
+
+    private static String formatRentalItem(RentalBooking booking) {
+        Listing listing = booking.getListing();
+        String title = listing != null && listing.getTitle() != null && !listing.getTitle().isBlank()
+                ? listing.getTitle().trim()
+                : "Rental";
+        StringBuilder sb = new StringBuilder(title);
+        if (booking.getStartAt() != null && booking.getEndAt() != null) {
+            sb.append(" (")
+                    .append(RENTAL_DATE.format(booking.getStartAt()))
+                    .append(" – ")
+                    .append(RENTAL_DATE.format(booking.getEndAt()))
+                    .append(")");
+        }
+        if (booking.getTotalAmount() != null) {
+            sb.append(" — ").append(OrderInvoiceService.formatMoney(booking.getTotalAmount()));
+        }
+        return sb.toString();
+    }
+
+    private static String summarizeCheckout(
+            List<String> purchaseItems, List<String> rentalItems, String paymentLabel) {
+        String purchases = purchaseItems.isEmpty() ? "none" : String.join("; ", purchaseItems);
+        String rentals = rentalItems.isEmpty() ? "none" : String.join("; ", rentalItems);
+        return "Purchases: " + purchases + ". Rentals: " + rentals + ". Payment: " + paymentLabel + ".";
+    }
+
+    private static List<String> buildCheckoutEmailLines(
+            List<String> purchaseItems,
+            List<String> rentalItems,
+            String paymentLabel,
+            String deliveryOrPickup,
+            List<Order> orders,
+            List<RentalBooking> rentals) {
+        List<String> lines = new ArrayList<>();
+        lines.add("Payment: " + paymentLabel);
+        if (deliveryOrPickup != null && !deliveryOrPickup.isBlank()) {
+            lines.add("Fulfilment: " + truncate(deliveryOrPickup.trim(), 240));
+        }
+        if (purchaseItems.isEmpty()) {
+            lines.add("Purchases: none");
+        } else {
+            lines.add("Purchases:");
+            for (String item : purchaseItems) {
+                lines.add("• " + item);
+            }
+            if (orders != null) {
+                for (Order order : orders) {
+                    if (order.getId() != null && order.getTotalAmount() != null) {
+                        lines.add(
+                                "Order #" + order.getId() + " total: "
+                                        + OrderInvoiceService.formatMoney(order.getTotalAmount()));
+                    }
+                    if (order.getVerificationCode() != null && !order.getVerificationCode().isBlank()) {
+                        lines.add("Order #" + order.getId() + " code: " + order.getVerificationCode());
+                    }
+                }
+            }
+        }
+        if (rentalItems.isEmpty()) {
+            lines.add("Rentals: none");
+        } else {
+            lines.add("Rentals:");
+            for (String item : rentalItems) {
+                lines.add("• " + item);
+            }
+            if (rentals != null) {
+                for (RentalBooking booking : rentals) {
+                    if (booking.getVerificationCode() != null && !booking.getVerificationCode().isBlank()) {
+                        lines.add(
+                                "Booking #" + booking.getId() + " code: " + booking.getVerificationCode());
+                    }
+                }
+            }
+        }
+        return lines;
+    }
+
+    private static String formatPaymentMethod(String paymentMethod) {
+        if (paymentMethod == null || paymentMethod.isBlank()) {
+            return "—";
+        }
+        String normalized = paymentMethod.trim().replace('_', ' ');
+        if (normalized.equalsIgnoreCase("CASH")) {
+            return "Cash";
+        }
+        if (normalized.equalsIgnoreCase("EFT") || normalized.equalsIgnoreCase("MANUAL EFT")) {
+            return "Manual EFT";
+        }
+        if (normalized.equalsIgnoreCase("CARD") || normalized.equalsIgnoreCase("PEACH")) {
+            return "Card";
+        }
+        if (normalized.length() == 1) {
+            return normalized.toUpperCase(Locale.ROOT);
+        }
+        return normalized.substring(0, 1).toUpperCase(Locale.ROOT) + normalized.substring(1).toLowerCase(Locale.ROOT);
     }
 
     private boolean providerEmailAlertsEnabled(Long providerId) {
