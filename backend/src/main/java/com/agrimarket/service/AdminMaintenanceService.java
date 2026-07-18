@@ -1,53 +1,82 @@
 package com.agrimarket.service;
 
+import com.agrimarket.api.error.ApiException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AdminMaintenanceService {
 
+    private static final Logger log = LoggerFactory.getLogger(AdminMaintenanceService.class);
+
     @PersistenceContext
     private EntityManager em;
 
     /**
-     * DANGEROUS: wipes almost all rows and keeps only the specified platform admin user.
-     * Intended for local/dev resets.
+     * DANGEROUS: wipes marketplace data and keeps only the specified platform admin user.
+     * Delete order respects foreign keys for MySQL / H2.
      */
     @Transactional
     public Map<String, Object> cleanDbKeepAdmin(long keepAdminUserId) {
+        if (keepAdminUserId <= 0) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "MAINTENANCE", "Admin user id is required");
+        }
+
         Map<String, Object> out = new LinkedHashMap<>();
+        try {
+            // Leaf / child tables first.
+            out.put("provider_staff_permissions", del("DELETE FROM provider_staff_permissions"));
+            out.put("staff_payroll_job_marks", del("DELETE FROM staff_payroll_job_marks"));
+            out.put("staff_payroll_entries", del("DELETE FROM staff_payroll_entries"));
+            out.put("app_notifications", del("DELETE FROM app_notifications"));
+            out.put("password_reset_tokens", del("DELETE FROM password_reset_tokens"));
+            out.put("client_otp_challenges", del("DELETE FROM client_otp_challenges"));
+            out.put("support_tickets", del("DELETE FROM support_tickets"));
 
-        // Delete children first to satisfy foreign keys.
-        // These deletes intentionally remove *all* rows (including anything related to the admin),
-        // except for the final `users` delete which keeps the admin account.
-        out.put("provider_staff_permissions", del("DELETE FROM provider_staff_permissions"));
-        out.put("staff_payroll_job_marks", del("DELETE FROM staff_payroll_job_marks"));
-        out.put("staff_payroll_entries", del("DELETE FROM staff_payroll_entries"));
-        out.put("app_notifications", del("DELETE FROM app_notifications"));
-        out.put("password_reset_tokens", del("DELETE FROM password_reset_tokens"));
-        out.put("client_otp_challenges", del("DELETE FROM client_otp_challenges"));
-        out.put("support_tickets", del("DELETE FROM support_tickets"));
-        out.put("rental_bookings", del("DELETE FROM rental_bookings"));
-        out.put("order_lines", del("DELETE FROM order_lines"));
-        out.put("payments", del("DELETE FROM payments"));
-        out.put("purchase_orders", del("DELETE FROM purchase_orders"));
-        out.put("cart_lines", del("DELETE FROM cart_lines"));
-        out.put("cart_sessions", del("DELETE FROM cart_sessions"));
-        out.put("listing_images", del("DELETE FROM listing_images"));
-        out.put("listings", del("DELETE FROM listings"));
-        out.put("subscriptions", del("DELETE FROM subscriptions"));
-        out.put("provider_accepted_payment_methods", del("DELETE FROM provider_accepted_payment_methods"));
-        out.put("providers", del("DELETE FROM providers"));
-        out.put("categories", del("DELETE FROM categories"));
+            // Payments reference rental bookings / orders.
+            out.put("payments", del("DELETE FROM payments"));
+            out.put("rental_bookings", del("DELETE FROM rental_bookings"));
 
-        // Finally keep only this admin user.
-        out.put("users", del("DELETE FROM users WHERE id <> ?1", keepAdminUserId));
+            // CartLine entity maps to order_items (active cart + order lines).
+            out.put("order_items", del("DELETE FROM order_items"));
+            out.put("orders", del("DELETE FROM orders"));
+            out.put("cart_sessions", del("DELETE FROM cart_sessions"));
 
-        return out;
+            out.put("listing_images", del("DELETE FROM listing_images"));
+            out.put("listings", del("DELETE FROM listings"));
+
+            // Subscription proofs / intents before subscriptions / providers.
+            out.put("subscription_payment_proofs", del("DELETE FROM subscription_payment_proofs"));
+            out.put("subscriptions", del("DELETE FROM subscriptions"));
+            out.put("subscription_activation_intents", del("DELETE FROM subscription_activation_intents"));
+            out.put("provider_accepted_payment_methods", del("DELETE FROM provider_accepted_payment_methods"));
+
+            // Users reference providers — remove non-admin users (and detach admin) before providers.
+            out.put("users_detach_admin", exec("UPDATE users SET provider_id = NULL WHERE id = ?1", keepAdminUserId));
+            out.put("users", del("DELETE FROM users WHERE id <> ?1", keepAdminUserId));
+
+            out.put("providers", del("DELETE FROM providers"));
+            out.put("categories", del("DELETE FROM categories"));
+
+            out.put("keptAdminUserId", keepAdminUserId);
+            return out;
+        } catch (ApiException ex) {
+            throw ex;
+        } catch (RuntimeException ex) {
+            log.error("clean-db failed after: {}", out, ex);
+            String detail = rootMessage(ex);
+            throw new ApiException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "MAINTENANCE",
+                    "Database clean failed: " + detail);
+        }
     }
 
     private int del(String sql) {
@@ -57,5 +86,21 @@ public class AdminMaintenanceService {
     private int del(String sql, long p1) {
         return em.createNativeQuery(sql).setParameter(1, p1).executeUpdate();
     }
-}
 
+    private int exec(String sql, long p1) {
+        return em.createNativeQuery(sql).setParameter(1, p1).executeUpdate();
+    }
+
+    private static String rootMessage(Throwable ex) {
+        Throwable cur = ex;
+        while (cur.getCause() != null && cur.getCause() != cur) {
+            cur = cur.getCause();
+        }
+        String msg = cur.getMessage();
+        if (msg == null || msg.isBlank()) {
+            return cur.getClass().getSimpleName();
+        }
+        // Keep response readable for admins.
+        return msg.length() > 280 ? msg.substring(0, 277) + "..." : msg;
+    }
+}

@@ -120,23 +120,26 @@ onMounted(async () => {
         <router-link
           v-if="!auth.isAuthenticated"
           to="/checkout"
-          class="top-icon-link"
+          class="top-icon-btn"
           aria-label="Cart"
+          title="Cart"
         >
-          Cart
+          <span class="material-icons" aria-hidden="true">shopping_cart</span>
           <span v-if="cart.totalQuantity > 0" class="cart-badge">{{ cart.totalQuantity }}</span>
         </router-link>
         <router-link
           v-if="!auth.isAuthenticated"
           to="/login"
-          class="top-icon-link top-icon-link--signin"
+          class="top-icon-btn"
+          aria-label="Sign in"
+          title="Sign in"
         >
-          Sign in
+          <span class="material-icons" aria-hidden="true">person</span>
         </router-link>
         <span v-if="auth.isAuthenticated" class="top-user" :title="auth.email">{{ auth.displayLabel }}</span>
         <button
           type="button"
-          class="theme-toggle"
+          class="theme-toggle top-icon-btn"
           :aria-label="theme.resolvedMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
           :title="theme.resolvedMode === 'dark' ? 'Light mode' : 'Dark mode'"
           @click="theme.toggle()"
@@ -323,7 +326,7 @@ onMounted(async () => {
 .top-bar__actions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.35rem;
   margin-left: auto;
 }
 
@@ -336,31 +339,52 @@ onMounted(async () => {
   white-space: nowrap;
 }
 
-.top-icon-link {
+.top-icon-btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.4rem 0.7rem;
-  border-radius: var(--radius-pill);
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--color-text-secondary);
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-elevated);
+  color: var(--color-canopy);
+  text-decoration: none;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
-.top-icon-link:hover {
+.top-icon-btn:hover {
   background: var(--color-sage-soft);
   color: var(--color-canopy);
   text-decoration: none;
+  border-color: rgba(61, 122, 102, 0.35);
 }
 
-.top-icon-link--signin {
-  background: var(--color-canopy);
-  color: #fafdfb;
+.top-icon-btn .material-icons {
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
-.top-icon-link--signin:hover {
-  background: var(--color-canopy-mid);
-  color: #fff;
+.top-icon-btn .cart-badge {
+  position: absolute;
+  top: -0.2rem;
+  right: -0.2rem;
+  min-width: 1.05rem;
+  height: 1.05rem;
+  padding: 0 0.28rem;
+  font-size: 0.65rem;
+}
+
+.top-icon-btn.theme-toggle {
+  /* Keep shared icon-button sizing; theme-toggle styles still apply color/hover. */
+  margin: 0;
 }
 
 .hamburger {

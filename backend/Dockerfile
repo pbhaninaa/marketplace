@@ -26,7 +26,7 @@ USER app
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=15s --timeout=5s --start-period=60s --retries=5 \
-  CMD curl -fsS http://localhost:8080/actuator/health | grep -q UP || exit 1
+HEALTHCHECK --interval=15s --timeout=5s --start-period=90s --retries=8 \
+  CMD curl -fsS http://localhost:${PORT:-8080}/actuator/health/liveness | grep -q UP || exit 1
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

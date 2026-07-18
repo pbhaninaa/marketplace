@@ -27,6 +27,15 @@ public class DeployedProfileValidator {
         if (!isDeployedProfile()) {
             return;
         }
+        try {
+            validateDeployedConfig();
+        } catch (IllegalStateException ex) {
+            // Fail the process so Railway healthchecks surface a bad config instead of a half-started app.
+            throw new IllegalStateException("Deployed profile validation failed: " + ex.getMessage(), ex);
+        }
+    }
+
+    private void validateDeployedConfig() {
         String jwt = environment.getProperty("app.jwt.secret", "").trim();
         if (jwt.length() < 32) {
             throw new IllegalStateException("APP_JWT_SECRET must be at least 32 characters for UAT/PROD");
