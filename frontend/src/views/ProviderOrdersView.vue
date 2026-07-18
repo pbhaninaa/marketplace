@@ -256,6 +256,41 @@ function cancelDeleteOrder() {
   showDeleteConfirm.value = false;
   deleteConfirmPending.value = false;
 }
+
+function formatMoney(amount) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return 'R 0.00';
+  return `R ${n.toFixed(2)}`;
+}
+
+function orderTotal(o) {
+  return o?.totalAmount ?? o?.total ?? null;
+}
+
+function fulfilmentLabel(o) {
+  const raw = String(o?.deliveryOrPickup || o?.includesDelivery || '').trim();
+  if (!raw) return 'Pickup';
+  const upper = raw.toUpperCase();
+  if (upper === 'DELIVERY' || upper.includes('DELIVERY')) return 'Delivery';
+  if (upper === 'PICKUP' || upper.includes('PICKUP')) return 'Pickup';
+  return raw;
+}
+
+function isDeliveryOrder(o) {
+  return fulfilmentLabel(o) === 'Delivery';
+}
+
+function deliveryAddressLabel(o) {
+  const address = String(o?.deliveryAddress || '').trim();
+  if (address) return address;
+  if (isDeliveryOrder(o) && o?.guestPhone) return `Call: ${o.guestPhone}`;
+  return '';
+}
+
+function displayText(value) {
+  const s = String(value ?? '').trim();
+  return s || '';
+}
 </script>
 
 <template>
@@ -312,14 +347,13 @@ function cancelDeleteOrder() {
             <tbody>
               <tr v-for="o in rows" :key="o.id">
                 <td>{{ String(o.createdAt || '').slice(0, 19) }}</td>
-                <td>{{ o.guestName || '—' }}</td>
-                <td>{{ o.guestPhone }}</td>
-                <td>{{ o.guestEmail || '—' }}</td>
+                <td>{{ displayText(o.guestName) }}</td>
+                <td>{{ displayText(o.guestPhone) }}</td>
+                <td>{{ displayText(o.guestEmail) }}</td>
                 <td>{{ o.status }}</td>
-                <td>{{ o.includesDelivery || '—' }}</td>
-
-                <td>{{ o.deliveryAddress || o.deliveryAddress? o.deliveryAddress:'Call : ' + o.guestPhone }}</td>
-                <td class="col-num">R {{ o.total }}</td>
+                <td>{{ fulfilmentLabel(o) }}</td>
+                <td>{{ deliveryAddressLabel(o) }}</td>
+                <td class="col-num">{{ formatMoney(orderTotal(o)) }}</td>
                 <td v-if="tab === 'rentals'">
                   {{ String(o.startAt || '').slice(0, 16) }} →
                   {{ String(o.endAt || '').slice(0, 16) }}
@@ -361,18 +395,18 @@ function cancelDeleteOrder() {
                 <div class="info-row">
                   <span class="label">Name:</span>
                   <span class="value">
-                    <TextWithTooltip :text="o.guestName || '—'" />
+                    <TextWithTooltip :text="displayText(o.guestName)" />
                   </span>
                 </div>
                 <div class="info-row">
                   <span class="label">Email:</span>
                   <span class="value">
-                    <TextWithTooltip :text="o.guestEmail || '—'" />
+                    <TextWithTooltip :text="displayText(o.guestEmail)" />
                   </span>
                 </div>
                 <div class="info-row">
                   <span class="label">Phone:</span>
-                  <span class="value">{{ o.guestPhone }}</span>
+                  <span class="value">{{ displayText(o.guestPhone) }}</span>
                 </div>
               </div>
 
@@ -385,17 +419,17 @@ function cancelDeleteOrder() {
                 </div>
                 <div class="info-row">
                   <span class="label">Delivery:</span>
-                  <span class="value">{{ o.includesDelivery || '—' }}</span>
+                  <span class="value">{{ fulfilmentLabel(o) }}</span>
                 </div>
-                <div v-if="o.includesDelivery == 'DELIVERY'" class="info-row">
+                <div v-if="isDeliveryOrder(o) && deliveryAddressLabel(o)" class="info-row">
                   <span class="label">Address:</span>
                   <span class="value">
-                    <TextWithTooltip :text="o.deliveryAddress || 'Call : ' + o.guestPhone" />
+                    <TextWithTooltip :text="deliveryAddressLabel(o)" />
                   </span>
                 </div>
                 <div class="info-row">
                   <span class="label">Total:</span>
-                  <span class="value amount">R {{ o.total }}</span>
+                  <span class="value amount">{{ formatMoney(orderTotal(o)) }}</span>
                 </div>
               </div>
 
@@ -434,7 +468,11 @@ function cancelDeleteOrder() {
             <p><strong>Phone:</strong> {{ selectedOrder.guestPhone }}</p>
             <p><strong>Email:</strong> {{ selectedOrder.guestEmail }}</p>
             <p><strong>Status:</strong> {{ selectedOrder.status }}</p>
-            <p><strong>Total:</strong> R {{ selectedOrder.total }}</p>
+            <p><strong>Fulfilment:</strong> {{ fulfilmentLabel(selectedOrder) }}</p>
+            <p v-if="deliveryAddressLabel(selectedOrder)">
+              <strong>Address:</strong> {{ deliveryAddressLabel(selectedOrder) }}
+            </p>
+            <p><strong>Total:</strong> {{ formatMoney(orderTotal(selectedOrder)) }}</p>
 
             <div v-if="tab === 'rentals'">
               <p><strong>Start:</strong> {{ selectedOrder.startAt }}</p>
