@@ -56,7 +56,12 @@ public class ClientOtpService {
             String subject = "Your verification code";
             String plain = "Your verification code is: " + code + "\n\nIt expires in "
                     + appProperties.otp().ttlMinutes() + " minutes.";
-            emailService.send(target, subject, plain, "<p>Your verification code is <strong>" + code + "</strong>.</p>");
+            emailService.send(
+                    EmailPurpose.SECURITY,
+                    target,
+                    subject,
+                    plain,
+                    "<p>Your verification code is <strong>" + code + "</strong>.</p>");
         }
     }
 

@@ -118,14 +118,14 @@ onMounted(async () => {
       <div class="top-bar__actions">
         <NotificationBell />
         <router-link
-          v-if="!auth.isAuthenticated"
+          v-if="!auth.isAuthenticated && cart.totalQuantity > 0"
           to="/checkout"
           class="top-icon-btn"
           aria-label="Cart"
           title="Cart"
         >
           <span class="material-icons" aria-hidden="true">shopping_cart</span>
-          <span v-if="cart.totalQuantity > 0" class="cart-badge">{{ cart.totalQuantity }}</span>
+          <span class="cart-badge">{{ cart.totalQuantity }}</span>
         </router-link>
         <router-link
           v-if="!auth.isAuthenticated"
@@ -198,9 +198,9 @@ onMounted(async () => {
       <nav class="side-nav__links" @click="closeMenu">
         <template v-if="!auth.isAuthenticated">
           <router-link to="/">Browse</router-link>
-          <router-link to="/checkout">
+          <router-link v-if="cart.totalQuantity > 0" to="/checkout">
             Cart
-            <span v-if="cart.totalQuantity > 0" class="side-badge">{{ cart.totalQuantity }}</span>
+            <span class="side-badge">{{ cart.totalQuantity }}</span>
           </router-link>
           <router-link to="/order-invoice">Order invoice</router-link>
           <router-link v-if="setup.needsFirstAdmin === true" to="/setup">Setup</router-link>
@@ -236,9 +236,9 @@ onMounted(async () => {
         <template v-else-if="auth.isClientUser">
           <p class="side-nav__section">Customer</p>
           <router-link to="/">Browse</router-link>
-          <router-link to="/checkout">
+          <router-link v-if="cart.totalQuantity > 0" to="/checkout">
             Cart
-            <span v-if="cart.totalQuantity > 0" class="side-badge">{{ cart.totalQuantity }}</span>
+            <span class="side-badge">{{ cart.totalQuantity }}</span>
           </router-link>
           <router-link to="/order-invoice">Order invoice</router-link>
           <router-link to="/help/client" class="side-nav__link--help">Help</router-link>
