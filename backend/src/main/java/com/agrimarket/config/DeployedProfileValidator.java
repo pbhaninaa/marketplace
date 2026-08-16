@@ -69,6 +69,12 @@ public class DeployedProfileValidator {
                     "PEACH_ENABLED=true requires PEACH_CLIENT_ID, PEACH_CLIENT_SECRET, "
                             + "PEACH_MERCHANT_ID, PEACH_ENTITY_ID, and PEACH_SECRET_TOKEN");
         }
+
+        if (peachProperties.isEnabled() && !peachProperties.isConfigured()) {
+            throw new IllegalStateException(
+                    "PEACH_ENABLED=true requires PEACH_CLIENT_ID, PEACH_CLIENT_SECRET, "
+                            + "PEACH_MERCHANT_ID, PEACH_ENTITY_ID, and PEACH_SECRET_TOKEN");
+        }
     }
 
     private static String firstNonBlank(String... values) {
