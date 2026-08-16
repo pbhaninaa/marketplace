@@ -47,6 +47,11 @@ function openDropdown() {
   isOpen.value = true;
   highlightIndex.value = -1;
   searchQuery.value = '';
+  // Focus input after opening
+  setTimeout(() => {
+    const input = inputRef.value?.querySelector('input');
+    if (input) input.focus();
+  }, 0);
 }
 
 function closeDropdown() {
