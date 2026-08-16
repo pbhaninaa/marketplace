@@ -292,6 +292,7 @@ async function clearCart() {
 
   await cart.clearCart();
   await success('Cart cleared');
+  router.push('/');
 }
 
 async function handleUpdateQuantity({ id, quantity }) {
