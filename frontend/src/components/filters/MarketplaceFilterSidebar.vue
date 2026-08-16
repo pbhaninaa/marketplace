@@ -161,8 +161,18 @@ function patch(field, raw) {
     align-self: start;
     max-height: calc(100vh - 5rem);
     overflow-y: auto;
+    overflow-x: visible;
     border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   }
+}
+
+/* Allow autocomplete dropdown to overflow */
+.filters :deep(.form-field) {
+  overflow: visible;
+}
+
+.filters :deep(.form-field__control) {
+  overflow: visible;
 }
 @media (max-width: 640px) {
   .filters {
