@@ -20,6 +20,7 @@ const isOpen = ref(false);
 const highlightIndex = ref(-1);
 const inputRef = ref(null);
 const dropdownRef = ref(null);
+const dropdownPosition = ref({ top: 0, left: 0, width: 0 });
 
 const selectedOption = computed(() => {
   if (!props.modelValue) return null;
@@ -44,6 +45,14 @@ const filteredOptions = computed(() => {
 });
 
 function openDropdown() {
+  if (inputRef.value) {
+    const rect = inputRef.value.getBoundingClientRect();
+    dropdownPosition.value = {
+      top: rect.bottom + window.scrollY,
+      left: rect.left + window.scrollX,
+      width: rect.width,
+    };
+  }
   isOpen.value = true;
   highlightIndex.value = -1;
   searchQuery.value = '';
@@ -172,35 +181,43 @@ onUnmounted(() => {
       </span>
     </div>
 
-    <div
-      v-if="isOpen"
-      ref="dropdownRef"
-      class="autocomplete__dropdown"
-    >
+    <Teleport to="body">
       <div
-        class="autocomplete__option"
-        :class="{ 'autocomplete__option--highlighted': highlightIndex === -1 }"
-        :data-index="-1"
-        @click="selectOption(null)"
-        @mouseenter="highlightIndex = -1"
+        v-if="isOpen"
+        ref="dropdownRef"
+        class="autocomplete__dropdown"
+        :style="{
+          position: 'absolute',
+          top: `${dropdownPosition.top + 2}px`,
+          left: `${dropdownPosition.left}px`,
+          width: `${dropdownPosition.width}px`,
+        }"
       >
-        {{ emptyLabel }}
+        <div
+          class="autocomplete__option"
+          :class="{ 'autocomplete__option--highlighted': highlightIndex === -1 }"
+          :data-index="-1"
+          @click="selectOption(null)"
+          @mouseenter="highlightIndex = -1"
+        >
+          {{ emptyLabel }}
+        </div>
+        <div
+          v-for="(option, idx) in filteredOptions"
+          :key="option[valueKey]"
+          class="autocomplete__option"
+          :class="{ 'autocomplete__option--highlighted': highlightIndex === idx }"
+          :data-index="idx"
+          @click="selectOption(option)"
+          @mouseenter="highlightIndex = idx"
+        >
+          {{ option[labelKey] }}
+        </div>
+        <div v-if="searchQuery && filteredOptions.length === 0" class="autocomplete__empty">
+          No results found
+        </div>
       </div>
-      <div
-        v-for="(option, idx) in filteredOptions"
-        :key="option[valueKey]"
-        class="autocomplete__option"
-        :class="{ 'autocomplete__option--highlighted': highlightIndex === idx }"
-        :data-index="idx"
-        @click="selectOption(option)"
-        @mouseenter="highlightIndex = idx"
-      >
-        {{ option[labelKey] }}
-      </div>
-      <div v-if="filteredOptions.length === 0" class="autocomplete__empty">
-        No results found
-      </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 
@@ -322,17 +339,13 @@ onUnmounted(() => {
 }
 
 .autocomplete__dropdown {
-  position: absolute;
-  top: calc(100% + 0.25rem);
-  left: 0;
-  right: 0;
   max-height: 16rem;
   overflow-y: auto;
   background: var(--color-surface-elevated);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-md);
-  z-index: 100;
+  z-index: 9999;
   padding: 0.25rem;
 }
 
