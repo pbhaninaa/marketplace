@@ -1,5 +1,6 @@
 <script setup>
 import FormField from '../ui/FormField.vue';
+import Autocomplete from '../ui/Autocomplete.vue';
 
 const props = defineProps({
   categories: { type: Array, default: () => [] },
@@ -27,17 +28,23 @@ function patch(field, raw) {
     </div>
 
     <FormField label="Category">
-      <select :value="String(modelValue.categoryId ?? '')" @change="patch('categoryId', $event.target.value)">
-        <option value="">All categories</option>
-        <option v-for="c in categories" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
-      </select>
+      <Autocomplete
+        :model-value="String(modelValue.categoryId ?? '')"
+        :options="categories"
+        placeholder="Search categories..."
+        empty-label="All categories"
+        @update:model-value="patch('categoryId', $event)"
+      />
     </FormField>
 
     <FormField label="Provider">
-      <select :value="String(modelValue.providerId ?? '')" @change="patch('providerId', $event.target.value)">
-        <option value="">All providers</option>
-        <option v-for="p in providers" :key="p.id" :value="String(p.id)">{{ p.name }}</option>
-      </select>
+      <Autocomplete
+        :model-value="String(modelValue.providerId ?? '')"
+        :options="providers"
+        placeholder="Search providers..."
+        empty-label="All providers"
+        @update:model-value="patch('providerId', $event)"
+      />
     </FormField>
 
     <FormField v-if="!hideListingType" label="Listing type">
@@ -155,6 +162,23 @@ function patch(field, raw) {
     max-height: calc(100vh - 5rem);
     overflow-y: auto;
     border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  }
+}
+@media (max-width: 640px) {
+  .filters {
+    padding: 1rem 0.85rem 1.25rem;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: none;
+  }
+  .filters__title {
+    font-size: 1.1rem;
+  }
+  .filters__hint {
+    font-size: 0.8rem;
+  }
+  .filters__actions {
+    margin-top: 0.85rem;
   }
 }
 </style>
