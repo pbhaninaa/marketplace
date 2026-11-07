@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { providerSettingsApi, publicPeachApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
+import DisplayStyleToggle from '../components/ui/DisplayStyleToggle.vue';
 import { isNonEmptyString, isPositiveNumber } from '../utils/validation';
 import { getCurrentLocation } from '../utils/getCurrentLocation';
 import { normalizeAcceptedPaymentMethods } from '../utils/paymentModel';
@@ -256,6 +257,8 @@ async function save() {
           </button>
         </div>
       </div>  
+
+      <div class="full"><DisplayStyleToggle /></div>
 
       <!-- DANGER -->
       <div class="full">

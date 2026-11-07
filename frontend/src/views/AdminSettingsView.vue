@@ -3,6 +3,7 @@ import { nextTick, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
+import DisplayStyleToggle from '../components/ui/DisplayStyleToggle.vue';
 import { adminSettingsApi, adminMaintenanceApi, adminOrderInvoiceApi } from '../services/marketplaceApi';
 
 const router = useRouter();
@@ -206,6 +207,7 @@ async function downloadStaffInvoice() {
         <button type="button" class="btn btn-ghost" :disabled="saving" @click="load">Refresh</button>
       </div>
     </section>
+    <DisplayStyleToggle />
   </div>
 </template>
 

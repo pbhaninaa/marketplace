@@ -1,0 +1,380 @@
+/*
+ * "Glass" display style — frosted, translucent layers floating over a softly lit backdrop.
+ * Opt-in only: every rule is scoped to <html data-display="glass"> (see stores/displayStyle.js),
+ * so the default (Classic) look is untouched. Works with both data-theme="light" and "dark".
+ *
+ * Anatomy of a glass surface:
+ *   1. translucent fill with a faint top-left sheen (gradient layers)
+ *   2. backdrop blur + saturation so colour behind it glows through
+ *   3. hairline light edge + bevelled inset highlight (visible slab thickness)
+ *   4. stacked contact → ambient shadows so it floats
+ * Dialogs stay (near) solid so forms inside them are fully readable.
+ */
+
+/* ================= Tokens ================= */
+:root[data-display='glass'] {
+  --g-surface-rgb: 255, 252, 247;
+  --g-text-rgb: 28, 36, 24;
+  --g-accent-rgb: 61, 122, 102;
+  --g-warm-rgb: 201, 162, 39;
+
+  --g-radius-xl: 24px;
+  --g-radius-lg: 20px;
+  --g-radius-md: 14px;
+
+  --g-fill: rgba(var(--g-surface-rgb), 0.68);
+  --g-fill-strong: rgba(var(--g-surface-rgb), 0.9);
+  --g-fill-soft: rgba(var(--g-surface-rgb), 0.5);
+  --g-sheen: linear-gradient(145deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.08) 38%, rgba(255, 255, 255, 0) 60%);
+  --g-edge: rgba(255, 255, 255, 0.6);
+  --g-edge-soft: rgba(255, 255, 255, 0.32);
+  --g-divider: rgba(var(--g-text-rgb), 0.08);
+  --g-blur: blur(22px) saturate(180%);
+  --g-blur-sm: blur(12px) saturate(160%);
+  /* 3D slab: lit top bevel, faint side light, darker bottom edge = visible glass thickness. */
+  --g-highlight:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 1px 0 0 rgba(255, 255, 255, 0.22),
+    inset 0 -2px 0 rgba(28, 36, 24, 0.06);
+  --g-shadow:
+    0 1px 1px rgba(28, 36, 24, 0.05),
+    0 2px 4px rgba(28, 36, 24, 0.05),
+    0 6px 12px -2px rgba(28, 36, 24, 0.07),
+    0 16px 32px -8px rgba(28, 36, 24, 0.14);
+  --g-shadow-float:
+    0 2px 2px rgba(28, 36, 24, 0.05),
+    0 6px 12px -2px rgba(28, 36, 24, 0.08),
+    0 18px 36px -8px rgba(28, 36, 24, 0.18),
+    0 44px 80px -24px rgba(28, 36, 24, 0.3);
+  /* Pressable parts: darker band along the bottom = the side of a key. */
+  --g-key-edge: inset 0 -3px 0 rgba(0, 0, 0, 0.16);
+  --g-key-edge-pressed: inset 0 -1px 0 rgba(0, 0, 0, 0.12), inset 0 2px 4px rgba(0, 0, 0, 0.14);
+  /* Recessed wells (inputs): shadow falls inside from the top, light catches the bottom lip. */
+  --g-sunken: inset 0 2px 4px rgba(28, 36, 24, 0.09), inset 0 1px 1px rgba(28, 36, 24, 0.06), inset 0 -1px 0 rgba(255, 255, 255, 0.6);
+  --g-glow: 0 8px 24px -6px rgba(var(--g-accent-rgb), 0.5);
+  --g-ease: 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  --g-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.045'/%3E%3C/svg%3E");
+
+  /* Backdrop: canopy + wheat light so the frost has something to glow over. */
+  background-color: var(--color-bg);
+  background-image:
+    var(--g-noise),
+    radial-gradient(48rem 38rem at -6% -10%, rgba(var(--g-accent-rgb), 0.3), transparent 60%),
+    radial-gradient(40rem 34rem at 108% 8%, rgba(var(--g-warm-rgb), 0.26), transparent 58%),
+    radial-gradient(46rem 40rem at 62% 112%, rgba(var(--g-accent-rgb), 0.22), transparent 60%),
+    linear-gradient(180deg, #faf8f3 0%, var(--color-bg) 40%, var(--color-bg-warm) 100%);
+  background-attachment: fixed;
+}
+
+/* Dark: quieter sheen and edges so glass reads as smoked glass, not glowing plastic. */
+:root[data-display='glass'][data-theme='dark'] {
+  --g-surface-rgb: 18, 28, 26;
+  --g-text-rgb: 233, 240, 236;
+  --g-accent-rgb: 99, 183, 156;
+  --g-warm-rgb: 227, 199, 106;
+
+  --g-fill: rgba(var(--g-surface-rgb), 0.62);
+  --g-fill-strong: rgba(var(--g-surface-rgb), 0.92);
+  --g-fill-soft: rgba(var(--g-surface-rgb), 0.45);
+  --g-sheen: linear-gradient(145deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.02) 40%, rgba(255, 255, 255, 0) 60%);
+  --g-edge: rgba(255, 255, 255, 0.14);
+  --g-edge-soft: rgba(255, 255, 255, 0.08);
+  --g-divider: rgba(255, 255, 255, 0.07);
+  --g-highlight:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 1px 0 0 rgba(255, 255, 255, 0.04),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.3);
+  --g-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.25),
+    0 3px 6px rgba(0, 0, 0, 0.2),
+    0 12px 24px -6px rgba(0, 0, 0, 0.35),
+    0 32px 64px -20px rgba(0, 0, 0, 0.55);
+  --g-shadow-float:
+    0 2px 2px rgba(0, 0, 0, 0.3),
+    0 8px 16px -4px rgba(0, 0, 0, 0.4),
+    0 48px 90px -24px rgba(0, 0, 0, 0.75);
+  --g-key-edge: inset 0 -3px 0 rgba(0, 0, 0, 0.32);
+  --g-key-edge-pressed: inset 0 -1px 0 rgba(0, 0, 0, 0.3), inset 0 2px 5px rgba(0, 0, 0, 0.4);
+  --g-sunken: inset 0 2px 5px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(0, 0, 0, 0.3), inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+
+  background-image:
+    var(--g-noise),
+    radial-gradient(48rem 38rem at -6% -10%, rgba(var(--g-accent-rgb), 0.22), transparent 60%),
+    radial-gradient(40rem 34rem at 108% 8%, rgba(var(--g-warm-rgb), 0.12), transparent 58%),
+    radial-gradient(46rem 40rem at 62% 112%, rgba(var(--g-accent-rgb), 0.14), transparent 60%),
+    linear-gradient(180deg, var(--color-bg) 0%, var(--color-bg-warm) 100%);
+}
+
+:root[data-display='glass'] body {
+  background: transparent;
+}
+
+/* ================= Surfaces ================= */
+:root[data-display='glass'] .surface-panel,
+:root[data-display='glass'] .dash-card,
+:root[data-display='glass'] .stat-card,
+:root[data-display='glass'] .tool-card,
+:root[data-display='glass'] .summary-card,
+:root[data-display='glass'] .listing-card,
+:root[data-display='glass'] .order-card,
+:root[data-display='glass'] .plan-card,
+:root[data-display='glass'] .record-card,
+:root[data-display='glass'] .status-card,
+:root[data-display='glass'] .progress-card,
+:root[data-display='glass'] .notif-card,
+:root[data-display='glass'] .team-card,
+:root[data-display='glass'] .main-area .card,
+:root[data-display='glass'] .data-table-wrap,
+:root[data-display='glass'] .base-table-wrapper {
+  background: var(--g-sheen), var(--g-fill) !important;
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  border-color: var(--g-edge) !important;
+  box-shadow: var(--g-highlight), var(--g-shadow) !important;
+}
+
+:root[data-display='glass'] .surface-panel,
+:root[data-display='glass'] .main-area .card {
+  border-radius: var(--g-radius-lg) !important;
+}
+
+/* Hover tints from the default theme would hide the frost; keep the glass and lift instead. */
+:root[data-display='glass'] .dash-card:hover,
+:root[data-display='glass'] .stat-card:hover,
+:root[data-display='glass'] .tool-card:hover {
+  background: var(--g-sheen), var(--g-fill-strong) !important;
+}
+
+/* Glass inside glass stays clear (no double frost / double shadow). */
+:root[data-display='glass'] .surface-panel .surface-panel,
+:root[data-display='glass'] .surface-panel .data-table-wrap,
+:root[data-display='glass'] .surface-panel .base-table-wrapper,
+:root[data-display='glass'] .main-area .card .data-table-wrap,
+:root[data-display='glass'] .main-area .card .card {
+  background: var(--g-fill-soft) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-color: var(--g-edge-soft) !important;
+  box-shadow: none !important;
+}
+
+/* Clickable cards lift off the page and tilt toward the mouse (angles set by useGlassTilt.js),
+   with a soft glare where the pointer is. Non-clickable cards stay still so forms don't wobble. */
+:root[data-display='glass'] .main-area a.tool-card,
+:root[data-display='glass'] .main-area a.dash-card,
+:root[data-display='glass'] .main-area [data-glass-tilt] {
+  transform: perspective(900px) rotateX(var(--g-rx, 0deg)) rotateY(var(--g-ry, 0deg)) translateY(var(--g-lift, 0px));
+  transform-style: preserve-3d;
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow var(--g-ease) !important;
+}
+:root[data-display='glass'] .main-area a.tool-card:hover,
+:root[data-display='glass'] .main-area a.dash-card:hover,
+:root[data-display='glass'] .main-area [data-glass-tilt]:hover {
+  --g-lift: -4px;
+  box-shadow: var(--g-highlight), var(--g-shadow-float) !important;
+}
+:root[data-display='glass'] .main-area .g-tilting {
+  /* Follow the pointer closely while it moves; ease back when it leaves. */
+  transition: transform 80ms linear, box-shadow var(--g-ease) !important;
+  background:
+    radial-gradient(420px circle at var(--g-mx, 50%) var(--g-my, 0%), rgba(255, 255, 255, 0.28), transparent 45%),
+    var(--g-sheen),
+    var(--g-fill-strong) !important;
+}
+:root[data-display='glass'][data-theme='dark'] .main-area .g-tilting {
+  background:
+    radial-gradient(420px circle at var(--g-mx, 50%) var(--g-my, 0%), rgba(255, 255, 255, 0.07), transparent 45%),
+    var(--g-sheen),
+    var(--g-fill-strong) !important;
+}
+
+/* Status messages: frosted but tinted, text colours untouched for contrast. */
+:root[data-display='glass'] .err-toast,
+:root[data-display='glass'] .ok-msg,
+:root[data-display='glass'] .ok-toast {
+  -webkit-backdrop-filter: var(--g-blur-sm);
+  backdrop-filter: var(--g-blur-sm);
+  box-shadow: var(--g-highlight), 0 4px 12px -6px rgba(0, 0, 0, 0.18);
+}
+
+/* ================= Header & side menu ================= */
+:root[data-display='glass'] .top-bar {
+  background: var(--g-sheen), rgba(var(--g-surface-rgb), 0.62);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+  border-bottom-color: var(--g-edge-soft);
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.2), 0 8px 30px -12px rgba(28, 36, 24, 0.22);
+}
+
+:root[data-display='glass'] .side-nav {
+  background: var(--g-sheen), var(--g-fill-strong) !important;
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  backdrop-filter: blur(26px) saturate(170%);
+  border-right-color: var(--g-edge) !important;
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.08), 12px 0 40px -16px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* ================= Buttons ================= */
+/* Solid buttons: glossy domed top + a key edge underneath, so they look pressable. */
+:root[data-display='glass'] .btn-primary:not(:disabled),
+:root[data-display='glass'] .base-button--primary:not(:disabled),
+:root[data-display='glass'] .base-button--success:not(:disabled),
+:root[data-display='glass'] .base-button--danger:not(:disabled) {
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.04) 50%, rgba(0, 0, 0, 0.06));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    var(--g-key-edge),
+    0 1px 1px rgba(28, 36, 24, 0.12),
+    var(--g-glow);
+  transition: transform 140ms ease, box-shadow 140ms ease, filter var(--g-ease), background-color var(--g-ease);
+}
+
+/* Secondary / ghost: small raised frosted panes. */
+:root[data-display='glass'] .btn-ghost:not(:disabled),
+:root[data-display='glass'] .base-button--secondary:not(:disabled),
+:root[data-display='glass'] .base-button--ghost:not(:disabled) {
+  background-color: var(--g-fill-soft);
+  -webkit-backdrop-filter: var(--g-blur-sm);
+  backdrop-filter: var(--g-blur-sm);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -2px 0 rgba(var(--g-text-rgb), 0.07),
+    0 1px 2px rgba(28, 36, 24, 0.08),
+    0 4px 10px -4px rgba(28, 36, 24, 0.14);
+  transition: transform 140ms ease, background-color var(--g-ease), box-shadow 140ms ease, color var(--g-ease);
+}
+
+:root[data-display='glass'] .btn:not(:disabled):hover,
+:root[data-display='glass'] .base-button:not(:disabled):hover {
+  transform: translateY(-2px);
+}
+:root[data-display='glass'] .btn-primary:not(:disabled):hover,
+:root[data-display='glass'] .base-button--primary:not(:disabled):hover {
+  filter: brightness(1.06) saturate(1.05);
+}
+/* Pressed: the key sinks, its edge disappears and the shadow tucks in. */
+:root[data-display='glass'] .btn:not(:disabled):active,
+:root[data-display='glass'] .base-button:not(:disabled):active {
+  transform: translateY(1px);
+  box-shadow: var(--g-key-edge-pressed), 0 1px 1px rgba(28, 36, 24, 0.1);
+}
+
+/* ================= Inputs: recessed wells below the raised cards ================= */
+:root[data-display='glass'] .base-input,
+:root[data-display='glass'] .base-select,
+:root[data-display='glass'] .base-textarea,
+:root[data-display='glass'] .form-field__control input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
+:root[data-display='glass'] .form-field__control select,
+:root[data-display='glass'] .form-field__control textarea {
+  background-color: var(--g-fill-soft) !important;
+  box-shadow: var(--g-sunken);
+  transition: box-shadow var(--g-ease), background-color var(--g-ease), border-color var(--g-ease);
+}
+:root[data-display='glass'] .base-input:focus,
+:root[data-display='glass'] .base-select:focus,
+:root[data-display='glass'] .base-textarea:focus,
+:root[data-display='glass'] .form-field__control input:focus,
+:root[data-display='glass'] .form-field__control select:focus,
+:root[data-display='glass'] .form-field__control textarea:focus {
+  background-color: var(--g-fill-strong) !important;
+  box-shadow: 0 0 0 4px rgba(var(--g-accent-rgb), 0.18), var(--g-sunken);
+}
+/* Native <select> popups can't be frosted; keep options solid and readable. */
+:root[data-display='glass'] select option {
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+}
+
+/* ================= Tables ================= */
+:root[data-display='glass'] .data-table th,
+:root[data-display='glass'] .base-table thead th {
+  background: rgba(var(--g-surface-rgb), 0.4) !important;
+  border-bottom-color: var(--g-divider) !important;
+}
+:root[data-display='glass'] .data-table td,
+:root[data-display='glass'] .base-table tbody td,
+:root[data-display='glass'] .base-table tbody tr {
+  background: transparent !important;
+  border-bottom-color: var(--g-divider) !important;
+}
+:root[data-display='glass'] .data-table tbody tr:hover td,
+:root[data-display='glass'] .base-table tbody tr:hover td {
+  background: rgba(var(--g-accent-rgb), 0.08) !important;
+}
+
+/* ================= Tooltip: theme-aware and mostly opaque ================= */
+/* Light panel + dark text on light theme, dark panel + light text on dark theme. */
+:root[data-display='glass'] .twt-hover-tip {
+  background: rgba(var(--g-surface-rgb), 0.95);
+  color: var(--color-text);
+  -webkit-backdrop-filter: var(--g-blur-sm);
+  backdrop-filter: var(--g-blur-sm);
+  border: 1px solid rgba(var(--g-text-rgb), 0.14);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(28, 36, 24, 0.18), 0 1px 3px rgba(28, 36, 24, 0.12);
+  font-weight: 500;
+}
+:root[data-display='glass'] .twt-hover-tip * {
+  color: inherit;
+}
+:root[data-display='glass'][data-theme='dark'] .twt-hover-tip {
+  border-color: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* ================= Dialogs: solid, so forms get full attention ================= */
+:root[data-display='glass'] .dialog-modal,
+:root[data-display='glass'] .twt-dialog__panel {
+  background: var(--g-sheen), var(--color-surface-elevated) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 1px solid var(--g-edge) !important;
+  border-radius: var(--g-radius-xl) !important;
+  box-shadow: var(--g-highlight), var(--g-shadow-float) !important;
+}
+:root[data-display='glass'] .dialog-overlay,
+:root[data-display='glass'] .twt-dialog__backdrop {
+  background: rgba(15, 23, 22, 0.5) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+/* ================= Fallbacks & accessibility ================= */
+/* No backdrop-filter (older browsers / some WebViews): near-opaque so text stays readable. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-display='glass'] {
+    --g-fill: rgba(var(--g-surface-rgb), 0.95);
+    --g-fill-soft: rgba(var(--g-surface-rgb), 0.9);
+    --g-fill-strong: rgb(var(--g-surface-rgb));
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-display='glass'] {
+    --g-fill: rgba(var(--g-surface-rgb), 0.96);
+    --g-fill-soft: rgba(var(--g-surface-rgb), 0.92);
+    --g-fill-strong: rgb(var(--g-surface-rgb));
+  }
+}
+
+/* Phones: lighter blur keeps scrolling smooth on low-end GPUs. */
+@media (max-width: 720px) {
+  :root[data-display='glass'] {
+    --g-blur: blur(14px) saturate(160%);
+    --g-blur-sm: blur(8px) saturate(150%);
+    background-attachment: scroll;
+  }
+}
+
+/* Reduced motion: no tilt, lift or key travel. Scoped to the elements Glass moves, so layout
+   transforms elsewhere (e.g. the sliding side menu) keep working. */
+@media (prefers-reduced-motion: reduce) {
+  :root[data-display='glass'] .main-area a.tool-card,
+  :root[data-display='glass'] .main-area a.dash-card,
+  :root[data-display='glass'] .main-area [data-glass-tilt],
+  :root[data-display='glass'] .btn,
+  :root[data-display='glass'] .base-button {
+    transform: none !important;
+    transition: none !important;
+  }
+}
