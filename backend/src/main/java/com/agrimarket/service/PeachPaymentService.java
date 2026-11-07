@@ -68,6 +68,9 @@ public class PeachPaymentService {
     private final AppNotificationService appNotificationService;
     private final PeachProperties peachProperties;
     private final PasswordResetProperties passwordResetProperties;
+    private final ReferralService referralService;
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PeachPaymentService.class);
 
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(HTTP_TIMEOUT).build();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -329,6 +332,13 @@ public class PeachPaymentService {
         intentRepository.save(intent);
 
         subscriptionService.activateFromVerifiedPeachCallback(sub);
+        try {
+            // Referral commission on the referred provider's first paid subscription (idempotent).
+            referralService.recordQualifyingPayment(
+                    provider.getId(), sub.getId(), intent.getAmountDue(), intent.getGatewayMerchantRef());
+        } catch (Exception e) {
+            log.warn("Referral commission not recorded for provider {}: {}", provider.getId(), e.getMessage());
+        }
         try {
             appNotificationService.notifySubscriptionDecision(provider, true, "Paid via Peach online checkout");
         } catch (Exception ignored) {

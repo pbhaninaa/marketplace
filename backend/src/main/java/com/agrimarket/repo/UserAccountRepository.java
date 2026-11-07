@@ -18,6 +18,11 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
 
     boolean existsByRole(UserRole role);
 
+    @Query("SELECT u FROM UserAccount u LEFT JOIN FETCH u.provider WHERE u.referralCode = :code")
+    Optional<UserAccount> findByReferralCode(@Param("code") String code);
+
+    boolean existsByReferralCode(String code);
+
     java.util.List<UserAccount> findByProvider_IdOrderByEmailAsc(Long providerId);
 
     Optional<UserAccount> findByIdAndProvider_Id(Long id, Long providerId);

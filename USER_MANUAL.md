@@ -312,6 +312,28 @@ Required fields:
 - `rentPriceDaily`: Daily rate (optional)
 - `rentPriceWeekly`: Weekly rate (optional)
 
+### Referrals
+
+Every provider user has a personal referral code and invite link (`/register?ref=CODE`) under
+**My referrals** (`/provider/referrals`).
+
+- A new business enters the code on the sign-up form (it is pre-filled from the invite link and remembered
+  for 30 days on that browser). On another device they can simply type the code.
+- Signed up without a code? The owner or an admin can add it from **My referrals** within the claim window
+  (default 30 days after sign-up) and before the first subscription payment.
+- Rules: no self-referral (your own or a teammate's code), one referrer per business, codes can't be added
+  after the window or after the first payment.
+- When the referred business pays its **first** subscription online (Peach), the referrer earns the
+  commission rate (default 15%) of that payment. The rate is frozen at that moment; renewals and webhook
+  retries never add more. Payouts are manual: admins mark commission as paid on **Admin → Referrals**.
+- Platform admins set the commission rate (0–100%) and claim window (1–365 days) under
+  **Admin → Settings → Referral programme**. Support users and providers cannot change them.
+
+Endpoints: `GET /api/provider/referrals`, `POST /api/provider/referrals/claim`,
+`GET /api/public/referrals/{code}`, `GET|PUT /api/admin/referrals/settings`, `GET /api/admin/referrals`
+(filters: `referrer`, `referee`, `status`, `from`, `to`), `GET /api/admin/referrals/stats`,
+`POST /api/admin/referrals/{id}/mark-paid`.
+
 ---
 
 ## Inventory & Stock Management

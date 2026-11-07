@@ -18,6 +18,10 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
 
     Optional<Subscription> findTopByProviderIdOrderByCreatedAtDesc(Long providerId);
 
+    long countByProvider_Id(Long providerId);
+
+    long countByProvider_IdAndIdNot(Long providerId, Long excludedSubscriptionId);
+
     @Query(
             "SELECT s FROM Subscription s WHERE s.status = :status AND s.expiresAt IS NOT NULL AND s.expiresAt <= :now")
     List<Subscription> findLapsedByStatus(

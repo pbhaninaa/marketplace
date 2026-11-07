@@ -33,6 +33,9 @@ import ProviderStaffPaymentsView from './views/ProviderStaffPaymentsView.vue';
 import ProviderSubscriptionView from './views/ProviderSubscriptionView.vue';
 import ProviderHelpView from './views/ProviderHelpView.vue';
 import ClientHelpView from './views/ClientHelpView.vue';
+import ProviderReferralsView from './views/ProviderReferralsView.vue';
+import AdminReferralsView from './views/AdminReferralsView.vue';
+import { captureInviteFromQuery } from './utils/referralInvite';
 import {
   providerRouteGuard,
   refreshProviderSubscription,
@@ -60,6 +63,7 @@ const router = createRouter({
     { path: '/admin/users', name: 'admin-users', component: AdminUsersView, meta: { requiresAdmin: true } },
     { path: '/admin/providers/:id', name: 'admin-provider-support', component: AdminProviderSupportView, meta: { requiresAdmin: true } },
     { path: '/admin/support-users', name: 'admin-support-users', component: AdminSupportUsersView, meta: { requiresAdmin: true } },
+    { path: '/admin/referrals', name: 'admin-referrals', component: AdminReferralsView, meta: { requiresAdmin: true, title: 'Referrals' } },
     { path: '/admin/password', name: 'admin-password', component: AdminPasswordView, meta: { requiresAdmin: true } },
     { path: '/admin/maintenance', redirect: { name: 'admin-settings', hash: '#maintenance' } },
     { path: '/support', name: 'support', component: SupportDashboardView, meta: { requiresSupport: true } },
@@ -79,6 +83,7 @@ const router = createRouter({
     { path: '/provider/listings', name: 'provider-listings', component: ProviderListingsView, meta: { requiresAuth: true } },
     { path: '/provider/orders', name: 'provider-orders', component: ProviderOrdersView, meta: { requiresAuth: true } },
     { path: '/provider/subscription', name: 'provider-subscription', component: ProviderSubscriptionView, meta: { requiresAuth: true } },
+    { path: '/provider/referrals', name: 'provider-referrals', component: ProviderReferralsView, meta: { requiresAuth: true, title: 'My referrals' } },
     { path: '/provider/help', name: 'provider-help', component: ProviderHelpView, meta: { requiresAuth: true } },
   ],
 });
@@ -87,6 +92,8 @@ router.beforeEach(async (to) => {
   const auth = useAuthStore();
   const setup = useSetupStore();
   auth.restoreFromStorage();
+  // Remember an invite link's ?ref= code wherever it lands (sign-up form pre-fills from it).
+  if (to.query?.ref) captureInviteFromQuery(to.query);
 
   if (to.meta.requiresAdmin && !auth.isPlatformAdmin) {
     return { path: '/login', query: { redirect: to.fullPath } };

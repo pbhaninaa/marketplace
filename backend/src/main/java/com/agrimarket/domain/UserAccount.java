@@ -81,6 +81,10 @@ public class UserAccount {
     @Column(name = "staff_bonus_percentage", precision = 6, scale = 2)
     private BigDecimal staffBonusPercentage;
 
+    /** Personal referral code (provider users); generated on first request. */
+    @Column(name = "referral_code", length = 32, unique = true)
+    private String referralCode;
+
     public UserAccount(String email, String passwordHash, UserRole role, Provider provider) {
         this.email = email;
         this.passwordHash = passwordHash;

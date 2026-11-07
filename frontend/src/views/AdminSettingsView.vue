@@ -3,7 +3,12 @@ import { nextTick, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
-import { adminSettingsApi, adminMaintenanceApi, adminOrderInvoiceApi } from '../services/marketplaceApi';
+import {
+  adminSettingsApi,
+  adminMaintenanceApi,
+  adminOrderInvoiceApi,
+  adminReferralsApi,
+} from '../services/marketplaceApi';
 
 const router = useRouter();
 const route = useRoute();
@@ -34,16 +39,55 @@ const form = ref({
   usageFeePercent: 0,
 });
 
+// Referral programme settings (separate endpoint, separate save).
+const referralForm = ref({ commissionPercent: 15, claimWindowDays: 30 });
+const referralMeta = ref({ updatedBy: null, updatedAt: null });
+const referralSaving = ref(false);
+const referralError = ref('');
+const referralMessage = ref('');
+
+async function loadReferralSettings() {
+  referralError.value = '';
+  try {
+    const { data } = await adminReferralsApi.getSettings();
+    referralForm.value = {
+      commissionPercent: data?.commissionPercent ?? 15,
+      claimWindowDays: data?.claimWindowDays ?? 30,
+    };
+    referralMeta.value = { updatedBy: data?.updatedBy ?? null, updatedAt: data?.updatedAt ?? null };
+  } catch (e) {
+    referralError.value = e.response?.data?.message || e.message || 'Failed to load referral settings.';
+  }
+}
+
+async function saveReferralSettings() {
+  referralSaving.value = true;
+  referralError.value = '';
+  referralMessage.value = '';
+  try {
+    const { data } = await adminReferralsApi.updateSettings({
+      commissionPercent: referralForm.value.commissionPercent,
+      claimWindowDays: referralForm.value.claimWindowDays,
+    });
+    referralMeta.value = { updatedBy: data?.updatedBy ?? null, updatedAt: data?.updatedAt ?? null };
+    referralMessage.value = 'Referral settings saved. The new rate applies to commission earned from now on.';
+  } catch (e) {
+    referralError.value = e.response?.data?.message || e.message || 'Failed to save referral settings.';
+  } finally {
+    referralSaving.value = false;
+  }
+}
+
 onMounted(async () => {
   auth.restoreFromStorage();
   if (!auth.isPlatformAdmin) {
     router.replace({ path: '/login', query: { redirect: '/admin/settings' } });
     return;
   }
-  await load();
-  if (route.hash === '#maintenance') {
+  await Promise.all([load(), loadReferralSettings()]);
+  if (route.hash === '#maintenance' || route.hash === '#referrals') {
     await nextTick();
-    document.getElementById('maintenance')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById(route.hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 });
 
@@ -164,6 +208,33 @@ async function downloadStaffInvoice() {
         </FormField>
       </div>
 
+      <div id="referrals" class="referral-block">
+        <h2 class="mt">Referral programme</h2>
+        <p class="muted small">
+          Provider users earn this percent of a referred business's first subscription payment (paid via Peach).
+          Changes apply to commission earned from now on; earned commission keeps the rate it was earned at.
+          <router-link to="/admin/referrals">View referrals</router-link>
+        </p>
+        <div class="grid grid--2">
+          <FormField label="Commission (% of first subscription payment)">
+            <input v-model.number="referralForm.commissionPercent" type="number" step="0.01" min="0" max="100" />
+          </FormField>
+          <FormField label="Claim window (days after sign-up)">
+            <input v-model.number="referralForm.claimWindowDays" type="number" step="1" min="1" max="365" />
+            <p class="muted small">How long a new provider can still add a referral code from their portal.</p>
+          </FormField>
+        </div>
+        <p v-if="referralMeta.updatedBy" class="muted small">
+          Last changed by {{ referralMeta.updatedBy }}
+          <span v-if="referralMeta.updatedAt">on {{ new Date(referralMeta.updatedAt).toLocaleString() }}</span>
+        </p>
+        <p v-if="referralError" class="err-toast">{{ referralError }}</p>
+        <p v-if="referralMessage" class="ok-msg">{{ referralMessage }}</p>
+        <button type="button" class="btn btn-ghost" :disabled="referralSaving" @click="saveReferralSettings">
+          {{ referralSaving ? 'Saving…' : 'Save referral settings' }}
+        </button>
+      </div>
+
       <h2 class="mt">Order invoice (admin)</h2>
       <p class="muted small">
         Enter the numeric order id or the customer verification code (same as on the receipt). Guests can also use
@@ -244,6 +315,13 @@ async function downloadStaffInvoice() {
   display: flex;
   align-items: center;
   padding-bottom: 0.15rem;
+}
+.referral-block {
+  margin-top: 1.25rem;
+  padding-top: 0.25rem;
+}
+.referral-block .btn {
+  margin-top: 0.6rem;
 }
 .maint-block {
   margin-top: 1.5rem;

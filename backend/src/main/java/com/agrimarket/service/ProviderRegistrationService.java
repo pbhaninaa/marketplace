@@ -31,12 +31,14 @@ public class ProviderRegistrationService {
     private final PasswordEncoder passwordEncoder;
     private final SlugService slugService;
     private final Clock clock;
+    private final ReferralService referralService;
 
     @Transactional
     public void register(ProviderRegisterRequest req) {
         if (userAccountRepository.findByEmailIgnoreCase(req.ownerEmail()).isPresent()) {
             throw new ApiException(HttpStatus.CONFLICT, "EMAIL_TAKEN", "Email already registered");
         }
+        referralService.validateRegistrationCode(req.referralCode());
         Instant now = Instant.now(clock);
         Provider p = new Provider(
                 req.businessName(),
@@ -53,5 +55,7 @@ public class ProviderRegistrationService {
         UserAccount owner = new UserAccount(req.ownerEmail(), passwordEncoder.encode(req.password()), UserRole.PROVIDER_OWNER, p);
         owner.setCreatedAt(now);
         userAccountRepository.save(owner);
+
+        referralService.recordAtRegistration(req.referralCode(), owner, p);
     }
 }
