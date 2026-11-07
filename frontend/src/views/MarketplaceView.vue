@@ -219,6 +219,11 @@ onMounted(async () => {
     </div>
 
     <div class="market-body" :class="{ 'market-body--no-sidebar': !hasSidebar }">
+      <div
+        v-if="showMobileFilters"
+        class="filter-backdrop"
+        @click="showMobileFilters = false"
+      />
       <MarketplaceFilterSidebar
         v-if="entryListingType"
         :class="{ 'show-mobile': showMobileFilters }"
@@ -244,7 +249,7 @@ onMounted(async () => {
           <p class="feed-hero__eyebrow">Livestock · vehicles · equipment</p>
           <h1 class="feed-hero__title">Marketplace</h1>
           <p class="feed-hero__lead">
-            Buy and rent from verified providers. Your cart stays with one supplier per checkout — simple for guests,
+            Buy and rent from verified providers. Your cart stays with one supplier per checkout, simple for guests,
             clear for business.
           </p>
           <div v-if="entryListingType" class="mode-toggle">
@@ -487,9 +492,30 @@ onMounted(async () => {
   display: none;
 }
 
+.filter-backdrop {
+  display: none;
+}
+
 @media (max-width: 900px) {
+  .filter-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 997;
+    backdrop-filter: blur(2px);
+  }
+
   .market-body {
     grid-template-columns: 1fr;
+  }
+
+  .marketplace-filter-sidebar {
+    display: none !important;
+  }
+
+  .marketplace-filter-sidebar.show-mobile {
+    display: flex !important;
   }
 
   .market-body .feed-hero {
@@ -528,30 +554,38 @@ onMounted(async () => {
     background: rgba(61, 122, 102, 0.12);
   }
 
-  :deep(.marketplace-filter-sidebar) {
+  .marketplace-filter-sidebar.show-mobile {
     position: fixed;
-    top: 64px;
+    top: 56px;
     left: 0;
+    right: 0;
     width: 100%;
-    height: calc(100vh - 64px);
-    height: calc(100dvh - 64px);
+    max-height: 70vh;
     max-width: none;
     border-right: none;
-    border-bottom: none;
+    border-bottom: 1px solid var(--color-border);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
     background: var(--color-surface-elevated, white);
     z-index: 998;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
-    display: none;
+    animation: slideDown 0.3s ease-out;
     flex-direction: column;
-    padding: 1rem 1rem 2.5rem;
+    padding: 1rem 1rem 1.5rem;
     box-sizing: border-box;
   }
 
-  :deep(.marketplace-filter-sidebar.show-mobile) {
-    display: flex;
+  @keyframes slideDown {
+    from {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
 
   :deep(.filters) {

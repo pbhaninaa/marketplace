@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { providerDashboardApi, providerSubscriptionApi } from '../services/marketplaceApi';
+import { formatEnum } from '../utils/display';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -12,12 +13,12 @@ const error = ref('');
 const stats = ref(null);
 const subscription = ref(null);
 
-const plan = computed(() => String(subscription.value?.plan || '').toUpperCase() || '—');
+const plan = computed(() => formatEnum(subscription.value?.plan, 'No plan yet'));
 const isActive = computed(() => !!subscription.value?.valid);
 const isPremium = computed(() => String(subscription.value?.plan || '').toUpperCase() === 'PREMIUM');
 
-const purchaseCount = computed(() => Number(stats.value?.purchasesCount ?? 0));
-const rentalCount = computed(() => Number(stats.value?.rentalsCount ?? 0));
+const purchaseCount = computed(() => Number(stats.value?.OrdersCount ?? 0));
+const rentalCount = computed(() => Number(stats.value?.rentalBookingsCount ?? 0));
 const totalOrders = computed(() => purchaseCount.value + rentalCount.value);
 const listingsCount = computed(() => Number(stats.value?.listingsCount ?? 0));
 
@@ -90,7 +91,7 @@ async function load() {
         <div v-else-if="!isPremium" class="callout callout--info">
           <strong>Premium features locked</strong>
           <p class="muted small">
-            Team management & payroll are Premium-only. Upgrade in
+            Team management & payroll are only on the Premium plan. Upgrade in
             <router-link to="/provider/subscription">Subscription</router-link>.
           </p>
         </div>
@@ -108,14 +109,14 @@ async function load() {
           <div class="step">
             <strong>2) Create listings</strong>
             <p class="muted small">
-              {{ listingsCount > 0 ? 'You already have listings — keep them up to date.' : 'You have no listings yet — start by creating your first listing.' }}
+              {{ listingsCount > 0 ? 'You already have listings. Keep them up to date.' : 'You have no listings yet. Start by creating your first listing.' }}
               Go to <router-link to="/provider/listings">Listings</router-link>.
             </p>
           </div>
           <div class="step">
             <strong>3) Manage orders</strong>
             <p class="muted small">
-              {{ totalOrders > 0 ? 'Review new orders and download invoices when needed.' : 'No orders yet — once you have listings, customers can place orders.' }}
+              {{ totalOrders > 0 ? 'Review new orders and download invoices when needed.' : 'No orders yet. Once you have listings, customers can place orders.' }}
               Go to <router-link to="/provider/orders">Orders</router-link>.
             </p>
           </div>

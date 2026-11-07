@@ -420,13 +420,13 @@ async function deleteListing(id) {
                     <div v-else class="thumb thumb--empty">No image</div>
                   </td>
                   <td>
-                    <strong><TextWithTooltip class="cell-text" :text="l.title || '—'" :max-length="22" /></strong>
+                    <strong><TextWithTooltip class="cell-text" :text="l.title || 'Untitled listing'" :max-length="22" /></strong>
                     <div class="small muted clamp">
-                      <TextWithTooltip class="cell-text" :text="l.description || '—'" :max-length="32" />
+                      <TextWithTooltip class="cell-text" :text="l.description || 'No description yet'" :max-length="32" />
                     </div>
                     <div class="tiny muted">{{ listingImageCount(l) }} photo{{ listingImageCount(l) === 1 ? '' : 's' }}</div>
                   </td>
-                  <td class="small">{{ l.categoryName || '—' }}</td>
+                  <td class="small">{{ l.categoryName || 'Uncategorised' }}</td>
                   <td>R {{ l.unitPrice }}</td>
                   <td>{{ l.active ? 'Yes' : 'No' }}</td>
                   <td class="cell-actions">
@@ -448,9 +448,9 @@ async function deleteListing(id) {
                 <div v-if="listingFirstImageUrl(l)" class="card-thumb">
                   <img :src="listingFirstImageUrl(l)" :alt="l.title" />
                 </div>
-                <strong><TextWithTooltip :text="l.title || '—'" :max-length="26" /></strong>
+                <strong><TextWithTooltip :text="l.title || 'Untitled listing'" :max-length="26" /></strong>
                 <span class="meta"
-                  >{{ l.listingType }} · {{ l.categoryName || '—' }} · R{{ l.unitPrice }} ·
+                  >{{ l.listingType }} · {{ l.categoryName || 'Uncategorised' }} · R{{ l.unitPrice }} ·
                   {{ l.active ? 'Active' : 'Draft' }}</span
                 >
                 <span class="meta clamp">{{ l.description }}</span>
@@ -685,7 +685,7 @@ async function deleteListing(id) {
 }
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
   gap: 0.85rem;
 }
 .listing-card {

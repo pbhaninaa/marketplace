@@ -602,3 +602,196 @@ a:hover {
 button:focus:not(:focus-visible) {
   outline: none;
 }
+
+/* ===== MOBILE RESPONSIVE IMPROVEMENTS ===== */
+
+/* Mobile breakpoints */
+@media (max-width: 640px) {
+  :root {
+    font-size: 15px;
+  }
+
+  /* Reduce padding for mobile */
+  .top-bar {
+    padding: 0.5rem 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .brand {
+    font-size: 1rem;
+  }
+
+  .brand__word {
+    display: none;
+  }
+
+  /* Make buttons touch-friendly (min 44x44px) */
+  .hamburger,
+  .top-icon-btn,
+  .theme-toggle {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Better text sizing on mobile */
+  h1 {
+    font-size: 1.75rem;
+    line-height: 1.2;
+  }
+
+  h2 {
+    font-size: 1.35rem;
+    line-height: 1.3;
+  }
+
+  h3 {
+    font-size: 1.1rem;
+    line-height: 1.4;
+  }
+
+  p {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  /* Form inputs - better mobile sizing */
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea,
+  button {
+    font-size: 16px; /* Prevents iOS zoom */
+    min-height: 44px;
+  }
+
+  /* Reduce main area padding */
+  .main-area__inner {
+    padding: var(--space-4) var(--space-3) var(--space-6);
+  }
+
+  /* Stack layouts vertically */
+  .surface-panel {
+    padding: var(--space-4) var(--space-3);
+  }
+
+  /* Better table handling on mobile */
+  table {
+    font-size: 0.85rem;
+  }
+
+  /* Cards should be more compact */
+  .dash-card,
+  .stat-card {
+    padding: 0.85rem 0.95rem;
+  }
+}
+
+/* Extra small devices (< 400px) */
+@media (max-width: 400px) {
+  :root {
+    font-size: 14px;
+  }
+
+  .top-bar {
+    padding: 0.4rem 0.6rem;
+  }
+
+  .main-area__inner {
+    padding: var(--space-3) var(--space-2) var(--space-5);
+  }
+}
+
+/* Landscape mobile fixes */
+@media (max-height: 500px) and (orientation: landscape) {
+  .side-nav {
+    width: min(250px, 70vw);
+  }
+
+  .side-nav__links {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .side-nav__links a {
+    min-height: 2.25rem;
+    padding: 0.5rem 0.75rem;
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase tap targets */
+  a,
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Remove hover states on touch devices */
+  .top-icon-btn:hover,
+  .hamburger:hover,
+  .side-nav__links a:hover {
+    transform: none;
+  }
+
+  /* Larger text for readability */
+  body {
+    font-size: 16px;
+  }
+}
+
+/* ===== Cards: keep text inside, with breathing room ===== */
+/*
+ * :where() keeps specificity at zero so per-view card styles still win for layout,
+ * while long names, emails, references and amounts wrap instead of spilling out.
+ */
+:where(
+    .surface-panel,
+    .dash-card,
+    .stat-card,
+    .tool-card,
+    .summary-card,
+    .sub-status__card,
+    .card,
+    .radio-card,
+    .check-card,
+    .status-card,
+    .record-card,
+    .progress-card,
+    .plan-card,
+    .listing-card,
+    .team-card,
+    .order-card,
+    .notif-card
+  ) {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* Flex/grid children default to min-width:auto, which lets long words push past the card edge. */
+:where(
+    .dash-card,
+    .stat-card,
+    .tool-card,
+    .summary-card,
+    .sub-status__card,
+    .card,
+    .radio-card,
+    .check-card,
+    .status-card,
+    .record-card,
+    .progress-card,
+    .plan-card,
+    .listing-card,
+    .team-card,
+    .order-card,
+    .notif-card
+  )
+  > * {
+  min-width: 0;
+}
+
+/* Inputs and media inside cards never exceed the card. */
+:where(.surface-panel, .card, .order-card, .plan-card, .listing-card, .record-card) :where(img, video, input, select, textarea, table) {
+  max-width: 100%;
+}

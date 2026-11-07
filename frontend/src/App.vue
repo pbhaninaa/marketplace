@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useSessionStore } from './stores/session';
 import { useSetupStore } from './stores/setup';
@@ -47,6 +47,13 @@ const workspaceLabel = computed(() => {
   return 'Menu';
 });
 
+const userInitials = computed(() => {
+  const label = auth.displayLabel || '';
+  const source = label.includes('@') ? label.split('@')[0] : label;
+  const parts = source.split(/[\s._-]+/).filter(Boolean);
+  return ((parts[0]?.[0] || '') + (parts[1]?.[0] || '')).toUpperCase() || '?';
+});
+
 watch(
   () => route.fullPath,
   () => {
@@ -54,7 +61,14 @@ watch(
   },
 );
 
+const onKeydown = (event) => {
+  if (event.key === 'Escape' && menuOpen.value) closeMenu();
+};
+
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown));
+
 onMounted(async () => {
+  window.addEventListener('keydown', onKeydown);
   theme.init();
   await session.ensureSession();
   try {
@@ -99,6 +113,12 @@ onMounted(async () => {
         <span class="hamburger__line"></span>
         <span class="hamburger__line"></span>
         <span class="hamburger__line"></span>
+        <!-- Cart moved into the side nav; keep a hint on the menu button so it isn't missed. -->
+        <span
+          v-if="!menuOpen && cart.totalQuantity > 0"
+          class="hamburger__badge"
+          aria-hidden="true"
+        >{{ cart.totalQuantity > 99 ? '99+' : cart.totalQuantity }}</span>
       </button>
 
       <router-link :to="brandHome" class="brand" @click="closeMenu">
@@ -117,60 +137,6 @@ onMounted(async () => {
 
       <div class="top-bar__actions">
         <NotificationBell />
-        <router-link
-          v-if="!auth.isAuthenticated && cart.totalQuantity > 0"
-          to="/checkout"
-          class="top-icon-btn"
-          aria-label="Cart"
-          title="Cart"
-        >
-          <span class="material-icons" aria-hidden="true">shopping_cart</span>
-          <span class="cart-badge">{{ cart.totalQuantity }}</span>
-        </router-link>
-        <router-link
-          v-if="!auth.isAuthenticated"
-          to="/login"
-          class="top-icon-btn"
-          aria-label="Sign in"
-          title="Sign in"
-        >
-          <span class="material-icons" aria-hidden="true">person</span>
-        </router-link>
-        <span v-if="auth.isAuthenticated" class="top-user" :title="auth.email">{{ auth.displayLabel }}</span>
-        <button
-          type="button"
-          class="theme-toggle top-icon-btn"
-          :aria-label="theme.resolvedMode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
-          :title="theme.resolvedMode === 'dark' ? 'Light mode' : 'Dark mode'"
-          @click="theme.toggle()"
-        >
-          <svg
-            v-if="theme.resolvedMode === 'dark'"
-            class="theme-toggle__icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="4" />
-            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-          </svg>
-          <svg
-            v-else
-            class="theme-toggle__icon"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M21 14.5A8.5 8.5 0 1 1 9.5 3a7 7 0 0 0 11.5 11.5z" />
-          </svg>
-        </button>
       </div>
     </header>
 
@@ -187,6 +153,7 @@ onMounted(async () => {
       :class="{ 'side-nav--open': menuOpen }"
       aria-label="Main navigation"
       :aria-hidden="!menuOpen"
+      :inert="!menuOpen"
     >
       <div class="side-nav__head">
         <p class="side-nav__label">{{ workspaceLabel }}</p>
@@ -203,6 +170,7 @@ onMounted(async () => {
             <span class="side-badge">{{ cart.totalQuantity }}</span>
           </router-link>
           <router-link to="/order-invoice">Order invoice</router-link>
+          <router-link to="/settings">Settings</router-link>
           <router-link v-if="setup.needsFirstAdmin === true" to="/setup">Setup</router-link>
           <router-link to="/help/client" class="side-nav__link--help">Help</router-link>
         </template>
@@ -230,6 +198,7 @@ onMounted(async () => {
               Choose and activate a plan to unlock your provider workspace.
             </p>
           </template>
+          <router-link to="/profile">Profile</router-link>
           <router-link to="/provider/help" class="side-nav__link--help">Help</router-link>
         </template>
 
@@ -241,6 +210,8 @@ onMounted(async () => {
             <span class="side-badge">{{ cart.totalQuantity }}</span>
           </router-link>
           <router-link to="/order-invoice">Order invoice</router-link>
+          <router-link to="/profile">Profile</router-link>
+          <router-link to="/settings">Settings</router-link>
           <router-link to="/help/client" class="side-nav__link--help">Help</router-link>
         </template>
 
@@ -251,6 +222,7 @@ onMounted(async () => {
           <router-link to="/support/tickets">Tickets</router-link>
           <router-link to="/support/otp">Client OTP</router-link>
           <router-link to="/support/order-invoice">Order invoice</router-link>
+          <router-link to="/profile">Profile</router-link>
         </template>
 
         <template v-else-if="auth.isPlatformAdmin">
@@ -262,15 +234,50 @@ onMounted(async () => {
           <router-link to="/admin/support-users">Support users</router-link>
           <router-link to="/support">Support</router-link>
           <router-link to="/admin/settings">Settings</router-link>
-          <router-link to="/admin/password">Password</router-link>
+          <router-link to="/profile">Profile</router-link>
         </template>
       </nav>
 
-      <div v-if="auth.isAuthenticated" class="side-nav__footer">
-        <p class="side-nav__user" :title="auth.email">{{ auth.displayLabel }}</p>
-        <button type="button" class="side-nav__signout" @click="auth.logout()">
-          Sign out
+      <div class="side-nav__footer">
+        <button
+          type="button"
+          class="side-nav__action"
+          role="switch"
+          :aria-checked="theme.resolvedMode === 'dark'"
+          @click="theme.toggle()"
+        >
+          <span class="material-icons" aria-hidden="true">
+            {{ theme.resolvedMode === 'dark' ? 'dark_mode' : 'light_mode' }}
+          </span>
+          <span class="side-nav__action-label">
+            {{ theme.resolvedMode === 'dark' ? 'Dark mode' : 'Light mode' }}
+          </span>
+          <span class="side-nav__switch" :class="{ 'side-nav__switch--on': theme.resolvedMode === 'dark' }" aria-hidden="true"></span>
         </button>
+
+        <router-link
+          v-if="!auth.isAuthenticated"
+          to="/login"
+          class="side-nav__action side-nav__action--primary"
+          @click="closeMenu"
+        >
+          <span class="material-icons" aria-hidden="true">login</span>
+          <span class="side-nav__action-label">Sign in</span>
+        </router-link>
+
+        <template v-else>
+          <router-link to="/profile" class="side-nav__user" :title="auth.email" @click="closeMenu">
+            <span class="side-nav__avatar" aria-hidden="true">{{ userInitials }}</span>
+            <span class="side-nav__user-text">
+              <span class="side-nav__user-name">{{ auth.displayLabel }}</span>
+              <span v-if="auth.displayName && auth.email" class="side-nav__user-email">{{ auth.email }}</span>
+            </span>
+          </router-link>
+          <button type="button" class="side-nav__signout" @click="auth.logout()">
+            <span class="material-icons" aria-hidden="true">logout</span>
+            Sign out
+          </button>
+        </template>
       </div>
     </aside>
 
@@ -330,61 +337,23 @@ onMounted(async () => {
   margin-left: auto;
 }
 
-.top-user {
-  font-size: 0.82rem;
-  color: var(--color-muted);
-  max-width: 10rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.top-icon-btn {
-  position: relative;
+.hamburger__badge {
+  position: absolute;
+  top: -0.35rem;
+  right: -0.35rem;
+  min-width: 1.1rem;
+  height: 1.1rem;
+  padding: 0 0.3rem;
+  border-radius: var(--radius-pill);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.35rem;
-  height: 2.35rem;
-  padding: 0;
-  border-radius: 999px;
-  border: 1px solid var(--color-border);
-  background: var(--color-surface-elevated);
-  color: var(--color-canopy);
-  text-decoration: none;
-  flex-shrink: 0;
-  box-sizing: border-box;
-  transition:
-    background 0.15s ease,
-    color 0.15s ease,
-    border-color 0.15s ease;
-}
-
-.top-icon-btn:hover {
-  background: var(--color-sage-soft);
-  color: var(--color-canopy);
-  text-decoration: none;
-  border-color: rgba(61, 122, 102, 0.35);
-}
-
-.top-icon-btn .material-icons {
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
-.top-icon-btn .cart-badge {
-  position: absolute;
-  top: -0.2rem;
-  right: -0.2rem;
-  min-width: 1.05rem;
-  height: 1.05rem;
-  padding: 0 0.28rem;
   font-size: 0.65rem;
-}
-
-.top-icon-btn.theme-toggle {
-  /* Keep shared icon-button sizing; theme-toggle styles still apply color/hover. */
-  margin: 0;
+  font-weight: 800;
+  line-height: 1;
+  background: var(--color-earth);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--color-surface-elevated);
 }
 
 .hamburger {
@@ -400,6 +369,7 @@ onMounted(async () => {
   background: var(--color-surface-elevated);
   cursor: pointer;
   flex-shrink: 0;
+  position: relative;
 }
 
 .hamburger__line {
@@ -555,26 +525,163 @@ onMounted(async () => {
   gap: 0.5rem;
 }
 
+/* Shared row style for footer actions (theme switch, sign in). */
+.side-nav__action {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-canopy);
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.92rem;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.side-nav__action:hover {
+  background: var(--color-sage-soft);
+  text-decoration: none;
+}
+
+.side-nav__action .material-icons {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.side-nav__action-label {
+  flex: 1;
+  min-width: 0;
+}
+
+.side-nav__action--primary {
+  justify-content: center;
+  border-color: var(--color-canopy);
+  background: var(--color-canopy);
+  color: #fff;
+}
+
+.side-nav__action--primary .side-nav__action-label {
+  flex: 0 1 auto;
+}
+
+.side-nav__action--primary:hover {
+  background: var(--color-canopy-mid);
+  color: #fff;
+}
+
+.side-nav__switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 2.3rem;
+  height: 1.3rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
+  transition: background 0.18s var(--ease-out);
+}
+
+.side-nav__switch::after {
+  content: '';
+  position: absolute;
+  top: 0.15rem;
+  left: 0.15rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.18s var(--ease-out);
+}
+
+.side-nav__switch--on {
+  background: var(--color-sage);
+}
+
+.side-nav__switch--on::after {
+  transform: translateX(1rem);
+}
+
 .side-nav__user {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--color-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 12px;
+  color: var(--color-canopy);
+  text-decoration: none;
+  min-width: 0;
+}
+
+.side-nav__user:hover,
+.side-nav__user.router-link-active {
+  background: var(--color-sage-soft);
+  text-decoration: none;
+}
+
+.side-nav__avatar {
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  color: #fff;
+  background: linear-gradient(135deg, var(--color-sage), var(--color-canopy));
+}
+
+.side-nav__user-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.side-nav__user-name,
+.side-nav__user-email {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.side-nav__user-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.side-nav__user-email {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
 .side-nav__signout {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
   border: 1px solid var(--color-border);
   background: transparent;
   color: var(--color-earth);
   font: inherit;
   font-weight: 600;
   font-size: 0.9rem;
-  padding: 0.55rem 0.75rem;
-  border-radius: 10px;
+  padding: 0.55rem 0.85rem;
+  border-radius: 12px;
   cursor: pointer;
   text-align: left;
+}
+
+.side-nav__signout .material-icons {
+  font-size: 1.15rem;
 }
 
 .side-nav__signout:hover {

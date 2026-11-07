@@ -73,7 +73,7 @@ const emit = defineEmits(['add-to-cart', 'reset-rent-dates', 'update-rent-defaul
               <button type="button" class="linkish" @click="emit('reset-rent-dates', item)">Reset dates</button>
             </div>
           </template>
-          <span v-else class="muted small">—</span>
+          <span v-else class="muted small">For sale, no dates needed</span>
         </td>
         <td class="cell-actions">
           <button

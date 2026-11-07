@@ -59,7 +59,7 @@ const hasError = computed(() => !!props.error);
       ]"
       @change="emit('update:modelValue', $event.target.value); emit('change')"
     >
-      <option value="">— Select an option —</option>
+      <option value="">Select an option</option>
       <option v-for="opt in options" :key="opt.value" :value="opt.value">
         {{ opt.label }}
       </option>

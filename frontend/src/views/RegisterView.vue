@@ -54,8 +54,8 @@ async function submit() {
       <p class="page-hero__eyebrow">New provider</p>
       <h1 class="page-hero__title">Sign up</h1>
       <p class="page-hero__lead">
-        Create your business profile and owner account. After you sign in, choose a subscription plan first —
-        monthly access runs for 30 days from approval. Then you can manage listings and your team.
+        Create your business profile and owner account. After you sign in, choose a subscription plan first.
+        Monthly access runs for 30 days from approval. Then you can manage listings and your team.
       </p>
     </header>
 

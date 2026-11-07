@@ -27,11 +27,19 @@ const SHOPPER_TABS: BottomNavTab[] = [
     matchPaths: ['/order-invoice'],
   },
   {
+    id: 'profile',
+    label: 'Profile',
+    icon: 'account-circle-outline',
+    path: '/profile',
+    // Signed-out users tapping Profile are sent to sign in, so keep the tab lit there.
+    matchPaths: ['/profile', '/login', '/register', '/client', '/forgot-password', '/reset-password'],
+  },
+  {
     id: 'settings',
     label: 'Settings',
     icon: 'cog-outline',
     path: '/settings',
-    matchPaths: ['/settings', '/login', '/register', '/client', '/forgot-password', '/reset-password', '/help/client'],
+    matchPaths: ['/settings', '/help/client'],
   },
 ];
 

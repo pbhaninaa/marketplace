@@ -97,11 +97,11 @@ async function updateStatus(p, status) {
           <tr v-for="p in providers.content" :key="p.id">
             <td>
               <div class="cell-stack">
-                <strong><TextWithTooltip class="cell-text" :text="p.name || '—'" :max-length="24" /></strong>
-                <span class="muted small"><TextWithTooltip class="cell-text" :text="p.slug || '—'" :max-length="24" /></span>
+                <strong><TextWithTooltip class="cell-text" :text="p.name || 'Unnamed provider'" :max-length="24" /></strong>
+                <span class="muted small"><TextWithTooltip class="cell-text" :text="p.description || 'No description yet'" :max-length="24" /></span>
               </div>
             </td>
-            <td><TextWithTooltip class="cell-text" :text="p.location || '—'" :max-length="22" /></td>
+            <td><TextWithTooltip class="cell-text" :text="p.location || 'Not shared'" :max-length="22" /></td>
             <td>
               <FormField label="">
                 <select :value="p.status" @change="updateStatus(p, $event.target.value)">

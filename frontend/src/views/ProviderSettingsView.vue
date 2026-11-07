@@ -316,7 +316,7 @@ async function save() {
 
 .check-card {
   flex: 1;
-  padding: 0.6rem;
+  padding: 0.75rem 0.85rem;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   cursor: pointer;

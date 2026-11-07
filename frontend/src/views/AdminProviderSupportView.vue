@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { adminProviderDetailApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DataTableShell from '../components/ui/DataTableShell.vue';
+import { imageCountLabel } from '../utils/display';
 
 const route = useRoute();
 const router = useRouter();
@@ -92,7 +93,7 @@ async function disableStaff(userId) {
           <div><span class="k">ID</span><span class="v">{{ provider?.id }}</span></div>
           <div><span class="k">Name</span><span class="v">{{ provider?.name }}</span></div>
           <div><span class="k">Slug</span><span class="v">{{ provider?.slug }}</span></div>
-          <div><span class="k">Location</span><span class="v">{{ provider?.location || '—' }}</span></div>
+          <div><span class="k">Location</span><span class="v">{{ provider?.location || 'Not shared' }}</span></div>
           <div><span class="k">Status</span><span class="v">{{ provider?.status }}</span></div>
         </div>
       </section>
@@ -116,7 +117,7 @@ async function disableStaff(userId) {
               <td>{{ l.listingType }}</td>
               <td>
                 <strong>{{ l.title }}</strong>
-                <div class="tiny muted clamp">Images: {{ l.imageUrls || '—' }}</div>
+                <div class="tiny muted clamp">{{ imageCountLabel(l.imageUrls) }}</div>
               </td>
               <td>{{ l.active ? 'Yes' : 'No' }}</td>
               <td class="cell-actions">
@@ -145,7 +146,7 @@ async function disableStaff(userId) {
             <tr v-for="u in staff" :key="u.id">
               <td>
                 <strong>{{ u.email }}</strong>
-                <div class="tiny muted clamp">Perms: {{ (u.permissions || []).join(', ') || '—' }}</div>
+                <div class="tiny muted clamp">Perms: {{ (u.permissions || []).join(', ') || 'None' }}</div>
               </td>
               <td>{{ u.role }}</td>
               <td>{{ u.enabled ? 'Yes' : 'No' }}</td>

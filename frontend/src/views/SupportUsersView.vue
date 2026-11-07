@@ -114,7 +114,7 @@ async function shadowProvider(providerId) {
             <td><TextWithTooltip class="cell-text" :text="u.email" :max-length="24" /></td>
             <td><TextWithTooltip class="cell-text" :text="u.role" :max-length="18" /></td>
             <td>{{ u.enabled ? 'Yes' : 'No' }}</td>
-            <td>{{ u.providerId ?? '—' }}</td>
+            <td>{{ u.providerId != null ? `#${u.providerId}` : 'None' }}</td>
             <td class="cell-actions">
               <button
                 v-if="u.providerId"

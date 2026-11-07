@@ -33,6 +33,8 @@ import ProviderStaffPaymentsView from './views/ProviderStaffPaymentsView.vue';
 import ProviderSubscriptionView from './views/ProviderSubscriptionView.vue';
 import ProviderHelpView from './views/ProviderHelpView.vue';
 import ClientHelpView from './views/ClientHelpView.vue';
+import ClientSettingsView from './views/ClientSettingsView.vue';
+import ProfileView from './views/ProfileView.vue';
 import {
   providerRouteGuard,
   refreshProviderSubscription,
@@ -42,6 +44,8 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', name: 'market', component: MarketplaceView },
+    { path: '/settings', name: 'settings', component: ClientSettingsView, meta: { title: 'Settings' } },
+    { path: '/profile', name: 'profile', component: ProfileView, meta: { title: 'Profile', requiresAuth: true } },
     { path: '/help/client', name: 'help-client', component: ClientHelpView, meta: { title: 'Help' } },
     { path: '/order-invoice', name: 'order-invoice', component: OrderInvoiceLookupView, meta: { title: 'Order invoice' } },
     { path: '/checkout', name: 'checkout', component: CheckoutView },

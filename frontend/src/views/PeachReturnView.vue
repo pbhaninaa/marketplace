@@ -104,7 +104,7 @@ onBeforeUnmount(() => {
       </p>
 
       <div v-if="verificationCodes.length" class="codes-box">
-        <p class="muted small">Keep your verification code(s) — show them to the provider when you collect / receive delivery:</p>
+        <p class="muted small">Keep your verification code(s) and show them to the provider when you collect / receive delivery:</p>
         <ul>
           <li v-for="c in verificationCodes" :key="c"><strong>{{ c }}</strong></li>
         </ul>

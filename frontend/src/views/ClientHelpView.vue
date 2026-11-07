@@ -55,7 +55,7 @@ const isLoggedInClient = computed(() => auth.isAuthenticated && auth.isClientUse
         <details>
           <summary>I can’t find my invoice</summary>
           <p class="muted small">
-            Double-check the order number and email spelling. If it still fails, contact support and share your order number.
+            Check the order number and email spelling. If it still fails, contact support and share your order number.
           </p>
         </details>
       </div>
@@ -72,7 +72,7 @@ const isLoggedInClient = computed(() => auth.isAuthenticated && auth.isClientUse
           </p>
         </details>
         <details v-if="isLoggedInClient">
-          <summary>I’m logged in as a client — what’s different?</summary>
+          <summary>I’m logged in as a client. What’s different?</summary>
           <p class="muted small">
             Your session is linked to your email, so invoice lookups are easier. You can still use
             <router-link to="/order-invoice">Order invoice</router-link> any time.
@@ -125,6 +125,26 @@ const isLoggedInClient = computed(() => auth.isAuthenticated && auth.isClientUse
 @media (max-width: 980px) {
   .steps {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 640px) {
+  .help-page {
+    padding-bottom: 1rem;
+  }
+  .page-hero__title {
+    font-size: 1.75rem;
+  }
+  .page-hero__lead {
+    font-size: 0.95rem;
+  }
+  .step {
+    padding: var(--space-3);
+  }
+  .faq details {
+    padding: var(--space-2) var(--space-3);
+  }
+  .faq summary {
+    font-size: 0.95rem;
   }
 }
 </style>

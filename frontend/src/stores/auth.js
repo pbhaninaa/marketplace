@@ -69,6 +69,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  /** Keep the header/nav label in sync after the user edits their profile. */
+  function setDisplayName(name) {
+    displayName.value = String(name || '').trim();
+    if (displayName.value) {
+      localStorage.setItem(DISPLAY_NAME_KEY, displayName.value);
+    } else {
+      localStorage.removeItem(DISPLAY_NAME_KEY);
+    }
+  }
+
   function beginShadow(login) {
     // Backup the current session once, so the support/admin user can return.
     if (!localStorage.getItem(SHADOW_BACKUP_KEY)) {
@@ -194,6 +204,7 @@ export const useAuthStore = defineStore('auth', () => {
     isClientUser,
     isPremiumPlan,
     setSession,
+    setDisplayName,
     beginShadow,
     endShadow,
     logout,

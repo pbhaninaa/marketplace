@@ -374,7 +374,7 @@ async function handleLimitWarning({ message, type }) {
               <div class="radio-group">
                 <label class="radio-card">
                   <input type="radio" v-model="deliveryMode" value="DELIVERY" />
-                  <span>🚚 Delivery <small>To your address — fee = distance × R{{ deliveryRate.toFixed(2)
+                  <span>🚚 Delivery <small>To your address. Fee = distance × R{{ deliveryRate.toFixed(2)
                   }}/km</small></span>
                 </label>
                 <label class="radio-card">
@@ -393,7 +393,7 @@ async function handleLimitWarning({ message, type }) {
                 ({{ Number(deliveryDistanceKm) || 0 }} km × R{{ deliveryRate.toFixed(2) }}/km)
               </p>
               <p v-else-if="deliveryMode === 'DELIVERY' && deliveryRate <= 0" class="muted small">
-                This provider has delivery enabled but no per-km rate — contact them or choose pickup.
+                This provider has delivery enabled but no rate per km yet. Contact them or choose pickup.
               </p>
             </div>
           </template>
@@ -531,8 +531,8 @@ async function handleLimitWarning({ message, type }) {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.5rem 0.7rem;
-  border: 1px solid #ddd;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   cursor: pointer;
   font-size: 0.9rem;
@@ -540,8 +540,8 @@ async function handleLimitWarning({ message, type }) {
 }
 
 .radio-card:hover {
-  border-color: #bbb;
-  background: #fafafa;
+  border-color: var(--color-border-strong);
+  background: var(--color-sage-soft);
 }
 
 .radio-card input {

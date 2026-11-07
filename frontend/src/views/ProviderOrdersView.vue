@@ -7,6 +7,7 @@ import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vu
 import DataTableShell from '../components/ui/DataTableShell.vue';
 import FormField from '../components/ui/FormField.vue';
 import TextWithTooltip from '../components/ui/TextWithTooltip.vue';
+import { formatDateTime } from '../utils/display';
 const router = useRouter();
 const auth = useAuthStore();
 
@@ -346,7 +347,7 @@ function displayText(value) {
 
             <tbody>
               <tr v-for="o in rows" :key="o.id">
-                <td>{{ String(o.createdAt || '').slice(0, 19) }}</td>
+                <td>{{ formatDateTime(o.createdAt, 'Date not recorded') }}</td>
                 <td>{{ displayText(o.guestName) }}</td>
                 <td>{{ displayText(o.guestPhone) }}</td>
                 <td>{{ displayText(o.guestEmail) }}</td>
@@ -355,8 +356,8 @@ function displayText(value) {
                 <td>{{ deliveryAddressLabel(o) }}</td>
                 <td class="col-num">{{ formatMoney(orderTotal(o)) }}</td>
                 <td v-if="tab === 'rentals'">
-                  {{ String(o.startAt || '').slice(0, 16) }} →
-                  {{ String(o.endAt || '').slice(0, 16) }}
+                  {{ formatDateTime(o.startAt, 'Start not set') }} to
+                  {{ formatDateTime(o.endAt, 'End not set') }}
                 </td>
 
                 <td>
@@ -415,7 +416,7 @@ function displayText(value) {
                 <h3 class="section-title">Order</h3>
                 <div class="info-row">
                   <span class="label">Date:</span>
-                  <span class="value">{{ String(o.createdAt || '').slice(0, 19) }}</span>
+                  <span class="value">{{ formatDateTime(o.createdAt, 'Date not recorded') }}</span>
                 </div>
                 <div class="info-row">
                   <span class="label">Delivery:</span>
@@ -438,11 +439,11 @@ function displayText(value) {
                 <h3 class="section-title">Booking Period</h3>
                 <div class="info-row">
                   <span class="label">From:</span>
-                  <span class="value">{{ String(o.startAt || '').slice(0, 16) }}</span>
+                  <span class="value">{{ formatDateTime(o.startAt, 'Not set') }}</span>
                 </div>
                 <div class="info-row">
                   <span class="label">To:</span>
-                  <span class="value">{{ String(o.endAt || '').slice(0, 16) }}</span>
+                  <span class="value">{{ formatDateTime(o.endAt, 'Not set') }}</span>
                 </div>
               </div>
 
@@ -475,8 +476,8 @@ function displayText(value) {
             <p><strong>Total:</strong> {{ formatMoney(orderTotal(selectedOrder)) }}</p>
 
             <div v-if="tab === 'rentals'">
-              <p><strong>Start:</strong> {{ selectedOrder.startAt }}</p>
-              <p><strong>End:</strong> {{ selectedOrder.endAt }}</p>
+              <p><strong>Start:</strong> {{ formatDateTime(selectedOrder.startAt, 'Not set') }}</p>
+              <p><strong>End:</strong> {{ formatDateTime(selectedOrder.endAt, 'Not set') }}</p>
             </div>
 
             <p v-if="detailsLoading" class="muted small">Loading full order details…</p>
