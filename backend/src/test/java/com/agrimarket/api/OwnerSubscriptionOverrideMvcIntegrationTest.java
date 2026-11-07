@@ -49,7 +49,7 @@ class OwnerSubscriptionOverrideMvcIntegrationTest extends AbstractIntegrationTes
 
         provider = new Provider("Mvc Farm " + suffix, "mvc-farm-" + suffix, "desc", "loc");
         provider.setStatus(ProviderStatus.ACTIVE);
-        ProviderTrialSupport.assignTrialOnce(provider, Instant.now().minus(25, ChronoUnit.DAYS));
+        ProviderTrialSupport.assignTrialOnce(provider, Instant.now().minus(ProviderTrialSupport.TRIAL_DAYS - 5, ChronoUnit.DAYS));
         providerRepository.save(provider);
         UserAccount providerUser = userAccountRepository.save(
                 new UserAccount("farmer-" + suffix + "@farm.test", "x", UserRole.PROVIDER_OWNER, provider));

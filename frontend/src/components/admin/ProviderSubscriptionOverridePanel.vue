@@ -15,6 +15,7 @@ import {
   validateExtendDays,
   validateReason,
 } from '../../utils/subscriptionOverride';
+import { formatDate, formatDateTime } from '../../utils/display';
 
 const props = defineProps({
   providerId: { type: Number, required: true },
@@ -37,14 +38,14 @@ const fieldErrors = ref({ days: '', activeUntil: '', reason: '' });
 const today = toIsoDate(new Date());
 const isOwner = computed(() => !!sub.value?.platformOwner);
 
-const fmtDate = (v) => (v ? new Date(v).toLocaleDateString() : '—');
-const fmtDateTime = (v) => (v ? new Date(v).toLocaleString() : '—');
-const planLabel = (p) => (p === 'PREMIUM' ? 'Premium' : p === 'BASIC' ? 'Basic' : '—');
+const fmtDate = (v) => formatDate(v);
+const fmtDateTime = (v) => formatDateTime(v);
+const planLabel = (p) => (p === 'PREMIUM' ? 'Premium' : p === 'BASIC' ? 'Basic' : 'No plan');
 
 const stateLabel = computed(() => {
   const s = sub.value;
-  if (!s) return '—';
-  if (s.valid && s.plan && s.status === 'ACTIVE') return `${planLabel(s.plan)} — active`;
+  if (!s) return 'Not loaded';
+  if (s.valid && s.plan && s.status === 'ACTIVE') return `${planLabel(s.plan)}, active`;
   if (s.onTrial) return 'Free trial';
   if (s.status) return s.status.replaceAll('_', ' ').toLowerCase();
   return 'No subscription';

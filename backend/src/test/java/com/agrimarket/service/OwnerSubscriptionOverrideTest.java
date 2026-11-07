@@ -64,7 +64,7 @@ class OwnerSubscriptionOverrideTest extends AbstractIntegrationTest {
 
     @Test
     void extendsARunningTrialFromItsCurrentEnd() {
-        trial(Instant.now().minus(28, ChronoUnit.DAYS));
+        trial(Instant.now().minus(ProviderTrialSupport.TRIAL_DAYS - 2, ChronoUnit.DAYS));
         Instant oldEnd = provider.getTrialEndsAt();
         Instant oldStart = provider.getTrialStartedAt();
 
@@ -75,7 +75,7 @@ class OwnerSubscriptionOverrideTest extends AbstractIntegrationTest {
         assertThat(p.getTrialStartedAt()).isEqualTo(oldStart);
         assertThat(subscriptionService.resolveStatusSnapshot(p.getId()).onTrial()).isTrue();
         // Default trial length is unchanged.
-        assertThat(ProviderTrialSupport.TRIAL_DAYS).isEqualTo(30);
+        assertThat(ProviderTrialSupport.TRIAL_DAYS).isEqualTo(14);
     }
 
     @Test
