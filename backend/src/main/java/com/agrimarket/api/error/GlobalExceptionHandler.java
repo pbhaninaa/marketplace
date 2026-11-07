@@ -3,6 +3,7 @@ package com.agrimarket.api.error;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -23,6 +24,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<Map<String, Object>> handleApi(ApiException ex) {
         return ResponseEntity.status(ex.getStatus())
+                .body(Map.of(
+                        "code", ex.getCode(),
+                        "errorCode", ex.getCode(),
+                        "message", ex.getMessage()));
+    }
+
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<Map<String, Object>> handleTooManyRequests(TooManyRequestsException ex) {
+        return ResponseEntity.status(ex.getStatus())
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()))
                 .body(Map.of(
                         "code", ex.getCode(),
                         "errorCode", ex.getCode(),
@@ -56,7 +67,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<Map<String, Object>> handleBadCredentials(BadCredentialsException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(Map.of("code", "AUTH", "errorCode", "AUTH", "message", "Invalid credentials"));
+                .body(Map.of("code", "AUTH", "errorCode", "AUTH", "message", "Invalid email or password"));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

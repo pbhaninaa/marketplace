@@ -98,10 +98,17 @@ class PublicRegistrationMvcIntegrationTest extends AbstractIntegrationTest {
                         .content(objectMapper.writeValueAsString(Map.of("email", email))))
                 .andExpect(status().isNoContent());
 
-        String token = passwordResetTokenRepository.findAll().stream()
+        // Only the SHA-256 of the emailed token is stored; stand in for the email link with a known raw token.
+        String stored = passwordResetTokenRepository.findAll().stream()
                 .findFirst()
                 .orElseThrow()
                 .getToken();
+        assertThat(stored).matches("[0-9a-f]{64}");
+        String token = "known-raw-token-" + UUID.randomUUID();
+        passwordResetTokenRepository.save(new com.agrimarket.domain.PasswordResetToken(
+                com.agrimarket.service.PasswordResetService.hashToken(token),
+                u,
+                java.time.Instant.now().plusSeconds(3600)));
 
         mockMvc.perform(post("/api/public/reset-password")
                         .contentType(APPLICATION_JSON)

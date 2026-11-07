@@ -4,7 +4,10 @@ import { useRouter } from 'vue-router';
 import { publicSetupApi } from '../services/marketplaceApi';
 import { useSetupStore } from '../stores/setup';
 import FormField from '../components/ui/FormField.vue';
-import { emailError, textError, LIMITS } from '../utils/validation';
+import { emailError, LIMITS } from '../utils/validation';
+import PasswordHint from '../components/ui/PasswordHint.vue';
+import { apiErrorMessage } from '../utils/apiError';
+import { passwordProblem } from '../utils/passwordPolicy';
 
 const router = useRouter();
 const setup = useSetupStore();
@@ -16,7 +19,11 @@ const done = ref(false);
 const showErrors = ref(false);
 const emailMsg = computed(() => (showErrors.value ? emailError(email.value, { label: 'Administrator email' }) : ''));
 const passwordMsg = computed(() =>
-  showErrors.value ? textError(password.value, { required: true, label: 'Password', min: 8, max: 100 }) : ''
+  showErrors.value
+    ? password.value
+      ? passwordProblem(password.value, email.value)
+      : 'Password is required.'
+    : ''
 );
 
 onMounted(async () => {
@@ -36,7 +43,7 @@ async function submit() {
     await setup.fetchStatus();
     setTimeout(() => router.push('/login'), 1500);
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = apiErrorMessage(e, 'Something went wrong. Please try again.');
   }
 }
 </script>
@@ -57,8 +64,9 @@ async function submit() {
         <input v-model="email" type="email" required :maxlength="LIMITS.email" autocomplete="email" />
       </FormField>
       <FormField label="Password" :error="passwordMsg">
-        <input v-model="password" type="password" required minlength="8" maxlength="100" autocomplete="new-password" />
+        <input v-model="password" type="password" required minlength="8" maxlength="64" autocomplete="new-password" />
       </FormField>
+      <PasswordHint :password="password" :email="email" />
       <p v-if="error" class="err-toast">{{ error }}</p>
       <p v-if="done" class="ok-msg">Administrator created. Redirecting to sign in…</p>
       <button type="submit" class="btn btn-primary" :disabled="done">Create administrator</button>

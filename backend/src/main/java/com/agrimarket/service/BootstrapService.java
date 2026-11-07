@@ -5,6 +5,7 @@ import com.agrimarket.api.error.ApiException;
 import com.agrimarket.domain.UserAccount;
 import com.agrimarket.domain.UserRole;
 import com.agrimarket.repo.UserAccountRepository;
+import com.agrimarket.security.PasswordPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,6 +28,7 @@ public class BootstrapService {
         if (!needsFirstAdmin()) {
             throw new ApiException(HttpStatus.CONFLICT, "ADMIN_EXISTS", "A platform administrator is already registered.");
         }
+        PasswordPolicy.require(req.password(), req.email());
         if (userAccountRepository.findByEmailIgnoreCase(req.email()).isPresent()) {
             throw new ApiException(HttpStatus.CONFLICT, "EMAIL_TAKEN", "Email already in use");
         }

@@ -100,6 +100,22 @@ public class DeployedProfileValidator {
                     "PEACH_ENABLED=true requires PEACH_CLIENT_ID, PEACH_CLIENT_SECRET, "
                             + "PEACH_MERCHANT_ID, PEACH_ENTITY_ID, and PEACH_SECRET_TOKEN");
         }
+
+        // Login / sign-up abuse protection.
+        boolean signupVerification = environment.getProperty(
+                "app.signup.require-email-verification", Boolean.class, Boolean.TRUE);
+        if (signupVerification && !emailProperties.isEnabled()) {
+            throw new IllegalStateException(
+                    "SIGNUP_REQUIRE_EMAIL_VERIFICATION=true needs email sending (APP_EMAIL_ENABLED=true) "
+                            + "so sign-up codes can be delivered");
+        }
+        Integer hops = environment.getProperty("app.security.trusted-proxy-hops", Integer.class, 1);
+        if (hops == null || hops < 0 || hops > 5) {
+            throw new IllegalStateException("TRUSTED_PROXY_HOPS must be between 0 and 5");
+        }
+        if (!environment.getProperty("app.security.rate-limit.enabled", Boolean.class, Boolean.TRUE)) {
+            throw new IllegalStateException("RATE_LIMIT_ENABLED must not be false on UAT/PROD");
+        }
     }
 
     private static String firstNonBlank(String... values) {

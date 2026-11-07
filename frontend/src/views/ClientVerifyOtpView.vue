@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { publicClientOtpApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
+import { apiErrorMessage } from '../utils/apiError';
 
 const route = useRoute();
 const router = useRouter();
@@ -40,7 +41,7 @@ async function submit() {
     done.value = true;
     router.push('/');
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = apiErrorMessage(e, 'Something went wrong. Please try again.');
   }
 }
 </script>

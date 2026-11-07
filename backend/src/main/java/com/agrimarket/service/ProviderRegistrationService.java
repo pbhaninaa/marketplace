@@ -9,6 +9,7 @@ import com.agrimarket.domain.UserAccount;
 import com.agrimarket.domain.UserRole;
 import com.agrimarket.repo.ProviderRepository;
 import com.agrimarket.repo.UserAccountRepository;
+import com.agrimarket.security.PasswordPolicy;
 import java.time.Clock;
 import java.time.Instant;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +36,7 @@ public class ProviderRegistrationService {
 
     @Transactional
     public void register(ProviderRegisterRequest req) {
+        PasswordPolicy.require(req.password(), req.ownerEmail());
         if (userAccountRepository.findByEmailIgnoreCase(req.ownerEmail()).isPresent()) {
             throw new ApiException(HttpStatus.CONFLICT, "EMAIL_TAKEN", "Email already registered");
         }

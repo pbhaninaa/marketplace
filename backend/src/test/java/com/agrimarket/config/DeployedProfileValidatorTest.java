@@ -84,6 +84,36 @@ class DeployedProfileValidatorTest {
                         .validate());
     }
 
+    @Test
+    void rejectsSignupEmailVerificationWithoutEmailSending() {
+        EmailProperties disabled = new EmailProperties();
+        disabled.setEnabled(false);
+
+        assertThatIllegalStateException()
+                .isThrownBy(() -> validator(disabled).validate())
+                .withMessageContaining("SIGNUP_REQUIRE_EMAIL_VERIFICATION");
+    }
+
+    @Test
+    void rejectsDisabledRateLimitsAndBadProxyHops() {
+        EmailProperties email = enabledEmail();
+        email.setDomain("mail.example.com");
+
+        DeployedProfileValidator noLimits = validator(email);
+        ((MockEnvironment) ReflectionTestUtils.getField(noLimits, "environment"))
+                .setProperty("app.security.rate-limit.enabled", "false");
+        assertThatIllegalStateException()
+                .isThrownBy(noLimits::validate)
+                .withMessageContaining("RATE_LIMIT_ENABLED");
+
+        DeployedProfileValidator badHops = validator(email);
+        ((MockEnvironment) ReflectionTestUtils.getField(badHops, "environment"))
+                .setProperty("app.security.trusted-proxy-hops", "-1");
+        assertThatIllegalStateException()
+                .isThrownBy(badHops::validate)
+                .withMessageContaining("TRUSTED_PROXY_HOPS");
+    }
+
     private static EmailProperties enabledEmail() {
         EmailProperties properties = new EmailProperties();
         properties.setEnabled(true);

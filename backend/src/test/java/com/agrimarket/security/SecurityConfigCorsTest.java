@@ -34,7 +34,7 @@ class SecurityConfigCorsTest {
     private static List<String> allowedOrigins(MockEnvironment env, String profileOrigins) {
         AppProperties props = new AppProperties(
                 "TEST", new AppProperties.Cors(profileOrigins), null, null, null, null, false);
-        SecurityConfig config = new SecurityConfig(null, props, env);
+        SecurityConfig config = new SecurityConfig(null, null, props, env);
         CorsConfiguration cors = config.corsConfigurationSource().getCorsConfiguration(new MockHttpServletRequest("GET", "/api/public/listings"));
         assertThat(cors).isNotNull();
         List<String> origins = cors.getAllowedOrigins();

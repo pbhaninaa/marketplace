@@ -5,6 +5,7 @@ import { authApi, providerSubscriptionApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import { useSetupStore } from '../stores/setup';
 import FormField from '../components/ui/FormField.vue';
+import { apiErrorMessage } from '../utils/apiError';
 
 const route = useRoute();
 const router = useRouter();
@@ -120,11 +121,9 @@ async function submit() {
       await router.push(homeForRole());
     }
   } catch (e) {
-    if (!e.response) {
-      error.value = 'Network error. Check your connection.';
-    } else {
-      error.value = e.response?.data?.message || 'Login failed';
-    }
+    // 401: "Invalid email or password" (same for unknown email and wrong password).
+    // 429: account locked after repeated failures, or too many attempts from this network.
+    error.value = apiErrorMessage(e, 'Login failed');
   } finally {
     loading.value = false;
   }

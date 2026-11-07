@@ -1,10 +1,13 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { publicAccountApi, publicReferralApi } from '../services/marketplaceApi';
 import { useSetupStore } from '../stores/setup';
 import FormField from '../components/ui/FormField.vue';
-import { businessNameError, emailError, textError, LIMITS } from '../utils/validation';
+import PasswordHint from '../components/ui/PasswordHint.vue';
+import { passwordProblem } from '../utils/passwordPolicy';
+import { apiErrorMessage } from '../utils/apiError';
+import { businessNameError, emailError, textError, isValidEmail, LIMITS } from '../utils/validation';
 import {
   captureInviteFromQuery,
   clearInviteRef,
@@ -49,8 +52,10 @@ const location = ref('');
 const subtype = ref('RESELLER');
 const ownerEmail = ref('');
 const password = ref('');
+const emailCode = ref('');
 const error = ref('');
 const done = ref(false);
+const submitting = ref(false);
 /** Inline messages show after the first submit attempt (same rules as the API). */
 const showErrors = ref(false);
 
@@ -59,19 +64,80 @@ const fieldErrors = computed(() => ({
   description: textError(description.value, { required: true, label: 'Description', max: LIMITS.providerDescription }),
   location: textError(location.value, { required: true, label: 'Location', max: LIMITS.location }),
   ownerEmail: emailError(ownerEmail.value, { label: 'Owner email' }),
-  password: textError(password.value, { required: true, label: 'Password', min: 8, max: 100 }),
+  password: password.value ? passwordProblem(password.value, ownerEmail.value) : 'Password is required.',
 }));
 const shownError = (field) => (showErrors.value ? fieldErrors.value[field] : '');
+
+const codeSending = ref(false);
+const codeSentTo = ref('');
+const codeInfo = ref('');
+const resendIn = ref(0);
+let resendTimer = null;
+
+const needsCode = computed(() => setup.signupEmailVerificationRequired !== false);
+const pwProblem = computed(() => (password.value ? passwordProblem(password.value, ownerEmail.value) : ''));
 
 onMounted(() => {
   setup.fetchStatus().catch(() => {});
   if (referralCode.value) checkReferralCode();
 });
 
+onUnmounted(() => {
+  if (resendTimer) clearInterval(resendTimer);
+});
+
+// A code proves ownership of one address: changing the email means asking for a new code.
+watch(ownerEmail, (v) => {
+  if (codeSentTo.value && v.trim().toLowerCase() !== codeSentTo.value) {
+    codeSentTo.value = '';
+    codeInfo.value = '';
+    emailCode.value = '';
+  }
+});
+
+function startResendCountdown(seconds) {
+  resendIn.value = seconds;
+  if (resendTimer) clearInterval(resendTimer);
+  resendTimer = setInterval(() => {
+    resendIn.value -= 1;
+    if (resendIn.value <= 0) {
+      clearInterval(resendTimer);
+      resendTimer = null;
+    }
+  }, 1000);
+}
+
+async function sendCode() {
+  error.value = '';
+  const email = ownerEmail.value.trim();
+  if (!isValidEmail(email)) {
+    error.value = 'Enter a valid owner email first.';
+    return;
+  }
+  codeSending.value = true;
+  try {
+    await publicAccountApi.requestSignupEmailCode({ email });
+    codeSentTo.value = email.toLowerCase();
+    codeInfo.value = `We sent a 6-digit code to ${email}. It expires in 10 minutes. Check your spam folder if it doesn't arrive.`;
+    startResendCountdown(60);
+  } catch (e) {
+    error.value = apiErrorMessage(e, 'Could not send the code. Please try again.');
+  } finally {
+    codeSending.value = false;
+  }
+}
+
 async function submit() {
   error.value = '';
   showErrors.value = true;
   if (Object.values(fieldErrors.value).some(Boolean)) return;
+  if (needsCode.value && !emailCode.value.trim()) {
+    error.value = codeSentTo.value
+      ? 'Enter the code we emailed you.'
+      : 'Confirm your email first: tap "Email me a code" and enter the code we send.';
+    return;
+  }
+  submitting.value = true;
   try {
     await publicAccountApi.registerProvider({
       businessName: businessName.value.trim(),
@@ -81,6 +147,7 @@ async function submit() {
       ownerEmail: ownerEmail.value.trim(),
       password: password.value,
       referralCode: normalizeReferralCode(referralCode.value) || null,
+      emailVerificationCode: needsCode.value ? emailCode.value.trim() : null,
     });
     clearInviteRef();
     done.value = true;
@@ -94,7 +161,9 @@ async function submit() {
       });
     }, 1200);
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = apiErrorMessage(e, 'Could not create your account. Please try again.');
+  } finally {
+    submitting.value = false;
   }
 }
 </script>
@@ -135,9 +204,6 @@ async function submit() {
       <FormField label="Owner email" :error="shownError('ownerEmail')">
         <input v-model="ownerEmail" type="email" required :maxlength="LIMITS.email" autocomplete="email" />
       </FormField>
-      <FormField label="Password" :error="shownError('password')">
-        <input v-model="password" type="password" required minlength="8" maxlength="100" autocomplete="new-password" />
-      </FormField>
       <FormField label="Referral code (optional)" :error="referralError">
         <input
           v-model="referralCode"
@@ -149,9 +215,56 @@ async function submit() {
         />
         <p v-if="referralHint" class="referral-hint">{{ referralHint }}</p>
       </FormField>
-      <p v-if="error" class="err-toast">{{ error }}</p>
+      <template v-if="needsCode">
+        <div class="register-code">
+          <button
+            type="button"
+            class="btn btn-ghost"
+            :disabled="codeSending || resendIn > 0 || done"
+            @click="sendCode"
+          >
+            {{
+              codeSending
+                ? 'Sending…'
+                : resendIn > 0
+                  ? `Resend code in ${resendIn}s`
+                  : codeSentTo
+                    ? 'Resend code'
+                    : 'Email me a code'
+            }}
+          </button>
+          <p v-if="codeInfo" class="muted small" role="status">{{ codeInfo }}</p>
+          <p v-else class="muted small">We email you a code to confirm the address belongs to you.</p>
+        </div>
+        <FormField label="Email verification code">
+          <input
+            v-model="emailCode"
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            pattern="[0-9]*"
+            maxlength="6"
+            placeholder="6-digit code"
+            :required="needsCode"
+          />
+        </FormField>
+      </template>
+      <FormField label="Password" :error="pwProblem || shownError('password')">
+        <input
+          v-model="password"
+          type="password"
+          required
+          minlength="8"
+          maxlength="64"
+          autocomplete="new-password"
+        />
+      </FormField>
+      <PasswordHint v-if="!pwProblem" :password="password" :email="ownerEmail" />
+      <p v-if="error" class="err-toast" role="alert">{{ error }}</p>
       <p v-if="done" class="ok-msg">Account created. Sign in, then choose your subscription plan…</p>
-      <button type="submit" class="btn btn-primary" :disabled="done">Create account</button>
+      <button type="submit" class="btn btn-primary" :disabled="done || submitting">
+        {{ submitting ? 'Creating…' : 'Create account' }}
+      </button>
       <p class="register-footer">
         Already have an account?
         <router-link to="/login">Sign in</router-link>
@@ -181,6 +294,18 @@ async function submit() {
 
 .register-form .btn {
   margin-top: 0.75rem;
+}
+
+.register-code {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.register-code .btn {
+  margin-top: 0;
+  align-self: flex-start;
 }
 
 .register-footer {

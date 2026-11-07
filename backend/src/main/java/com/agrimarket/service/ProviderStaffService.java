@@ -25,6 +25,7 @@ import com.agrimarket.repo.ProviderStaffPermissionRepository;
 import com.agrimarket.repo.StaffPayrollJobMarkRepository;
 import com.agrimarket.repo.UserAccountRepository;
 import com.agrimarket.security.MarketUserPrincipal;
+import com.agrimarket.security.PasswordPolicy;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -101,6 +102,7 @@ public class ProviderStaffService {
         if (!STAFF_ROLES.contains(req.role())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_ROLE", "Only provider admin, staff, or viewer roles are allowed.");
         }
+        PasswordPolicy.require(req.password(), req.email());
         Provider p = loadProvider(actor.getProviderId());
         if (userAccountRepository.findByEmailIgnoreCase(req.email()).isPresent()) {
             throw new ApiException(HttpStatus.CONFLICT, "EMAIL_TAKEN", "Email already registered");

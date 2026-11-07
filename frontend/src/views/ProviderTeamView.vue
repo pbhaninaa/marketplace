@@ -5,6 +5,9 @@ import { providerTeamApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
+import PasswordHint from '../components/ui/PasswordHint.vue';
+import { passwordProblem } from '../utils/passwordPolicy';
+import { apiErrorMessage } from '../utils/apiError';
 import { formatMoney } from '../utils/display';
 import { emailError, personNameError, phoneError, numberError, textError, LIMITS } from '../utils/validation';
 
@@ -45,6 +48,9 @@ const emptyForm = () => ({
 });
 
 const createForm = ref(emptyForm());
+const createPasswordProblem = computed(() =>
+  createForm.value.password ? passwordProblem(createForm.value.password, createForm.value.email) : '',
+);
 const editForm = ref(emptyForm());
 
 const PAY_METHODS = [
@@ -220,8 +226,13 @@ async function submitCreate() {
   if (!canManageTeam.value) return;
   createTried.value = true;
   if (hasErrors(createErrors.value)) return;
-  saving.value = true;
   error.value = '';
+  const problem = passwordProblem(createForm.value.password, createForm.value.email);
+  if (problem) {
+    error.value = problem;
+    return;
+  }
+  saving.value = true;
   try {
     const body = {
       email: createForm.value.email.trim(),
@@ -242,7 +253,7 @@ async function submitCreate() {
     showAdd.value = false;
     await loadTeam();
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = apiErrorMessage(e, 'Could not add the employee. Please try again.');
   } finally {
     saving.value = false;
   }
@@ -413,7 +424,10 @@ function money(v) {
         </p>
         <div class="form-grid">
           <FormField label="Email" :error="createErrors.email"><input v-model="createForm.email" type="email" :maxlength="LIMITS.email" required /></FormField>
-          <FormField label="Password" :error="createErrors.password"><input v-model="createForm.password" type="password" minlength="8" maxlength="100" required /></FormField>
+          <FormField label="Password" :error="createPasswordProblem || createErrors.password">
+            <input v-model="createForm.password" type="password" minlength="8" maxlength="64" required autocomplete="new-password" />
+            <PasswordHint v-if="!createPasswordProblem" :password="createForm.password" :email="createForm.email" />
+          </FormField>
           <FormField label="First name" :error="createErrors.firstName"><input v-model="createForm.firstName" type="text" :maxlength="LIMITS.personName" /></FormField>
           <FormField label="Last name" :error="createErrors.lastName"><input v-model="createForm.lastName" type="text" :maxlength="LIMITS.personName" /></FormField>
           <FormField label="Phone" :error="createErrors.phoneNumber"><input v-model="createForm.phoneNumber" type="tel" placeholder="+27 82 123 4567" /></FormField>
