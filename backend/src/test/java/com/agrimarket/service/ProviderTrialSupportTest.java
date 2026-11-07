@@ -11,17 +11,17 @@ import org.junit.jupiter.api.Test;
 class ProviderTrialSupportTest {
 
     @Test
-    void assignTrialOnce_setsThirtyDayWindowAndDoesNotReset() {
+    void assignTrialOnce_setsFourteenDayWindowAndDoesNotReset() {
         var provider = new com.agrimarket.domain.Provider("T", "t", "d", "l");
         Instant start = Instant.parse("2026-01-15T12:00:00Z");
         ProviderTrialSupport.assignTrialOnce(provider, start);
 
         assertThat(provider.getTrialStartedAt()).isEqualTo(start);
-        assertThat(provider.getTrialEndsAt()).isEqualTo(start.plus(30, ChronoUnit.DAYS));
+        assertThat(provider.getTrialEndsAt()).isEqualTo(start.plus(14, ChronoUnit.DAYS));
 
         ProviderTrialSupport.assignTrialOnce(provider, Instant.parse("2026-06-01T00:00:00Z"));
         assertThat(provider.getTrialStartedAt()).isEqualTo(start);
-        assertThat(provider.getTrialEndsAt()).isEqualTo(start.plus(30, ChronoUnit.DAYS));
+        assertThat(provider.getTrialEndsAt()).isEqualTo(start.plus(14, ChronoUnit.DAYS));
     }
 
     @Test

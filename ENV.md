@@ -79,7 +79,7 @@ Single platform Peach merchant account (not per-provider). Client checkout expos
 **Manual EFT**, and **Peach**. After selecting Peach, the client chooses **Card** or **Instant EFT**;
 Hosted Checkout is forced to that method (`CARD` or `PAYBYBANK`). Providers opt in to Cash, Manual
 EFT, and/or Peach via **Provider → Settings → payment methods** (Manual EFT requires bank details).
-New providers get a one-time 30-day free trial; after expiry, subscriptions are paid through Peach
+New providers get a one-time 14-day free trial; after expiry, subscriptions are paid through Peach
 and activate from the signed callback. Customer cart Cash / Manual EFT / Peach is independent of
 subscription billing.
 Legacy subscription bank-details, proof-upload, plan-select, and proof-decision endpoints return

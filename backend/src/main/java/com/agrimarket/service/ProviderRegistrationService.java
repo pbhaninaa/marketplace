@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Registers a merchant (provider) + owner account.
- * New providers receive a one-time 30-day free trial (no plan selection/payment). After the trial,
+ * New providers receive a one-time 14-day free trial (no plan selection/payment). After the trial,
  * Peach Hosted Checkout (Card or Instant EFT) is required. Approved monthly plans run for 30 days.
  */
 @Service

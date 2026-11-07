@@ -233,7 +233,7 @@ function initPaymentFields() {
       <p class="page-hero__eyebrow">Provider</p>
       <h1 class="page-hero__title">Subscription</h1>
       <p class="page-hero__lead">
-        New providers get a free 30 day trial, once, with no plan payment. After the trial, activate a plan with
+        New providers get a free 14 day trial, once, with no plan payment. After the trial, activate a plan with
         Peach (card or instant EFT). Monthly paid access runs for 30 days from payment, then lapses until you renew.
       </p>
     </header>

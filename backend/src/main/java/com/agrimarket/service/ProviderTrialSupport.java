@@ -7,12 +7,12 @@ import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 
 /**
- * One-time 30-day provider free trial helpers. Trial dates are durable: once set they are never
+ * One-time 14-day provider free trial helpers. Trial dates are durable: once set they are never
  * reset by logins, profile edits, or re-runs of backfill.
  */
 public final class ProviderTrialSupport {
 
-    public static final int TRIAL_DAYS = 30;
+    public static final int TRIAL_DAYS = 14;
 
     private ProviderTrialSupport() {}
 

@@ -93,7 +93,7 @@ class ProviderTrialSubscriptionServiceTest extends AbstractIntegrationTest {
 
         Provider again = providerRepository.findById(p.getId()).orElseThrow();
         assertThat(again.getTrialStartedAt()).isEqualTo(start);
-        assertThat(again.getTrialEndsAt()).isEqualTo(start.plus(30, ChronoUnit.DAYS));
+        assertThat(again.getTrialEndsAt()).isEqualTo(start.plus(14, ChronoUnit.DAYS));
         assertThat(again.getName()).isEqualTo("Sticky Trial Renamed");
     }
 }
