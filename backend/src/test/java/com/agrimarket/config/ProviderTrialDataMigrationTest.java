@@ -67,12 +67,12 @@ class ProviderTrialDataMigrationTest {
         Map<String, Object> recentRow = jdbc.queryForMap("SELECT * FROM providers WHERE id = 1");
         assertThat(toInstant(recentRow.get("TRIAL_STARTED_AT"))).isEqualTo(recent);
         assertThat(toInstant(recentRow.get("TRIAL_ENDS_AT")))
-                .isEqualTo(recent.plus(30, ChronoUnit.DAYS));
+                .isEqualTo(recent.plus(14, ChronoUnit.DAYS));
 
         Map<String, Object> oldRow = jdbc.queryForMap("SELECT * FROM providers WHERE id = 2");
         assertThat(toInstant(oldRow.get("TRIAL_STARTED_AT"))).isEqualTo(old);
-        assertThat(toInstant(oldRow.get("TRIAL_ENDS_AT"))).isEqualTo(old.plus(30, ChronoUnit.DAYS));
-        // Old account trial end is in the past relative to 2026 — no fresh 30 days.
+        assertThat(toInstant(oldRow.get("TRIAL_ENDS_AT"))).isEqualTo(old.plus(14, ChronoUnit.DAYS));
+        // Old account trial end is in the past relative to 2026 — no fresh 14 days.
         assertThat(toInstant(oldRow.get("TRIAL_ENDS_AT")).isBefore(Instant.parse("2026-07-17T00:00:00Z")))
                 .isTrue();
 

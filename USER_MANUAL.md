@@ -247,7 +247,7 @@ The system automatically validates:
 
 1. **Register as Provider**
    - Submit provider registration
-   - Receive a one-time **30-day free trial** automatically (no plan selection or payment)
+   - Receive a one-time **14-day free trial** automatically (no plan selection or payment)
    - Use the provider portal during the trial; after expiry, activate a subscription through Peach Hosted Checkout using Card or Instant EFT (no cash / manual EFT for subscriptions)
 
 2. **Access Provider Portal**
@@ -515,8 +515,8 @@ DELETE /api/provider/me/orders/purchases/{orderId}
 
 #### Subscription payments
 
-- New providers receive a one-time 30-day free trial (`trialStartedAt` / `trialEndsAt` on the provider). Trial dates are durable and are not reset on login or profile edits.
-- Existing providers without trial dates are backfilled once from `created_at` (so accounts older than 30 days do not receive a fresh trial). Active paid subscriptions are unchanged.
+- New providers receive a one-time 14-day free trial (`trialStartedAt` / `trialEndsAt` on the provider). Trial dates are durable and are not reset on login or profile edits.
+- Existing providers without trial dates are backfilled once from `created_at` (so accounts older than 14 days do not receive a fresh trial). Active paid subscriptions are unchanged.
 - Check entitlement with `GET /api/provider/me/subscription/status` (`valid`, `onTrial`, `trialDaysRemaining`, plan fields).
 - After trial expiry (or to upgrade), create a server-priced intent with `GET /api/provider/me/subscription/quote?plan=BASIC|PREMIUM`.
 - Start Hosted Checkout with `POST /api/provider/me/subscription/peach-checkout` and `CARD` or `EFT`.
