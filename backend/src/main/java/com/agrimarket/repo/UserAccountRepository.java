@@ -24,6 +24,9 @@ public interface UserAccountRepository extends JpaRepository<UserAccount, Long> 
 
     List<UserAccount> findByRoleOrderByEmailAsc(UserRole role);
 
+    /** Earliest-created account with this role (ties broken by id); identifies the platform owner. */
+    Optional<UserAccount> findFirstByRoleOrderByCreatedAtAscIdAsc(UserRole role);
+
     List<UserAccount> findByProvider_IdAndRole(Long providerId, UserRole role);
 
     @Query(
