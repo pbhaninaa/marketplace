@@ -4,6 +4,7 @@ import {
   AppState,
   Linking,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -57,7 +58,7 @@ import {
 } from '../utils/navBadgesBridge';
 import { isPushNotificationMessage } from '../utils/pushNotificationBridge';
 import { isOpenPdfMessage } from '../utils/pdfViewerBridge';
-import { hostOf, isAllowedWebViewUrl } from '../utils/allowedWebViewUrl';
+import { isAllowedWebViewUrl } from '../utils/allowedWebViewUrl';
 import PdfViewerModal from '../components/PdfViewerModal';
 import {
   consumePendingNotificationNavigation,
@@ -108,9 +109,16 @@ export default function WebAppScreen() {
   const geoQueueRef = useRef<string[]>([]);
   const locationPrefetchBusyRef = useRef(false);
   const lastInjectedCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
-  const appHost = hostOf(CONFIG.WEB_APP_URL) ?? '';
 
-  const tabs = useMemo(() => tabsForRole(userRole), [userRole]);
+  const tabs = useMemo(() => {
+    const allTabs = tabsForRole(userRole);
+    // Hide cart tab if cart is empty
+    const cartCount = navBadgeCounts.cart ?? 0;
+    if (cartCount === 0) {
+      return allTabs.filter(tab => tab.id !== 'cart');
+    }
+    return allTabs;
+  }, [userRole, navBadgeCounts]);
   const showBottomNav = shouldShowBottomNav(webPath, loggedIn, userRole);
   const currentTabId = activeTabId(tabs, webPath);
 
@@ -135,11 +143,16 @@ export default function WebAppScreen() {
   const renderWebViewError = useCallback(
     (_domain?: string, _code?: number, description?: string) => (
       <View style={styles.errorOverlay}>
-        <Text style={styles.errorTitle}>Could not load app</Text>
-        <Text style={styles.errorText}>{webViewLoadErrorMessage(description)}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={refreshPage}>
-          <Text style={styles.retryText}>Retry</Text>
-        </TouchableOpacity>
+        <View style={styles.errorCard}>
+          <View style={styles.errorBadge}>
+            <Text style={styles.errorBadgeText}>Agri Marketplace</Text>
+          </View>
+          <Text style={styles.errorTitle}>Could not load app</Text>
+          <Text style={styles.errorText}>{webViewLoadErrorMessage(description)}</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={refreshPage}>
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     ),
     [refreshPage],
@@ -433,7 +446,7 @@ export default function WebAppScreen() {
   const onShouldStartLoadWithRequest = useCallback(
     (request: ShouldStartLoadRequest) => {
       const { url } = request;
-            if (!url || url.startsWith('about:') || url.startsWith('data:') || url.startsWith('blob:')) {
+      if (!url || url.startsWith('about:') || url.startsWith('data:') || url.startsWith('blob:')) {
         return true;
       }
       if (isAllowedWebViewUrl(url, CONFIG.WEB_APP_URL, CONFIG.API_BASE_URL)) {
@@ -525,7 +538,14 @@ export default function WebAppScreen() {
         />
         {loading ? (
           <View style={styles.loader} pointerEvents="none">
-            <ActivityIndicator size="large" color={CONFIG.COLORS.PRIMARY} />
+            <View style={styles.loaderCard}>
+              <View style={styles.loaderBadge}>
+                <Text style={styles.loaderBadgeText}>Agri Marketplace</Text>
+              </View>
+              <ActivityIndicator size="large" color={CONFIG.COLORS.PRIMARY} />
+              <Text style={styles.loaderTitle}>Loading marketplace</Text>
+              <Text style={styles.loaderSubtitle}>Optimized for your phone and ready to shop.</Text>
+            </View>
           </View>
         ) : null}
       </View>
@@ -536,6 +556,16 @@ export default function WebAppScreen() {
           onTabPress={onTabPress}
           navBadgeCounts={navBadgeCounts}
         />
+      ) : null}
+      {!loading && showBottomNav ? (
+        <Pressable
+          style={[styles.quickRefresh, { bottom: 84 + Math.max(insets.bottom, 8) }]}
+          accessibilityRole="button"
+          accessibilityLabel="Refresh page"
+          onPress={refreshPage}
+        >
+          <Text style={styles.quickRefreshText}>Refresh</Text>
+        </Pressable>
       ) : null}
       <PdfViewerModal
         visible={!!pdfViewer}
@@ -567,18 +597,87 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    backgroundColor: '#f4f7f6',
+    paddingHorizontal: 24,
+  },
+  loaderCard: {
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    backgroundColor: CONFIG.COLORS.WHITE,
+    borderRadius: 24,
+    shadowColor: '#10241f',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  loaderBadge: {
+    backgroundColor: 'rgba(26,60,52,0.10)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginBottom: 16,
+  },
+  loaderBadgeText: {
+    color: MARKETPLACE_PRIMARY,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  loaderTitle: {
+    marginTop: 16,
+    fontSize: 20,
+    fontWeight: '700',
+    color: CONFIG.COLORS.DARK_GRAY,
+    textAlign: 'center',
+  },
+  loaderSubtitle: {
+    marginTop: 8,
+    fontSize: CONFIG.FONT_SIZES.MEDIUM,
+    color: CONFIG.COLORS.GRAY,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   errorOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: CONFIG.COLORS.WHITE,
+    backgroundColor: '#f4f7f6',
     paddingHorizontal: 24,
   },
+  errorCard: {
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    backgroundColor: CONFIG.COLORS.WHITE,
+    borderRadius: 24,
+    shadowColor: '#10241f',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  errorBadge: {
+    backgroundColor: 'rgba(26,60,52,0.10)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginBottom: 16,
+  },
+  errorBadgeText: {
+    color: MARKETPLACE_PRIMARY,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
   errorTitle: {
-    fontSize: CONFIG.FONT_SIZES.XLARGE,
-    fontWeight: '600',
+    fontSize: 22,
+    fontWeight: '700',
     color: CONFIG.COLORS.DARK_GRAY,
     marginBottom: 12,
     textAlign: 'center',
@@ -592,13 +691,33 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     backgroundColor: CONFIG.COLORS.PRIMARY,
+    minWidth: 140,
     paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: CONFIG.DIMENSIONS.BORDER_RADIUS,
+    paddingVertical: 14,
+    borderRadius: 14,
   },
   retryText: {
     color: CONFIG.COLORS.WHITE,
     fontSize: CONFIG.FONT_SIZES.LARGE,
     fontWeight: '600',
+    textAlign: 'center',
+  },
+  quickRefresh: {
+    position: 'absolute',
+    right: 16,
+    backgroundColor: 'rgba(26,60,52,0.92)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    shadowColor: '#10241f',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    elevation: 10,
+  },
+  quickRefreshText: {
+    color: CONFIG.COLORS.WHITE,
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

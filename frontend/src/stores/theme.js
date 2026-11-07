@@ -22,7 +22,7 @@ export const useThemeStore = defineStore('theme', () => {
 
   const resolvedMode = computed(() => {
     if (mode.value === 'dark' || mode.value === 'light') return mode.value;
-    return systemPrefersDark() ? 'dark' : 'light';
+    return 'light'; // Default to light theme instead of system preference
   });
 
   function init() {

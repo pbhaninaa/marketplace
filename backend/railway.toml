@@ -1,12 +1,13 @@
 # Railway: set Root Directory = backend
 # Do not override Start Command — Dockerfile ENTRYPOINT runs the JAR.
-# Redeploy trigger: ensure PROD picks up latest CORS/MySQL config.
+# Use liveness (process up) — not full /actuator/health — so MySQL warmup
+# does not fail the deploy while the JVM is already running.
 
 [build]
 builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-healthcheckPath = "/actuator/health"
+healthcheckPath = "/actuator/health/liveness"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"

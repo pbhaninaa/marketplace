@@ -157,4 +157,21 @@ function patch(field, raw) {
     border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
   }
 }
+@media (max-width: 640px) {
+  .filters {
+    padding: 1rem 0.85rem 1.25rem;
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+    box-shadow: none;
+  }
+  .filters__title {
+    font-size: 1.1rem;
+  }
+  .filters__hint {
+    font-size: 0.8rem;
+  }
+  .filters__actions {
+    margin-top: 0.85rem;
+  }
+}
 </style>
