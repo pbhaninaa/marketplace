@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { publicAccountApi } from '../services/marketplaceApi';
 import FormField from '../components/ui/FormField.vue';
+import { apiErrorMessage } from '../utils/apiError';
 
 const email = ref('');
 const error = ref('');
@@ -14,7 +15,7 @@ async function submit() {
     await publicAccountApi.forgotPassword({ email: email.value.trim() });
     done.value = true;
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = apiErrorMessage(e, 'Something went wrong. Please try again.');
   }
 }
 </script>

@@ -42,6 +42,22 @@ If `SPRING_DATASOURCE_*` is unset, UAT/PROD fall back to **`MYSQLHOST`**, **`MYS
 |----------|--------|
 | `APP_JWT_SECRET` | Min 32 characters |
 
+### Login and sign-up protection — optional, defaults are safe
+| Variable | Default | Notes |
+|----------|---------|-------|
+| `TRUSTED_PROXY_HOPS` | `1` | Proxies in front of the API that append to `X-Forwarded-For`, used to find the real client IP for rate limits. Railway only = `1` (browsers call the Railway API directly; Vercel only serves the UI). Load balancer + nginx = `2`; nothing in front = `0`. Too high lets clients spoof their IP; too low treats everyone behind the proxy as one IP. Must be 0–5 on UAT/PROD. |
+| `RATE_LIMIT_ENABLED` | `true` | Per-IP limits (429 + `Retry-After`) on login, sign-up, forgot/reset password and email codes. Must stay `true` on UAT/PROD. |
+| `RATE_LIMIT_LOGIN_PER_MINUTE` / `RATE_LIMIT_LOGIN_PER_HOUR` | `10` / `100` | Login attempts per IP |
+| `RATE_LIMIT_REGISTER_PER_HOUR` | `10` | Provider sign-ups (and first-admin setup) per IP |
+| `RATE_LIMIT_FORGOT_PASSWORD_PER_15_MIN` / `RATE_LIMIT_RESET_PASSWORD_PER_15_MIN` | `5` / `10` | Per IP |
+| `RATE_LIMIT_OTP_REQUEST_PER_15_MIN` / `RATE_LIMIT_OTP_VERIFY_PER_15_MIN` | `5` / `20` | Guest client and sign-up email codes, per IP |
+| `RATE_LIMIT_CHANGE_PASSWORD_PER_15_MIN` | `10` | Per IP |
+| `FORGOT_PASSWORD_EMAILS_PER_HOUR` / `OTP_SENDS_PER_15_MIN` | `3` / `3` | Per email address; over the cap nothing is sent but the response is unchanged |
+| `LOGIN_MAX_FAILURES` / `LOGIN_LOCK_MINUTES` | `5` / `15` | Wrong passwords in a row before the account is locked, and for how long. A password reset unlocks it. |
+| `SIGNUP_REQUIRE_EMAIL_VERIFICATION` | `true` | Provider sign-up confirms the owner email with an emailed 6-digit code. Needs email sending on UAT/PROD. |
+
+Rate-limit counters are in memory per API instance; account lockout is stored in the `users` table (`failed_login_attempts`, `locked_until`, added automatically by Hibernate). Password reset tokens are stored as SHA-256 hashes. New passwords must be 8–64 characters, not a common password, and must not contain the email name.
+
 ### Frontend URLs
 | Variable | Notes |
 |----------|--------|

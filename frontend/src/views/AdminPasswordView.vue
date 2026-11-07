@@ -4,6 +4,9 @@ import { useRouter } from 'vue-router';
 import { authApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
+import PasswordHint from '../components/ui/PasswordHint.vue';
+import { apiErrorMessage } from '../utils/apiError';
+import { passwordProblem } from '../utils/passwordPolicy';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -22,9 +25,14 @@ onMounted(() => {
 });
 
 async function save() {
-  saving.value = true;
   error.value = '';
   message.value = '';
+  const problem = passwordProblem(form.value.newPassword, auth.email);
+  if (problem) {
+    error.value = problem;
+    return;
+  }
+  saving.value = true;
   try {
     await authApi.changePassword({
       currentPassword: form.value.currentPassword,
@@ -33,7 +41,7 @@ async function save() {
     form.value = { currentPassword: '', newPassword: '' };
     message.value = 'Password updated.';
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = apiErrorMessage(e, 'Something went wrong. Please try again.');
   } finally {
     saving.value = false;
   }
@@ -56,8 +64,9 @@ async function save() {
         <input v-model="form.currentPassword" type="password" minlength="8" maxlength="100" />
       </FormField>
       <FormField label="New password">
-        <input v-model="form.newPassword" type="password" minlength="8" maxlength="100" />
+        <input v-model="form.newPassword" type="password" minlength="8" maxlength="64" autocomplete="new-password" />
       </FormField>
+      <PasswordHint :password="form.newPassword" :email="auth.email" />
 
       <button type="button" class="btn btn-primary" :disabled="saving" @click="save">
         {{ saving ? 'Saving…' : 'Change password' }}

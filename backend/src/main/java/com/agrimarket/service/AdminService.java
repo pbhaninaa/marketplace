@@ -14,6 +14,7 @@ import com.agrimarket.repo.RentalBookingRepository;
 import com.agrimarket.repo.ProviderStaffPermissionRepository;
 import com.agrimarket.repo.ProviderRepository;
 import com.agrimarket.repo.UserAccountRepository;
+import com.agrimarket.security.PasswordPolicy;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -44,6 +45,7 @@ public class AdminService {
 
     @Transactional
     public void createSupportUser(CreateSupportUserRequest req) {
+        PasswordPolicy.require(req.password(), req.email());
         if (userAccountRepository.findByEmailIgnoreCase(req.email()).isPresent()) {
             throw new ApiException(HttpStatus.CONFLICT, "EMAIL_TAKEN", "Email already exists");
         }

@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Convert;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.math.BigDecimal;
 import java.time.Instant;
 import lombok.Getter;
@@ -36,8 +37,22 @@ public class UserAccount {
     @Column(name = "display_name", length = 200)
     private String displayName;
 
+    /** BCrypt hash. Never serialised: API responses use DTOs, and this guards against returning the entity. */
+    @JsonIgnore
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
+
+    // ---- Login lockout (see security.LoginAttemptService) ----
+
+    /** Consecutive failed logins since the last success or lock. Null = 0 (existing rows). */
+    @JsonIgnore
+    @Column(name = "failed_login_attempts")
+    private Integer failedLoginAttempts;
+
+    /** Login is refused until this instant after too many failures. Null = not locked. */
+    @JsonIgnore
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

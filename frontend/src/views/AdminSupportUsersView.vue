@@ -4,6 +4,9 @@ import { useRouter } from 'vue-router';
 import { adminSupportUsersApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
+import PasswordHint from '../components/ui/PasswordHint.vue';
+import { apiErrorMessage } from '../utils/apiError';
+import { passwordProblem } from '../utils/passwordPolicy';
 import DataTableShell from '../components/ui/DataTableShell.vue';
 
 const router = useRouter();
@@ -33,7 +36,7 @@ async function load() {
     const { data } = await adminSupportUsersApi.list();
     users.value = data || [];
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = apiErrorMessage(e, 'Something went wrong. Please try again.');
   } finally {
     loading.value = false;
   }
@@ -42,6 +45,11 @@ async function load() {
 async function create() {
   error.value = '';
   message.value = '';
+  const problem = passwordProblem(form.value.password, form.value.email);
+  if (problem) {
+    error.value = problem;
+    return;
+  }
   try {
     await adminSupportUsersApi.create({
       email: form.value.email,
@@ -51,7 +59,7 @@ async function create() {
     message.value = 'Support user created.';
     await load();
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = apiErrorMessage(e, 'Something went wrong. Please try again.');
   }
 }
 </script>
@@ -76,9 +84,10 @@ async function create() {
             <input v-model="form.email" type="email" maxlength="200" />
           </FormField>
           <FormField label="Temporary password">
-            <input v-model="form.password" type="password" minlength="8" maxlength="100" />
+            <input v-model="form.password" type="password" minlength="8" maxlength="64" autocomplete="new-password" />
           </FormField>
         </div>
+        <PasswordHint :password="form.password" :email="form.email" />
         <button type="button" class="btn btn-primary create-btn" @click="create">Create</button>
       </section>
 

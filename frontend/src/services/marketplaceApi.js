@@ -45,6 +45,10 @@ export const publicAccountApi = {
   resetPassword(body) {
     return api.post('/api/public/reset-password', body);
   },
+  /** Emails a one-time code to the owner address (always 204, whether or not it is registered). */
+  requestSignupEmailCode(body) {
+    return api.post('/api/public/provider/register/email-code', body);
+  },
   registerProvider(body) {
     return api.post('/api/public/provider/register', body);
   },

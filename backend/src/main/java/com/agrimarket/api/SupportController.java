@@ -56,7 +56,7 @@ public class SupportController {
         if (target == null || target.trim().isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "OTP", "Target is required");
         }
-        clientOtpService.requestOtp(target);
+        clientOtpService.resendBySupport(target);
     }
 
     @GetMapping("/overview")

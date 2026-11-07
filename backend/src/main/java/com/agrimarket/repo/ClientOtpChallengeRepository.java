@@ -8,6 +8,7 @@ public interface ClientOtpChallengeRepository extends JpaRepository<ClientOtpCha
 
     Optional<ClientOtpChallenge> findTopByTargetOrderByCreatedAtDesc(String target);
 
-    void deleteByTarget(String target);
-}
+    Optional<ClientOtpChallenge> findTopByTargetAndPurposeOrderByCreatedAtDesc(String target, String purpose);
 
+    void deleteByTargetAndPurpose(String target, String purpose);
+}

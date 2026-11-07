@@ -4,6 +4,9 @@ import { useRouter } from 'vue-router';
 import { publicSetupApi } from '../services/marketplaceApi';
 import { useSetupStore } from '../stores/setup';
 import FormField from '../components/ui/FormField.vue';
+import PasswordHint from '../components/ui/PasswordHint.vue';
+import { apiErrorMessage } from '../utils/apiError';
+import { passwordProblem } from '../utils/passwordPolicy';
 
 const router = useRouter();
 const setup = useSetupStore();
@@ -22,13 +25,18 @@ onMounted(async () => {
 
 async function submit() {
   error.value = '';
+  const problem = passwordProblem(password.value, email.value);
+  if (problem) {
+    error.value = problem;
+    return;
+  }
   try {
     await publicSetupApi.createFirstAdmin({ email: email.value, password: password.value });
     done.value = true;
     await setup.fetchStatus();
     setTimeout(() => router.push('/login'), 1500);
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = apiErrorMessage(e, 'Something went wrong. Please try again.');
   }
 }
 </script>
@@ -49,8 +57,9 @@ async function submit() {
         <input v-model="email" type="email" required autocomplete="email" />
       </FormField>
       <FormField label="Password">
-        <input v-model="password" type="password" required minlength="8" autocomplete="new-password" />
+        <input v-model="password" type="password" required minlength="8" maxlength="64" autocomplete="new-password" />
       </FormField>
+      <PasswordHint :password="password" :email="email" />
       <p v-if="error" class="err-toast">{{ error }}</p>
       <p v-if="done" class="ok-msg">Administrator created. Redirecting to sign in…</p>
       <button type="submit" class="btn btn-primary" :disabled="done">Create administrator</button>

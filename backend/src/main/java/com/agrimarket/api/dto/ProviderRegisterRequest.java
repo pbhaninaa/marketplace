@@ -5,10 +5,15 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
+/**
+ * @param emailVerificationCode code emailed by {@code POST /api/public/provider/register/email-code};
+ *     required when {@code app.signup.require-email-verification=true}.
+ */
 public record ProviderRegisterRequest(
         @NotBlank @Size(max = 200) String businessName,
         @NotBlank @Size(max = 4000) String description,
         @NotBlank @Size(max = 500) String location,
         ProviderSubtype subtype,
         @NotBlank @Email String ownerEmail,
-        @NotBlank @Size(min = 8, max = 100) String password) {}
+        @NotBlank @Size(min = 8, max = 100) String password,
+        @Size(max = 12) String emailVerificationCode) {}

@@ -26,6 +26,14 @@ public class ClientOtpChallenge {
     @Column(nullable = false, length = 200)
     private String target;
 
+    /**
+     * What the code proves: {@code CLIENT_LOGIN} (guest client sign-in) or {@code PROVIDER_SIGNUP}
+     * (owner email ownership at sign-up). Codes for one purpose never work for the other.
+     * Nullable only so Hibernate can add the column to existing tables.
+     */
+    @Column(name = "purpose", length = 30)
+    private String purpose;
+
     @Column(name = "code_hash", nullable = false, length = 120)
     private String codeHash;
 

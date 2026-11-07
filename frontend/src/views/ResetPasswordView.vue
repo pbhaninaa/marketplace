@@ -3,6 +3,9 @@ import { ref, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { publicAccountApi } from '../services/marketplaceApi';
 import FormField from '../components/ui/FormField.vue';
+import PasswordHint from '../components/ui/PasswordHint.vue';
+import { apiErrorMessage } from '../utils/apiError';
+import { passwordProblem } from '../utils/passwordPolicy';
 
 const route = useRoute();
 const router = useRouter();
@@ -27,6 +30,11 @@ async function submit() {
     error.value = 'Passwords do not match';
     return;
   }
+  const problem = passwordProblem(newPassword.value);
+  if (problem) {
+    error.value = problem;
+    return;
+  }
   if (!token.value.trim()) {
     error.value = 'Missing reset token. Open the link from your email or server log.';
     return;
@@ -39,7 +47,7 @@ async function submit() {
     done.value = true;
     setTimeout(() => router.push('/login'), 1500);
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = apiErrorMessage(e, 'Could not update your password. Please try again.');
   }
 }
 </script>
@@ -54,15 +62,16 @@ async function submit() {
 
     <form class="surface-panel reset-form" @submit.prevent="submit">
       <FormField label="New password">
-        <input v-model="newPassword" type="password" required minlength="8" maxlength="100" autocomplete="new-password" />
+        <input v-model="newPassword" type="password" required minlength="8" maxlength="64" autocomplete="new-password" />
       </FormField>
+      <PasswordHint :password="newPassword" />
       <FormField label="Confirm password">
         <input
           v-model="confirmPassword"
           type="password"
           required
           minlength="8"
-          maxlength="100"
+          maxlength="64"
           autocomplete="new-password"
         />
       </FormField>

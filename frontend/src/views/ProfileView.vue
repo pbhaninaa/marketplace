@@ -3,6 +3,8 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { authApi, profileApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
+import { PASSWORD_HINT, passwordProblem } from '../utils/passwordPolicy';
+import { apiErrorMessage } from '../utils/apiError';
 
 const auth = useAuthStore();
 
@@ -75,7 +77,8 @@ const phoneError = computed(() =>
 
 const pwProblem = computed(() => {
   if (!pw.newPassword) return '';
-  if (pw.newPassword.length < 8) return 'New password must be at least 8 characters';
+  const policy = passwordProblem(pw.newPassword, profile.value?.email || auth.email);
+  if (policy) return policy;
   if (pw.confirmPassword && pw.confirmPassword !== pw.newPassword) return 'Passwords do not match';
   if (pw.currentPassword && pw.currentPassword === pw.newPassword) return 'Choose a different password than your current one';
   return '';
@@ -86,12 +89,7 @@ const pwReady = computed(
 );
 
 function errorMessage(e, fallback) {
-  const data = e?.response?.data;
-  if (data?.fieldErrors && typeof data.fieldErrors === 'object') {
-    const first = Object.entries(data.fieldErrors)[0];
-    if (first) return `${first[0]}: ${first[1]}`;
-  }
-  return data?.message || e?.message || fallback;
+  return apiErrorMessage(e, fallback);
 }
 
 function applyProfile(p) {
@@ -363,7 +361,7 @@ onMounted(() => {
           </FormField>
         </div>
         <p class="muted small" :class="{ 'profile-hint--warn': pwProblem }">
-          {{ pwProblem || 'At least 8 characters.' }}
+          {{ pwProblem || PASSWORD_HINT }}
         </p>
 
         <p v-if="pwError" class="err-toast" role="alert">{{ pwError }}</p>

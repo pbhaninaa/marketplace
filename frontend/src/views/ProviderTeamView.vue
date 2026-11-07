@@ -5,6 +5,9 @@ import { providerTeamApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
+import PasswordHint from '../components/ui/PasswordHint.vue';
+import { passwordProblem } from '../utils/passwordPolicy';
+import { apiErrorMessage } from '../utils/apiError';
 import { formatMoney } from '../utils/display';
 
 const router = useRouter();
@@ -44,6 +47,9 @@ const emptyForm = () => ({
 });
 
 const createForm = ref(emptyForm());
+const createPasswordProblem = computed(() =>
+  createForm.value.password ? passwordProblem(createForm.value.password, createForm.value.email) : '',
+);
 const editForm = ref(emptyForm());
 
 const PAY_METHODS = [
@@ -194,8 +200,13 @@ function openDelete(m) {
 
 async function submitCreate() {
   if (!canManageTeam.value) return;
-  saving.value = true;
   error.value = '';
+  const problem = passwordProblem(createForm.value.password, createForm.value.email);
+  if (problem) {
+    error.value = problem;
+    return;
+  }
+  saving.value = true;
   try {
     const body = {
       email: createForm.value.email,
@@ -216,7 +227,7 @@ async function submitCreate() {
     showAdd.value = false;
     await loadTeam();
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = apiErrorMessage(e, 'Could not add the employee. Please try again.');
   } finally {
     saving.value = false;
   }
@@ -385,7 +396,10 @@ function money(v) {
         </p>
         <div class="form-grid">
           <FormField label="Email"><input v-model="createForm.email" type="email" required /></FormField>
-          <FormField label="Password"><input v-model="createForm.password" type="password" minlength="8" required /></FormField>
+          <FormField label="Password" :error="createPasswordProblem">
+            <input v-model="createForm.password" type="password" minlength="8" maxlength="64" required autocomplete="new-password" />
+            <PasswordHint v-if="!createPasswordProblem" :password="createForm.password" :email="createForm.email" />
+          </FormField>
           <FormField label="First name"><input v-model="createForm.firstName" type="text" /></FormField>
           <FormField label="Last name"><input v-model="createForm.lastName" type="text" /></FormField>
           <FormField label="Phone"><input v-model="createForm.phoneNumber" type="tel" /></FormField>

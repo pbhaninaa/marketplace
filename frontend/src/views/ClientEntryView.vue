@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { publicClientOtpApi } from '../services/marketplaceApi';
 import FormField from '../components/ui/FormField.vue';
+import { apiErrorMessage } from '../utils/apiError';
 
 const router = useRouter();
 const target = ref('');
@@ -17,7 +18,7 @@ async function submit() {
     done.value = true;
     router.push({ path: '/client/verify', query: { target: target.value.trim() } });
   } catch (e) {
-    error.value = e.response?.data?.message || e.message;
+    error.value = apiErrorMessage(e, 'Something went wrong. Please try again.');
   }
 }
 </script>
