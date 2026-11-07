@@ -45,7 +45,7 @@ export default function AppBottomNav({
     return (
       <TouchableOpacity
         key={tab.id}
-        style={[styles.item, scrollable && styles.itemScroll]}
+        style={[styles.item, scrollable && styles.itemScroll, active && styles.itemActive]}
         accessibilityRole="button"
         accessibilityLabel={
           badgeCount > 0 ? `${tab.label}, ${badgeCount} unread` : tab.label
@@ -53,7 +53,7 @@ export default function AppBottomNav({
         accessibilityState={{ selected: active }}
         onPress={() => onTabPress(tab)}
       >
-        <View style={styles.iconWrap}>
+        <View style={[styles.iconWrap, active && styles.iconWrapActive]}>
           <Icon
             name={resolveIcon(tab.icon)}
             size={24}
@@ -73,7 +73,7 @@ export default function AppBottomNav({
   };
 
   return (
-    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       {scrollable ? (
         <ScrollView
           horizontal
@@ -92,41 +92,60 @@ export default function AppBottomNav({
 const styles = StyleSheet.create({
   bar: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#e5e5ea',
+    borderTopColor: 'rgba(26,60,52,0.08)',
     backgroundColor: CONFIG.COLORS.WHITE,
-    paddingTop: 8,
+    paddingTop: 10,
+    paddingHorizontal: 10,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    shadowColor: '#10241f',
+    shadowOffset: { width: 0, height: -8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 18,
   },
   row: {
     flexDirection: 'row',
+    gap: 4,
   },
   scrollContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 2,
+    gap: 4,
   },
   item: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
-    paddingHorizontal: 2,
+    minHeight: 60,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
   itemScroll: {
     flexGrow: 0,
     flexShrink: 0,
-    minWidth: 64,
+    minWidth: 72,
     paddingHorizontal: 6,
   },
+  itemActive: {
+    backgroundColor: 'rgba(26,60,52,0.08)',
+  },
   iconWrap: {
-    width: 28,
-    height: 28,
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 17,
+  },
+  iconWrapActive: {
+    backgroundColor: 'rgba(26,60,52,0.10)',
   },
   badge: {
     position: 'absolute',
-    top: -4,
-    right: -10,
+    top: -2,
+    right: -8,
     minWidth: 18,
     height: 18,
     paddingHorizontal: 4,
@@ -145,11 +164,12 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 11,
-    marginTop: 2,
+    marginTop: 4,
     color: CONFIG.COLORS.GRAY,
+    fontWeight: '500',
   },
   labelActive: {
     color: MARKETPLACE_PRIMARY,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });
