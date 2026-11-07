@@ -358,7 +358,7 @@ public class AppNotificationService {
                         + (note != null && !note.isBlank() ? ": " + note : "."));
         for (UserAccount owner : ownersOf(provider)) {
             saveInApp(owner, AppNotificationType.SUBSCRIPTION_PROOF_DECISION, title, body, "/provider/subscription");
-            // Subscription decisions always email (like Wheel Hub EFT-pending exception — critical path)
+            // Subscription decisions always email (like Wheel Hub EFT-pending exception, critical path)
             sendEmail(
                     EmailPurpose.BILLING,
                     owner.getEmail(),
@@ -369,6 +369,28 @@ public class AppNotificationService {
             if (owner.getPhoneNumber() != null && !owner.getPhoneNumber().isBlank()) {
                 smsService.sendSms(owner.getPhoneNumber(), title + ": " + body);
             }
+        }
+    }
+
+    /**
+     * Tells provider owners that the platform owner changed their trial or subscription (no payment).
+     * Reuses the existing SUBSCRIPTION_PROOF_DECISION type (category "Subscription", links to the
+     * provider subscription page) so no enum/schema change is needed on MySQL.
+     */
+    @Transactional
+    public void notifySubscriptionOverride(Provider provider, String title, String body) {
+        if (provider == null) {
+            return;
+        }
+        for (UserAccount owner : ownersOf(provider)) {
+            saveInApp(owner, AppNotificationType.SUBSCRIPTION_PROOF_DECISION, title, body, "/provider/subscription");
+            sendEmail(
+                    EmailPurpose.BILLING,
+                    owner.getEmail(),
+                    title,
+                    body,
+                    body,
+                    List.of("Provider: " + provider.getName()));
         }
     }
 

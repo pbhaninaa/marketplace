@@ -5,6 +5,7 @@ import { adminProviderDetailApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DataTableShell from '../components/ui/DataTableShell.vue';
 import { imageCountLabel } from '../utils/display';
+import ProviderSubscriptionOverridePanel from '../components/admin/ProviderSubscriptionOverridePanel.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -79,7 +80,7 @@ async function disableStaff(userId) {
     <header class="page-hero">
       <p class="page-hero__eyebrow">Platform</p>
       <h1 class="page-hero__title">Provider support</h1>
-      <p class="page-hero__lead">View provider listings and staff, and take quick actions to support them.</p>
+      <p class="page-hero__lead">View the provider's subscription, listings and staff, and take quick actions to support them.</p>
     </header>
 
     <p v-if="error" class="err-toast">{{ error }}</p>
@@ -97,6 +98,8 @@ async function disableStaff(userId) {
           <div><span class="k">Status</span><span class="v">{{ provider?.status }}</span></div>
         </div>
       </section>
+
+      <ProviderSubscriptionOverridePanel :provider-id="providerId" />
 
       <section class="surface-panel admin-panel">
         <div class="toolbar">

@@ -400,6 +400,26 @@ export const adminProviderDetailApi = {
   },
 };
 
+/** Provider subscription for admins; overrides are platform-owner only (others get 403). */
+export const adminProviderSubscriptionApi = {
+  get(providerId) {
+    return api.get(`/api/admin/providers/${providerId}/subscription`);
+  },
+  extendTrial(providerId, days, reason) {
+    return api.post(`/api/admin/providers/${providerId}/subscription/extend-trial`, { days, reason });
+  },
+  endTrial(providerId, reason) {
+    return api.post(`/api/admin/providers/${providerId}/subscription/end-trial`, { reason });
+  },
+  setSubscription(providerId, { plan, activeUntil, reason }) {
+    return api.put(`/api/admin/providers/${providerId}/subscription/override`, {
+      plan,
+      activeUntil: activeUntil || null,
+      reason,
+    });
+  },
+};
+
 export const adminMaintenanceApi = {
   cleanDb() {
     return api.post('/api/admin/maintenance/clean-db');
