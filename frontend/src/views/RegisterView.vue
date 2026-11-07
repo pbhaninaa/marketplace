@@ -1,9 +1,10 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { publicAccountApi } from '../services/marketplaceApi';
 import { useSetupStore } from '../stores/setup';
 import FormField from '../components/ui/FormField.vue';
+import { businessNameError, emailError, textError, LIMITS } from '../utils/validation';
 
 const router = useRouter();
 const setup = useSetupStore();
@@ -16,6 +17,17 @@ const ownerEmail = ref('');
 const password = ref('');
 const error = ref('');
 const done = ref(false);
+/** Inline messages show after the first submit attempt (same rules as the API). */
+const showErrors = ref(false);
+
+const fieldErrors = computed(() => ({
+  businessName: businessNameError(businessName.value, { label: 'Business name' }),
+  description: textError(description.value, { required: true, label: 'Description', max: LIMITS.providerDescription }),
+  location: textError(location.value, { required: true, label: 'Location', max: LIMITS.location }),
+  ownerEmail: emailError(ownerEmail.value, { label: 'Owner email' }),
+  password: textError(password.value, { required: true, label: 'Password', min: 8, max: 100 }),
+}));
+const shownError = (field) => (showErrors.value ? fieldErrors.value[field] : '');
 
 onMounted(() => {
   setup.fetchStatus().catch(() => {});
@@ -23,6 +35,8 @@ onMounted(() => {
 
 async function submit() {
   error.value = '';
+  showErrors.value = true;
+  if (Object.values(fieldErrors.value).some(Boolean)) return;
   try {
     await publicAccountApi.registerProvider({
       businessName: businessName.value.trim(),
@@ -60,20 +74,20 @@ async function submit() {
     </header>
 
     <form class="surface-panel register-form" @submit.prevent="submit">
-      <FormField label="Business name" capitalize-first>
-        <input v-model="businessName" type="text" required maxlength="200" autocomplete="organization" />
+      <FormField label="Business name" capitalize-first :error="shownError('businessName')">
+        <input v-model="businessName" type="text" required :maxlength="LIMITS.businessName" autocomplete="organization" />
       </FormField>
-      <FormField label="Description" capitalize-first>
+      <FormField label="Description" capitalize-first :error="shownError('description')">
         <textarea
           v-model="description"
           required
-          maxlength="4000"
+          :maxlength="LIMITS.providerDescription"
           rows="4"
           placeholder="What you offer, service area, specialties…"
         />
       </FormField>
-      <FormField label="Location" capitalize-first>
-        <input v-model="location" type="text" required maxlength="500" autocomplete="street-address" />
+      <FormField label="Location" capitalize-first :error="shownError('location')">
+        <input v-model="location" type="text" required :maxlength="LIMITS.location" autocomplete="street-address" />
       </FormField>
       <FormField label="Provider type">
         <select v-model="subtype" required>
@@ -81,10 +95,10 @@ async function submit() {
           <option value="RENTING_OWNER">Renting owner</option>
         </select>
       </FormField>
-      <FormField label="Owner email">
-        <input v-model="ownerEmail" type="email" required autocomplete="email" />
+      <FormField label="Owner email" :error="shownError('ownerEmail')">
+        <input v-model="ownerEmail" type="email" required :maxlength="LIMITS.email" autocomplete="email" />
       </FormField>
-      <FormField label="Password">
+      <FormField label="Password" :error="shownError('password')">
         <input v-model="password" type="password" required minlength="8" maxlength="100" autocomplete="new-password" />
       </FormField>
       <p v-if="error" class="err-toast">{{ error }}</p>

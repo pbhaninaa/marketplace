@@ -4,7 +4,17 @@ import { useRouter } from 'vue-router';
 import { providerSettingsApi, publicPeachApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
-import { isNonEmptyString, isPositiveNumber } from '../utils/validation';
+import {
+  isNonEmptyString,
+  isPositiveNumber,
+  textError,
+  businessNameError,
+  bankAccountError,
+  branchCodeError,
+  numberError,
+  digitsOnly,
+  LIMITS,
+} from '../utils/validation';
 import { getCurrentLocation } from '../utils/getCurrentLocation';
 import { normalizeAcceptedPaymentMethods } from '../utils/paymentModel';
 
@@ -40,7 +50,7 @@ async function loadLocation() {
 
     // ONLY populate when switch is ON
     if (useCurrentLocation.value) {
-      form.value.location = loc.locationName;
+      form.value.location = String(loc.locationName || '').slice(0, LIMITS.location);
     }
 
   } catch (err) {
@@ -69,6 +79,28 @@ const form = ref({
   acceptedPaymentMethods: ['CASH'],
   deliveryAvailable: false,
   deliveryPricePerKm: '',
+});
+
+/** Inline field messages (same rules as the API); "required" only shows after a save attempt. */
+const triedSave = ref(false);
+const fieldErrors = computed(() => {
+  const f = form.value;
+  return {
+    location: textError(f.location, { required: triedSave.value, label: 'Location', max: LIMITS.location }),
+    bankName: businessNameError(f.bankName, { required: false, label: 'Bank name', max: LIMITS.bankName }),
+    bankAccountName: businessNameError(f.bankAccountName, { required: false, label: 'Account name', max: LIMITS.bankName }),
+    bankAccountNumber: bankAccountError(f.bankAccountNumber),
+    bankBranchCode: branchCodeError(f.bankBranchCode),
+    deliveryPricePerKm: f.deliveryAvailable
+      ? numberError(f.deliveryPricePerKm, {
+          required: triedSave.value,
+          label: 'Price per km',
+          min: 0,
+          exclusiveMin: true,
+          max: LIMITS.maxPricePerKm,
+        })
+      : '',
+  };
 });
 
 const canEdit = computed(() =>
@@ -107,6 +139,14 @@ async function load() {
 }
 
 async function save() {
+  error.value = '';
+  triedSave.value = true;
+  const firstFieldError = Object.values(fieldErrors.value).find(Boolean);
+  if (firstFieldError) {
+    error.value = firstFieldError;
+    return;
+  }
+
   if (!isNonEmptyString(form.value.location)) {
     error.value = 'Location is required.';
     return;
@@ -130,6 +170,9 @@ async function save() {
   try {
     await providerSettingsApi.patch({
       ...form.value,
+      location: form.value.location.trim(),
+      bankAccountNumber: digitsOnly(form.value.bankAccountNumber),
+      bankBranchCode: digitsOnly(form.value.bankBranchCode),
       deliveryPricePerKm: form.value.deliveryAvailable
         ? parseFloat(form.value.deliveryPricePerKm)
         : null,
@@ -171,8 +214,8 @@ async function save() {
             </label>
           </FormField>
 
-          <FormField label="Location">
-            <input v-model="form.location" type="text" :disabled="!canEdit" />
+          <FormField label="Location" :error="fieldErrors.location">
+            <input v-model="form.location" type="text" :maxlength="LIMITS.location" :disabled="!canEdit" />
           </FormField>
 
           <FormField label="Client payment methods you accept">
@@ -211,8 +254,8 @@ async function save() {
           </label>
 
           <div v-if="form.deliveryAvailable" class="delivery-box">
-            <FormField label="Price per KM">
-              <input v-model="form.deliveryPricePerKm" type="number" :disabled="!canEdit" />
+            <FormField label="Price per KM" :error="fieldErrors.deliveryPricePerKm">
+              <input v-model="form.deliveryPricePerKm" type="number" min="0" step="0.01" :max="LIMITS.maxPricePerKm" :disabled="!canEdit" />
             </FormField>
           </div>
         </section>
@@ -229,20 +272,20 @@ async function save() {
             Required when you accept Manual EFT. Shown to clients at checkout so they can transfer to your account.
           </p>
 
-          <FormField label="Bank name">
-            <input v-model="form.bankName" :disabled="!canEdit" />
+          <FormField label="Bank name" :error="fieldErrors.bankName">
+            <input v-model="form.bankName" :maxlength="LIMITS.bankName" :disabled="!canEdit" />
           </FormField>
 
-          <FormField label="Account name">
-            <input v-model="form.bankAccountName" :disabled="!canEdit" />
+          <FormField label="Account name" :error="fieldErrors.bankAccountName">
+            <input v-model="form.bankAccountName" :maxlength="LIMITS.bankName" :disabled="!canEdit" />
           </FormField>
 
-          <FormField label="Account number">
-            <input v-model="form.bankAccountNumber" :disabled="!canEdit" />
+          <FormField label="Account number" :error="fieldErrors.bankAccountNumber">
+            <input v-model="form.bankAccountNumber" inputmode="numeric" placeholder="6–16 digits" :disabled="!canEdit" />
           </FormField>
 
-          <FormField label="Branch code">
-            <input v-model="form.bankBranchCode" :disabled="!canEdit" />
+          <FormField label="Branch code" :error="fieldErrors.bankBranchCode">
+            <input v-model="form.bankBranchCode" inputmode="numeric" placeholder="e.g. 250655" :disabled="!canEdit" />
           </FormField>
         </section>
 

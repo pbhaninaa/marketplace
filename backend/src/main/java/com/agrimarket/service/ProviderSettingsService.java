@@ -1,5 +1,6 @@
 package com.agrimarket.service;
 
+import com.agrimarket.util.InputValidator;
 import com.agrimarket.api.dto.ProviderSettingsResponse;
 import com.agrimarket.api.dto.ProviderSettingsUpdateRequest;
 import com.agrimarket.api.error.ApiException;
@@ -49,8 +50,8 @@ public class ProviderSettingsService {
         p.setLocation(req.location());
         p.setBankName(blankToNull(req.bankName()));
         p.setBankAccountName(blankToNull(req.bankAccountName()));
-        p.setBankAccountNumber(blankToNull(req.bankAccountNumber()));
-        p.setBankBranchCode(blankToNull(req.bankBranchCode()));
+        p.setBankAccountNumber(InputValidator.normalizeDigits(req.bankAccountNumber()));
+        p.setBankBranchCode(InputValidator.normalizeDigits(req.bankBranchCode()));
         p.setBankReference(blankToNull(req.bankReference()));
 
         p.setDeliveryAvailable(req.deliveryAvailable());

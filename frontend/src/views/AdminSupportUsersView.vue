@@ -5,6 +5,7 @@ import { adminSupportUsersApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
+import { emailError, textError } from '../utils/validation';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -42,9 +43,16 @@ async function load() {
 async function create() {
   error.value = '';
   message.value = '';
+  const invalid =
+    emailError(form.value.email) ||
+    textError(form.value.password, { required: true, label: 'Temporary password', min: 8, max: 100 });
+  if (invalid) {
+    error.value = invalid;
+    return;
+  }
   try {
     await adminSupportUsersApi.create({
-      email: form.value.email,
+      email: form.value.email.trim(),
       password: form.value.password,
     });
     form.value = { email: '', password: '' };

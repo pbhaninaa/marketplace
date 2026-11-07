@@ -16,7 +16,15 @@ import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vu
 import DataTableShell from '../components/ui/DataTableShell.vue';
 import TablePager from '../components/ui/TablePager.vue';
 import TextWithTooltip from '../components/ui/TextWithTooltip.vue';
-import { isNonEmptyString, isPositiveNumber, isMinInt } from '../utils/validation';
+import {
+  isNonEmptyString,
+  isPositiveNumber,
+  isMinInt,
+  textError,
+  numberError,
+  mediaUrlsError,
+  LIMITS,
+} from '../utils/validation';
 import { firstMediaUrl, parseMediaUrls } from '../utils/mediaUrl';
 
 const router = useRouter();
@@ -210,6 +218,7 @@ function openAdd() {
   if (!canEdit.value) return;
   editing.value = null;
   resetForm();
+  listingTried.value = false;
   showDialog.value = true;
 }
 
@@ -235,6 +244,7 @@ function openEdit(l) {
   };
   pickedImageFiles.value = [];
   pickedPreviewUrls.value = [];
+  listingTried.value = false;
   showDialog.value = true;
 }
 
@@ -246,8 +256,39 @@ function closeDialog() {
   pickedPreviewUrls.value = [];
 }
 
+/* Inline validation (same limits as the API); "required" messages appear after a save attempt. */
+const listingTried = ref(false);
+const listingErrors = computed(() => {
+  const f = form.value;
+  const tried = listingTried.value;
+  const money = (v, label) => numberError(v, { label, min: 0, max: LIMITS.maxPrice });
+  return {
+    title: textError(f.title, { required: tried, label: 'Title', min: 2, max: LIMITS.listingTitle }),
+    description: textError(f.description, { label: 'Description', max: LIMITS.listingDescription }),
+    categoryOther: textError(f.categoryOther, { label: 'Category', max: LIMITS.categoryName }),
+    unitPrice: numberError(f.unitPrice, {
+      required: tried,
+      label: 'Price',
+      min: 0,
+      exclusiveMin: true,
+      max: LIMITS.maxPrice,
+    }),
+    stockQuantity: numberError(f.stockQuantity, { label: 'Stock quantity', min: 0, max: LIMITS.maxStock, integer: true }),
+    rentPriceHourly: money(f.rentPriceHourly, 'Hourly rate'),
+    rentPriceDaily: money(f.rentPriceDaily, 'Daily rate'),
+    rentPriceWeekly: money(f.rentPriceWeekly, 'Weekly rate'),
+    imageUrls: mediaUrlsError(f.imageUrls),
+  };
+});
+
 async function createListing() {
   if (!canEdit.value) return;
+  listingTried.value = true;
+  const firstListingError = Object.values(listingErrors.value).find(Boolean);
+  if (firstListingError) {
+    error.value = firstListingError;
+    return;
+  }
   const categoryName = resolvedCategoryNameForSubmit();
   if (!isNonEmptyString(form.value.title)) {
     error.value = 'Please enter a title.';
@@ -490,11 +531,11 @@ async function deleteListing(id) {
             </FormField>
           </div>
 
-          <FormField v-if="showCategoryOther" label="Specify category" capitalize-first>
+          <FormField v-if="showCategoryOther" label="Specify category" capitalize-first :error="listingErrors.categoryOther">
             <input
               v-model="form.categoryOther"
               type="text"
-              maxlength="200"
+              :maxlength="LIMITS.categoryName"
               placeholder="Describe your category"
               :disabled="!canEdit"
             />
@@ -503,12 +544,12 @@ async function deleteListing(id) {
             Categories depend on whether the listing is for sale or for rent.
           </p>
 
-          <FormField label="Title" capitalize-first>
-            <input v-model="form.title" type="text" maxlength="200" required :disabled="!canEdit" />
+          <FormField label="Title" capitalize-first :error="listingErrors.title">
+            <input v-model="form.title" type="text" :maxlength="LIMITS.listingTitle" required :disabled="!canEdit" />
           </FormField>
 
-          <FormField label="Description" capitalize-first>
-            <textarea v-model="form.description" rows="4" maxlength="4000" :disabled="!canEdit" />
+          <FormField label="Description" capitalize-first :error="listingErrors.description">
+            <textarea v-model="form.description" rows="4" :maxlength="LIMITS.listingDescription" :disabled="!canEdit" />
           </FormField>
 
           <FormField label="Photos">
@@ -555,24 +596,24 @@ async function deleteListing(id) {
             
             </FormField>
             <!-- <div class="rent-grid">
-              <FormField v-if="form.rentRateModes.includes('HOURLY')" label="Hourly rate (ZAR)">
+              <FormField v-if="form.rentRateModes.includes('HOURLY')" label="Hourly rate (ZAR)" :error="listingErrors.rentPriceHourly">
                 <input v-model="form.rentPriceHourly" type="number" min="0" step="0.01" :disabled="!canEdit" />
               </FormField>
-              <FormField v-if="form.rentRateModes.includes('DAILY')" label="Daily rate (ZAR)">
+              <FormField v-if="form.rentRateModes.includes('DAILY')" label="Daily rate (ZAR)" :error="listingErrors.rentPriceDaily">
                 <input v-model="form.rentPriceDaily" type="number" min="0" step="0.01" :disabled="!canEdit" />
               </FormField>
-              <FormField v-if="form.rentRateModes.includes('WEEKLY')" label="Weekly rate (ZAR)">
+              <FormField v-if="form.rentRateModes.includes('WEEKLY')" label="Weekly rate (ZAR)" :error="listingErrors.rentPriceWeekly">
                 <input v-model="form.rentPriceWeekly" type="number" min="0" step="0.01" :disabled="!canEdit" />
               </FormField>
             </div> -->
           </div>
  <div class="grid">
-            <FormField label="Price (ZAR)">
+            <FormField label="Price (ZAR)" :error="listingErrors.unitPrice">
               <input v-model="form.unitPrice" type="number" min="0" step="0.01" required :disabled="!canEdit" />
             </FormField>
 
-            <FormField v-if="showStockQuantity" label="Stock quantity">
-              <input v-model="form.stockQuantity" type="number" min="0" step="1" :disabled="!canEdit" />
+            <FormField v-if="showStockQuantity" label="Stock quantity" :error="listingErrors.stockQuantity">
+              <input v-model="form.stockQuantity" type="number" min="0" :max="LIMITS.maxStock" step="1" :disabled="!canEdit" />
             </FormField>
           </div>
 

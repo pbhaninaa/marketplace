@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { supportApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
-import { isNonEmptyString } from '../utils/validation';
+import { isNonEmptyString, emailOrPhoneError } from '../utils/validation';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -25,6 +25,11 @@ async function resendOtp() {
   error.value = '';
   if (!isNonEmptyString(otpTarget.value)) {
     error.value = 'Please enter a client email or phone.';
+    return;
+  }
+  const targetError = emailOrPhoneError(otpTarget.value);
+  if (targetError) {
+    error.value = targetError;
     return;
   }
   try {

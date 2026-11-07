@@ -3,6 +3,7 @@ package com.agrimarket.api;
 import com.agrimarket.api.dto.FirstAdminRequest;
 import com.agrimarket.api.dto.SetupStatusResponse;
 import com.agrimarket.service.BootstrapService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,7 +27,7 @@ public class PublicSetupController {
 
     @PostMapping("/first-admin")
     @ResponseStatus(HttpStatus.OK)
-    public void createFirstAdmin(@RequestBody FirstAdminRequest req) {
+    public void createFirstAdmin(@Valid @RequestBody FirstAdminRequest req) {
         bootstrapService.registerFirstAdmin(req);
     }
 }
