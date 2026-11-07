@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { adminDashboardApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
+import { useLiveRefresh } from '../composables/useLiveRefresh';
+import LiveStatus from '../components/LiveStatus.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -19,17 +21,22 @@ onMounted(() => {
   load();
 });
 
-async function load() {
-  loading.value = true;
+async function load({ quiet = false } = {}) {
+  if (!quiet) loading.value = true;
   try {
     const { data } = await adminDashboardApi.stats();
     stats.value = data;
-  } catch {
+  } catch (e) {
+    // Background refresh: keep the numbers on screen.
+    if (quiet) throw e;
     stats.value = null;
   } finally {
-    loading.value = false;
+    if (!quiet) loading.value = false;
   }
 }
+
+// Live: reload on server pushes (orders, payments, subscriptions), tab re-focus, and every 60s.
+const { refreshNow, lastUpdated, refreshing } = useLiveRefresh(() => load({ quiet: true }));
 
 const activityScore = computed(() => {
   const purchaseCount = Number(stats.value?.purchaseCount ?? 0);
@@ -50,9 +57,7 @@ const activityScore = computed(() => {
     <section class="surface-panel admin-panel admin-panel--wide">
       <div class="panel-head">
         <h2>Platform progress</h2>
-        <button type="button" class="btn btn-ghost" :disabled="loading" @click="load">
-          {{ loading ? 'Refreshing…' : 'Refresh' }}
-        </button>
+        <LiveStatus :updated-at="lastUpdated" :refreshing="refreshing || loading" @refresh="refreshNow" />
       </div>
 
       <div class="kpi-grid">
@@ -82,6 +87,10 @@ const activityScore = computed(() => {
     <section class="surface-panel admin-panel admin-panel--wide">
       <h2>Admin tools</h2>
       <div class="tools-grid">
+        <router-link to="/admin/history" class="tool-card">
+          <strong>Orders &amp; payments</strong>
+          <span class="muted small">Filter every order and payment, export CSV / Excel</span>
+        </router-link>
         <router-link to="/admin/settings" class="tool-card">
           <strong>Settings</strong>
           <span class="muted small">Name, pricing, and usage fees</span>

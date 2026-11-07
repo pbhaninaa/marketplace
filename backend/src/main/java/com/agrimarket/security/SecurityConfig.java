@@ -42,6 +42,9 @@ public class SecurityConfig {
                 .cors(c -> c.configurationSource(corsConfigurationSource()))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // SSE /api/me/live-updates: the async re-dispatch when a stream ends was already authorized.
+                        .dispatcherTypeMatchers(jakarta.servlet.DispatcherType.ASYNC)
+                        .permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**")
                         .permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**")

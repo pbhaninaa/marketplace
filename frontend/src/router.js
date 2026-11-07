@@ -33,6 +33,9 @@ import ProviderStaffPaymentsView from './views/ProviderStaffPaymentsView.vue';
 import ProviderSubscriptionView from './views/ProviderSubscriptionView.vue';
 import ProviderHelpView from './views/ProviderHelpView.vue';
 import ClientHelpView from './views/ClientHelpView.vue';
+import ClientHistoryView from './views/ClientHistoryView.vue';
+import ProviderHistoryView from './views/ProviderHistoryView.vue';
+import AdminHistoryView from './views/AdminHistoryView.vue';
 import {
   providerRouteGuard,
   refreshProviderSubscription,
@@ -43,6 +46,7 @@ const router = createRouter({
   routes: [
     { path: '/', name: 'market', component: MarketplaceView },
     { path: '/help/client', name: 'help-client', component: ClientHelpView, meta: { title: 'Help' } },
+    { path: '/my-orders', name: 'client-history', component: ClientHistoryView, meta: { title: 'My orders & payments' } },
     { path: '/order-invoice', name: 'order-invoice', component: OrderInvoiceLookupView, meta: { title: 'Order invoice' } },
     { path: '/checkout', name: 'checkout', component: CheckoutView },
     { path: '/peach/return', name: 'peach-return', component: PeachReturnView, meta: { title: 'Payment status' } },
@@ -56,6 +60,7 @@ const router = createRouter({
     { path: '/admin', name: 'admin', component: AdminDashboardView, meta: { requiresAdmin: true } },
     { path: '/admin/providers', name: 'admin-providers', component: AdminProvidersView, meta: { requiresAdmin: true } },
     { path: '/admin/settings', name: 'admin-settings', component: AdminSettingsView, meta: { requiresAdmin: true } },
+    { path: '/admin/history', name: 'admin-history', component: AdminHistoryView, meta: { requiresAdmin: true, title: 'Orders & payments' } },
     { path: '/admin/listings', name: 'admin-listings', component: AdminListingsView, meta: { requiresAdmin: true } },
     { path: '/admin/users', name: 'admin-users', component: AdminUsersView, meta: { requiresAdmin: true } },
     { path: '/admin/providers/:id', name: 'admin-provider-support', component: AdminProviderSupportView, meta: { requiresAdmin: true } },
@@ -77,6 +82,7 @@ const router = createRouter({
     { path: '/provider/staff-payments', name: 'provider-staff-payments', component: ProviderStaffPaymentsView, meta: { requiresAuth: true, requiresPremium: true } },
     { path: '/provider/settings', name: 'provider-settings', component: ProviderSettingsView, meta: { requiresAuth: true } },
     { path: '/provider/listings', name: 'provider-listings', component: ProviderListingsView, meta: { requiresAuth: true } },
+    { path: '/provider/history', name: 'provider-history', component: ProviderHistoryView, meta: { requiresAuth: true, title: 'Order & payment history' } },
     { path: '/provider/orders', name: 'provider-orders', component: ProviderOrdersView, meta: { requiresAuth: true } },
     { path: '/provider/subscription', name: 'provider-subscription', component: ProviderSubscriptionView, meta: { requiresAuth: true } },
     { path: '/provider/help', name: 'provider-help', component: ProviderHelpView, meta: { requiresAuth: true } },

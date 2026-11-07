@@ -416,3 +416,28 @@ export const supportApi = {
     return api.post(`/api/support/shadow/provider/${providerId}`);
   },
 };
+
+/** Unified order & payment history (filters, server-side paging, CSV/Excel export). */
+function historyEndpoints(base) {
+  return {
+    orders(params) {
+      return api.get(`${base}/orders`, { params });
+    },
+    payments(params) {
+      return api.get(`${base}/payments`, { params });
+    },
+    async exportReport(kind, params, format = 'csv') {
+      const ext = format === 'xlsx' ? 'xlsx' : 'csv';
+      const res = await api.get(`${base}/${kind}/export`, {
+        params: { ...params, format: ext },
+        responseType: 'blob',
+      });
+      const day = new Date().toISOString().slice(0, 10);
+      triggerBlobDownload(res.data, `${kind}-${day}.${ext}`);
+    },
+  };
+}
+
+export const adminHistoryApi = historyEndpoints('/api/admin/history');
+export const providerHistoryApi = historyEndpoints('/api/provider/me/history');
+export const clientHistoryApi = historyEndpoints('/api/public/client/history');

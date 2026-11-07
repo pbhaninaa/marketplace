@@ -3,6 +3,8 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { supportApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
+import { useLiveRefresh } from '../composables/useLiveRefresh';
+import LiveStatus from '../components/LiveStatus.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -21,17 +23,22 @@ onMounted(async () => {
   await refreshAll();
 });
 
-async function refreshAll() {
-  error.value = '';
+async function refreshAll({ quiet = false } = {}) {
+  if (!quiet) error.value = '';
   try {
     const [o] = await Promise.all([
       supportApi.getOverview(),
     ]);
     overview.value = o.data;
+    error.value = '';
   } catch (e) {
+    if (quiet) throw e; // background refresh: keep the numbers on screen
     error.value = e.response?.data?.message || e.message;
   }
 }
+
+// Live: reload on platform pushes (orders, payments, subscriptions), tab re-focus, and every 60s.
+const { refreshNow, lastUpdated, refreshing } = useLiveRefresh(() => refreshAll({ quiet: true }));
 </script>
 
 <template>
@@ -53,7 +60,7 @@ async function refreshAll() {
         <div><span class="muted small">Orders</span><strong>{{ overview.purchaseOrderCount }}</strong></div>
         <div><span class="muted small">Open tickets</span><strong>{{ overview.openTickets }}</strong></div>
       </div>
-      <button type="button" class="btn btn-ghost" @click="refreshAll">Refresh</button>
+      <LiveStatus :updated-at="lastUpdated" :refreshing="refreshing" @refresh="refreshNow" />
     </section>
 
     <section class="surface-panel admin-panel">
