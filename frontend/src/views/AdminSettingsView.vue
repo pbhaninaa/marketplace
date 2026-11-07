@@ -10,6 +10,7 @@ import {
   adminOrderInvoiceApi,
   adminReferralsApi,
 } from '../services/marketplaceApi';
+import DisplayStyleToggle from '../components/ui/DisplayStyleToggle.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -295,6 +296,7 @@ async function downloadStaffInvoice() {
         <button type="button" class="btn btn-ghost" :disabled="saving" @click="load">Refresh</button>
       </div>
     </section>
+    <DisplayStyleToggle />
   </div>
 </template>
 

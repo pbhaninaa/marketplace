@@ -1,0 +1,24 @@
+version: 1
+# AWS Amplify Hosting for the Vue SPA (monorepo: app root = frontend).
+# Connect the repo in the Amplify console on branch AWS; it picks up this file.
+# Set Amplify env vars: VITE_API_BASE=https://<api-host> (origin only, no /api), VITE_APP_ENV=PROD.
+# Security headers: frontend/customHttp.yml. SPA rewrite: docs/aws/amplify-custom-rules.json.
+applications:
+  - appRoot: frontend
+    frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            # Tests gate the deploy: a failing test fails the Amplify build.
+            - npm run test:run
+            - npm run build:prod
+      artifacts:
+        baseDirectory: dist
+        files:
+          - "**/*"
+      cache:
+        paths:
+          - node_modules/**/*

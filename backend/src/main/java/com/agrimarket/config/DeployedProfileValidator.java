@@ -1,12 +1,14 @@
 package com.agrimarket.config;
 
+import java.util.Locale;
+import java.util.Set;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 /**
- * Fails fast on UAT/PROD when critical deployment variables are missing.
+ * Fails fast on UAT/PROD (and the aws/azure cloud profiles) when critical deployment variables are missing.
  */
 @Component
 public class DeployedProfileValidator {
@@ -112,9 +114,12 @@ public class DeployedProfileValidator {
         return null;
     }
 
+    /** Deployed profiles: uat, prod, and the cloud profiles (aws, azure) that run with prod settings. */
+    static final Set<String> DEPLOYED_PROFILES = Set.of("uat", "prod", "aws", "azure");
+
     private boolean isDeployedProfile() {
         for (String profile : environment.getActiveProfiles()) {
-            if ("uat".equalsIgnoreCase(profile) || "prod".equalsIgnoreCase(profile)) {
+            if (DEPLOYED_PROFILES.contains(profile.toLowerCase(Locale.ROOT))) {
                 return true;
             }
         }

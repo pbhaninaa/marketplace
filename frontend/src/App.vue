@@ -9,6 +9,7 @@ import { useThemeStore } from './stores/theme';
 import { useDialog } from './composables/useDialog';
 import DialogModal from './components/ui/DialogModal.vue';
 import NotificationBell from './components/NotificationBell.vue';
+import DisplayStyleToggle from './components/ui/DisplayStyleToggle.vue';
 import { refreshProviderSubscription } from './utils/providerSubscriptionGate';
 
 const route = useRoute();
@@ -275,6 +276,7 @@ onMounted(async () => {
               <span v-if="auth.displayName && auth.email" class="side-nav__user-email">{{ auth.email }}</span>
             </span>
           </router-link>
+          <DisplayStyleToggle variant="compact" />
           <button type="button" class="side-nav__signout" @click="auth.logout()">
             <span class="material-icons" aria-hidden="true">logout</span>
             Sign out

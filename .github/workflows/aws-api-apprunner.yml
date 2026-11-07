@@ -1,0 +1,87 @@
+# MarketPlace API -> AWS App Runner: run tests, build the Docker image, push to ECR,
+# then trigger an App Runner deployment.
+# Secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION, ECR_REPOSITORY,
+#          APP_RUNNER_SERVICE_ARN (optional until the service exists).
+# On push, runs unless repo variable AWS_API_TARGET is set to "elasticbeanstalk".
+name: AWS API — App Runner
+
+on:
+  push:
+    branches: [AWS]
+    paths:
+      - "backend/**"
+      - ".github/workflows/aws-api-apprunner.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: aws-api-apprunner
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Backend tests
+    if: github.event_name == 'workflow_dispatch' || vars.AWS_API_TARGET != 'elasticbeanstalk'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      - run: mvn -B test
+
+  build-and-deploy:
+    name: Build image and deploy
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image
+        working-directory: backend
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPO: ${{ secrets.ECR_REPOSITORY }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ -z "$REPO" ]; then
+            echo "::error::Set GitHub secret ECR_REPOSITORY (e.g. marketplace-api)."
+            exit 1
+          fi
+          IMAGE_URI="$REGISTRY/$REPO:$SHA"
+          IMAGE_LATEST="$REGISTRY/$REPO:latest"
+          docker build -t "$IMAGE_URI" -t "$IMAGE_LATEST" .
+          docker push "$IMAGE_URI"
+          docker push "$IMAGE_LATEST"
+          echo "Pushed $IMAGE_URI"
+
+      - name: Deploy to App Runner
+        env:
+          SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+        run: |
+          if [ -z "$SERVICE_ARN" ]; then
+            echo "::notice::Image pushed to ECR. Create the App Runner service from :latest, then set APP_RUNNER_SERVICE_ARN."
+            exit 0
+          fi
+          # The service tracks the ECR tag "latest"; start-deployment pulls the image just pushed.
+          aws apprunner start-deployment --service-arn "$SERVICE_ARN"
+          echo "Triggered App Runner deployment"

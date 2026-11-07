@@ -40,3 +40,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+
+# Cloud deploy packaging outputs (AWS Elastic Beanstalk / Azure App Service)
+**/eb-docker-deploy.zip
+**/eb-docker-stage/
+backend/deploy/

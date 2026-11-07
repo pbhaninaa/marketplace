@@ -1,0 +1,50 @@
+# MarketPlace API (Spring Boot JAR, Java 17) -> Azure App Service (Java SE) on push to Azure.
+# `mvn -B package` runs the full test suite before the JAR is produced.
+# Secrets: AZURE_WEBAPP_NAME, AZURE_WEBAPP_PUBLISH_PROFILE
+# On push, runs unless repo variable AZURE_API_TARGET is set to "containerapps".
+name: Azure API — App Service
+
+on:
+  push:
+    branches: [Azure]
+    paths:
+      - "backend/**"
+      - ".github/workflows/azure-api-appservice.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: azure-api-appservice
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-deploy:
+    if: github.event_name == 'workflow_dispatch' || vars.AZURE_API_TARGET != 'containerapps'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Test and package
+        working-directory: backend
+        run: |
+          mvn -B package
+          JAR="$(ls target/marketplace-api-*.jar | grep -v '\.original$' | head -n 1)"
+          mkdir -p deploy
+          cp "$JAR" deploy/app.jar
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: backend/deploy/app.jar
