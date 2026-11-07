@@ -220,7 +220,7 @@ class AccessControlIntegrationTest extends AbstractIntegrationTest {
         settings.put("bankName", "Attacker Bank");
         settings.put("bankAccountName", "Attacker");
         settings.put("bankAccountNumber", "999999");
-        settings.put("bankBranchCode", "000");
+        settings.put("bankBranchCode", "250655");
         settings.put("deliveryAvailable", false);
         mockMvc.perform(patch("/api/provider/me/settings")
                         .header(HttpHeaders.AUTHORIZATION, bearer(token))
