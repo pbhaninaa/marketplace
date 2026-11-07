@@ -281,7 +281,7 @@ async function save() {
           </FormField>
 
           <FormField label="Account number" :error="fieldErrors.bankAccountNumber">
-            <input v-model="form.bankAccountNumber" inputmode="numeric" placeholder="6–16 digits" :disabled="!canEdit" />
+            <input v-model="form.bankAccountNumber" inputmode="numeric" placeholder="6 to 16 digits" :disabled="!canEdit" />
           </FormField>
 
           <FormField label="Branch code" :error="fieldErrors.bankBranchCode">

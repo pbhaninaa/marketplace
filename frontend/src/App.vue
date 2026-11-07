@@ -190,6 +190,7 @@ onMounted(async () => {
               to="/provider/staff-payments"
             >{{ auth.canManageStaff ? 'Staff payments' : 'My income' }}</router-link>
             <router-link to="/provider/subscription">Subscription</router-link>
+            <router-link to="/provider/referrals">My referrals</router-link>
             <router-link to="/provider/settings">Settings</router-link>
           </template>
           <template v-else>
@@ -232,6 +233,7 @@ onMounted(async () => {
           <router-link to="/admin/listings">Listings</router-link>
           <router-link to="/admin/users">Users</router-link>
           <router-link to="/admin/support-users">Support users</router-link>
+          <router-link to="/admin/referrals">Referrals</router-link>
           <router-link to="/support">Support</router-link>
           <router-link to="/admin/settings">Settings</router-link>
           <router-link to="/profile">Profile</router-link>

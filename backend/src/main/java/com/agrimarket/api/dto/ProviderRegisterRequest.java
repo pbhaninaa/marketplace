@@ -12,4 +12,6 @@ public record ProviderRegisterRequest(
         @NotBlank @Size(max = 255) String location,
         ProviderSubtype subtype,
         @NotBlank @Size(max = 254) @ValidEmail String ownerEmail,
-        @NotBlank @Size(min = 8, max = 100) String password) {}
+        @NotBlank @Size(min = 8, max = 100) String password,
+        /** Optional referral code (typed, or pre-filled from an invite link). */
+        @Size(max = 32) String referralCode) {}

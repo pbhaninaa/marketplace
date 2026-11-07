@@ -285,6 +285,39 @@ export const adminSettingsApi = {
   },
 };
 
+export const publicReferralApi = {
+  lookup(code) {
+    return api.get(`/api/public/referrals/${encodeURIComponent(code)}`);
+  },
+};
+
+export const providerReferralsApi = {
+  mine() {
+    return api.get('/api/provider/referrals');
+  },
+  claim(code) {
+    return api.post('/api/provider/referrals/claim', { code });
+  },
+};
+
+export const adminReferralsApi = {
+  getSettings() {
+    return api.get('/api/admin/referrals/settings');
+  },
+  updateSettings(body) {
+    return api.put('/api/admin/referrals/settings', body);
+  },
+  list(params) {
+    return api.get('/api/admin/referrals', { params });
+  },
+  stats() {
+    return api.get('/api/admin/referrals/stats');
+  },
+  markPaid(id, note) {
+    return api.post(`/api/admin/referrals/${id}/mark-paid`, { note });
+  },
+};
+
 export const providerTeamApi = {
   getContext() {
     return api.get('/api/provider/me/context');

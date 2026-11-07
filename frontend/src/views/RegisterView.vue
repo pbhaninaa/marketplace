@@ -1,13 +1,47 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
-import { publicAccountApi } from '../services/marketplaceApi';
+import { useRoute, useRouter } from 'vue-router';
+import { publicAccountApi, publicReferralApi } from '../services/marketplaceApi';
 import { useSetupStore } from '../stores/setup';
 import FormField from '../components/ui/FormField.vue';
 import { businessNameError, emailError, textError, LIMITS } from '../utils/validation';
+import {
+  captureInviteFromQuery,
+  clearInviteRef,
+  normalizeReferralCode,
+  readInviteRef,
+} from '../utils/referralInvite';
 
 const router = useRouter();
+const route = useRoute();
 const setup = useSetupStore();
+
+// Referral code: pre-filled from ?ref= or a remembered invite link, but always editable so it can be
+// typed on a different device than the one that opened the link.
+const referralCode = ref(captureInviteFromQuery(route.query) || readInviteRef());
+const referralHint = ref('');
+const referralError = ref('');
+
+async function checkReferralCode() {
+  referralHint.value = '';
+  referralError.value = '';
+  const code = normalizeReferralCode(referralCode.value);
+  if (!referralCode.value.trim()) return;
+  if (!code) {
+    referralError.value = 'Referral codes use letters and numbers only.';
+    return;
+  }
+  try {
+    const { data } = await publicReferralApi.lookup(code);
+    if (data?.valid) {
+      referralHint.value = data.referrerName ? `Referred by ${data.referrerName}` : 'Valid referral code';
+    } else {
+      referralError.value = 'That referral code was not found. Check it or leave it blank.';
+    }
+  } catch {
+    // lookup is a convenience; the server validates on submit
+  }
+}
 
 const businessName = ref('');
 const description = ref('');
@@ -31,6 +65,7 @@ const shownError = (field) => (showErrors.value ? fieldErrors.value[field] : '')
 
 onMounted(() => {
   setup.fetchStatus().catch(() => {});
+  if (referralCode.value) checkReferralCode();
 });
 
 async function submit() {
@@ -45,7 +80,9 @@ async function submit() {
       subtype: subtype.value,
       ownerEmail: ownerEmail.value.trim(),
       password: password.value,
+      referralCode: normalizeReferralCode(referralCode.value) || null,
     });
+    clearInviteRef();
     done.value = true;
     setTimeout(() => {
       router.push({
@@ -101,6 +138,17 @@ async function submit() {
       <FormField label="Password" :error="shownError('password')">
         <input v-model="password" type="password" required minlength="8" maxlength="100" autocomplete="new-password" />
       </FormField>
+      <FormField label="Referral code (optional)" :error="referralError">
+        <input
+          v-model="referralCode"
+          type="text"
+          maxlength="32"
+          autocomplete="off"
+          placeholder="From the business that invited you"
+          @change="checkReferralCode"
+        />
+        <p v-if="referralHint" class="referral-hint">{{ referralHint }}</p>
+      </FormField>
       <p v-if="error" class="err-toast">{{ error }}</p>
       <p v-if="done" class="ok-msg">Account created. Sign in, then choose your subscription plan…</p>
       <button type="submit" class="btn btn-primary" :disabled="done">Create account</button>
@@ -140,6 +188,12 @@ async function submit() {
   font-size: 0.9rem;
   text-align: center;
   color: var(--color-muted, #5c6570);
+}
+
+.referral-hint {
+  margin: 0.3rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-sage, #3d7a66);
 }
 
 .register-footer a {
