@@ -171,7 +171,7 @@ async function downloadStaffInvoice() {
       </p>
       <div class="grid grid--2 inv-row">
         <FormField label="Order number or verification code">
-          <input v-model="invoiceOrderRef" type="text" autocomplete="off" placeholder="e.g. 42 or AB12-CD34" />
+          <input v-model="invoiceOrderRef" type="text" autocomplete="off" placeholder="e.g. 42 or AB12CD34" />
         </FormField>
         <div class="inv-actions">
           <button

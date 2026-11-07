@@ -67,7 +67,7 @@ async function refreshAll() {
           <div class="bar">
             <div class="bar__fill bar__fill--warn" :style="{ width: `${Math.min(100, (Number(overview?.openTickets ?? 0) / 50) * 100)}%` }" />
           </div>
-          <p class="muted small">Scale is relative (0–50 open tickets).</p>
+          <p class="muted small">Scale is relative (0 to 50 open tickets).</p>
         </div>
         <div class="progress-card">
           <div class="progress-card__top">

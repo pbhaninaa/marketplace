@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import { providerSubscriptionApi, publicPeachApi } from '../services/marketplaceApi';
 import { PEACH_PAYMENT_METHODS } from '../utils/paymentModel';
+import { formatDate, formatDateTime, formatEnum, formatMoney as formatRand } from '../utils/display';
 
 const router = useRouter();
 const route = useRoute();
@@ -48,49 +49,43 @@ const statusLabel = computed(() => {
 });
 const planLabel = computed(() => {
   if (isOnTrial.value && !status.value?.plan) return 'Free Trial';
-  return status.value?.plan || '—';
+  return formatEnum(status.value?.plan, 'No plan yet');
 });
 const expiresLabel = computed(() => {
   const raw = isOnTrial.value
     ? status.value?.trialEndsAt || status.value?.expiresAt
     : status.value?.expiresAt;
-  return raw ? String(raw).slice(0, 19) : '—';
+  return formatDateTime(raw, isOnTrial.value ? 'No end date' : 'No expiry set');
 });
 
 const amountLabel = computed(() => {
   const n = status.value?.amountDue;
-  if (n == null || n === '') return '—';
-  return `R ${Number(n).toFixed(2)}`;
+  return formatRand(n, 'Nothing due');
 });
 
 const dialogAmountText = computed(() => {
   if (paymentAmount.value != null && String(paymentAmount.value).trim() !== '') {
     const n = Number(paymentAmount.value);
-    if (!Number.isFinite(n)) return '—';
-    return `R ${n.toFixed(2)}`;
+    if (!Number.isFinite(n)) return 'Enter a valid amount';
+    return formatRand(n);
   }
   return amountLabel.value;
 });
 
 const dialogRefText = computed(() => {
   if (paymentRef.value && String(paymentRef.value).trim() !== '') return String(paymentRef.value);
-  return status.value?.paymentReference || '—';
+  return status.value?.paymentReference || 'Generated when you submit';
 });
 
 function formatMoney(v) {
   const n = typeof v === 'number' ? v : Number(v);
-  if (!Number.isFinite(n)) return '—';
-  return new Intl.NumberFormat('en-ZA', {
-    style: 'currency',
-    currency: 'ZAR',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
+  if (!Number.isFinite(n)) return formatRand(0);
+  return formatRand(n);
 }
 
 function formatPercent(v) {
   const n = typeof v === 'number' ? v : Number(v);
-  if (!Number.isFinite(n)) return '—';
+  if (!Number.isFinite(n)) return '0%';
   return `${n.toFixed(2)}%`;
 }
 
@@ -147,7 +142,7 @@ function startPeachPolling() {
     if (status.value?.valid || attempts >= 15) {
       stopPeachPolling();
       message.value = status.value?.valid
-        ? 'Payment confirmed — your subscription is now active.'
+        ? 'Payment confirmed. Your subscription is now active.'
         : 'Still waiting for payment confirmation. Refresh in a moment if this does not update.';
     }
   }, 2000);
@@ -238,7 +233,7 @@ function initPaymentFields() {
       <p class="page-hero__eyebrow">Provider</p>
       <h1 class="page-hero__title">Subscription</h1>
       <p class="page-hero__lead">
-        New providers get a one-time 30-day free trial with no plan payment. After the trial, activate a plan with
+        New providers get a free 30 day trial, once, with no plan payment. After the trial, activate a plan with
         Peach (card or instant EFT). Monthly paid access runs for 30 days from payment, then lapses until you renew.
       </p>
     </header>
@@ -256,7 +251,7 @@ function initPaymentFields() {
           </div>
           <div class="sub-status__card">
             <span class="muted small">Billing cycle</span>
-            <strong>{{ isOnTrial ? '—' : 'MONTHLY' }}</strong>
+            <strong>{{ isOnTrial ? 'Free trial' : formatEnum(status?.billingCycle, 'Monthly') }}</strong>
           </div>
           <div class="sub-status__card">
             <span class="muted small">Status</span>
@@ -268,8 +263,8 @@ function initPaymentFields() {
           </div>
         </div>
         <p v-if="isOnTrial" class="trial-banner">
-          Free Trial — {{ trialDaysLeft }} day{{ trialDaysLeft === 1 ? '' : 's' }} remaining.
-          You can use your merchant workspace now; choose a Peach-paid plan before the trial ends to stay online.
+          Free Trial: {{ trialDaysLeft }} day{{ trialDaysLeft === 1 ? '' : 's' }} remaining.
+          You can use your merchant workspace now; choose a plan and pay with Peach before the trial ends to stay online.
         </p>
         <p v-else-if="!isValid" class="trial-banner trial-banner--expired">
           Your free trial has ended. Activate Basic or Premium with Peach (Card or Instant EFT) to continue.
@@ -337,7 +332,7 @@ function initPaymentFields() {
           <h2 class="activate-dialog__title">Activate subscription</h2>
           <p class="muted small">
             Pay online with Peach (card or instant EFT). Your subscription activates automatically once payment
-            succeeds — no proof upload needed.
+            succeeds. No proof upload needed.
           </p>
 
           <div class="amount-card">
@@ -354,7 +349,7 @@ function initPaymentFields() {
                 <div><span>Usage fee</span><strong>{{ formatMoney(quoteDetail?.usageFeesTotal ?? 0) }}</strong></div>
               </div>
               <div class="meta meta--secondary">
-                <div><span>Date</span><strong>{{ paymentDate || '—' }}</strong></div>
+                <div><span>Date</span><strong>{{ formatDate(paymentDate, 'Today') }}</strong></div>
                 <div><span>Plan</span><strong>{{ selectForm.plan }}</strong></div>
                 <div><span>Cycle</span><strong>MONTHLY</strong></div>
                 <div><span>Reference</span><strong>{{ dialogRefText }}</strong></div>
@@ -416,7 +411,7 @@ function initPaymentFields() {
   border: 1px solid rgba(21, 74, 122, 0.12);
   background: rgba(21, 74, 122, 0.04);
   border-radius: 12px;
-  padding: 0.85rem;
+  padding: 0.9rem 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.2rem;

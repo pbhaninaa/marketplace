@@ -57,5 +57,5 @@ export function formatRentalInclusiveRange(startIso, endIso) {
   const endIncl = new Date(endEx);
   endIncl.setDate(endIncl.getDate() - 1);
   const opts = { year: 'numeric', month: 'short', day: 'numeric' };
-  return `${start.toLocaleDateString(undefined, opts)} – ${endIncl.toLocaleDateString(undefined, opts)}`;
+  return `${start.toLocaleDateString(undefined, opts)} to ${endIncl.toLocaleDateString(undefined, opts)}`;
 }

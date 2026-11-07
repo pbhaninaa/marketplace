@@ -3,12 +3,20 @@ import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { adminDashboardApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
+import { formatCount, formatDateRange, formatMoney } from '../utils/display';
 
 const router = useRouter();
 const auth = useAuthStore();
 
 const loading = ref(false);
 const stats = ref(null);
+const error = ref('');
+
+/** KPI text: real number once loaded, otherwise say what is happening instead of a dash. */
+const kpi = (value) => {
+  if (stats.value) return formatCount(value);
+  return loading.value ? 'Loading…' : 'Unavailable';
+};
 
 onMounted(() => {
   auth.restoreFromStorage();
@@ -21,20 +29,27 @@ onMounted(() => {
 
 async function load() {
   loading.value = true;
+  error.value = '';
   try {
     const { data } = await adminDashboardApi.stats();
     stats.value = data;
-  } catch {
+  } catch (e) {
     stats.value = null;
+    error.value = e.response?.data?.message || 'Could not load platform stats. Try Refresh.';
   } finally {
     loading.value = false;
   }
 }
 
+const rangeLabel = computed(() =>
+  stats.value ? formatDateRange(stats.value.from, stats.value.to) : 'Last 30 days',
+);
+
 const activityScore = computed(() => {
-  const purchaseCount = Number(stats.value?.purchaseCount ?? 0);
-  const rentalCount = Number(stats.value?.rentalCount ?? 0);
-  const n = purchaseCount + rentalCount;
+  // Field names match AdminDashboardStatsResponse (note the capital "O" in OrdersCount).
+  const orderCount = Number(stats.value?.OrdersCount ?? 0);
+  const rentalCount = Number(stats.value?.rentalBookingsCount ?? 0);
+  const n = orderCount + rentalCount;
   return Math.max(0, Math.min(100, Math.round((Math.log10(n + 1) / Math.log10(200 + 1)) * 100)));
 });
 </script>
@@ -55,25 +70,38 @@ const activityScore = computed(() => {
         </button>
       </div>
 
+      <p class="muted small range-note">{{ rangeLabel }}</p>
+      <p v-if="error" class="err-toast" role="alert">{{ error }}</p>
+
       <div class="kpi-grid">
         <div class="kpi">
           <span class="kpi__label">Users created</span>
-          <strong class="kpi__value">{{ stats?.usersCreated ?? '—' }}</strong>
+          <strong class="kpi__value">{{ kpi(stats?.usersCreated) }}</strong>
           <span class="kpi__hint">In date range</span>
         </div>
         <div class="kpi">
           <span class="kpi__label">Providers created</span>
-          <strong class="kpi__value">{{ stats?.providersCreated ?? '—' }}</strong>
+          <strong class="kpi__value">{{ kpi(stats?.providersCreated) }}</strong>
           <span class="kpi__hint">Onboarding</span>
         </div>
         <div class="kpi">
           <span class="kpi__label">Listings created</span>
-          <strong class="kpi__value">{{ stats?.listingsCreated ?? '—' }}</strong>
-          <span class="kpi__hint">Supply growth</span>
+          <strong class="kpi__value">{{ kpi(stats?.listingsCreated) }}</strong>
+          <span class="kpi__hint">{{ stats ? `${formatCount(stats.activeListings)} active now` : 'Supply growth' }}</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">Orders</span>
+          <strong class="kpi__value">{{ kpi(stats?.OrdersCount) }}</strong>
+          <span class="kpi__hint">{{ stats ? formatMoney(stats.OrdersTotal) : 'Purchases' }}</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">Rental bookings</span>
+          <strong class="kpi__value">{{ kpi(stats?.rentalBookingsCount) }}</strong>
+          <span class="kpi__hint">{{ stats ? formatMoney(stats.rentalBookingsTotal) : 'Rentals' }}</span>
         </div>
         <div class="kpi">
           <span class="kpi__label">Activity health</span>
-          <strong class="kpi__value">{{ activityScore }}%</strong>
+          <strong class="kpi__value">{{ stats ? `${activityScore}%` : kpi() }}</strong>
           <span class="kpi__hint">Signal from order volume</span>
         </div>
       </div>

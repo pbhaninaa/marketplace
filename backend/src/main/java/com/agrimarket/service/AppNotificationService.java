@@ -196,7 +196,7 @@ public class AppNotificationService {
                                         + nullToEmpty(order.getGuestPhone()) + ")"));
             }
             if (owner.getPhoneNumber() != null && !owner.getPhoneNumber().isBlank()) {
-                smsService.sendSms(owner.getPhoneNumber(), title + " — " + body);
+                smsService.sendSms(owner.getPhoneNumber(), title + ": " + body);
             }
         }
     }
@@ -367,7 +367,7 @@ public class AppNotificationService {
                     body,
                     List.of("Provider: " + provider.getName()));
             if (owner.getPhoneNumber() != null && !owner.getPhoneNumber().isBlank()) {
-                smsService.sendSms(owner.getPhoneNumber(), title + " — " + body);
+                smsService.sendSms(owner.getPhoneNumber(), title + ": " + body);
             }
         }
     }
@@ -414,7 +414,7 @@ public class AppNotificationService {
             }
         }
         if (smsOn && phone != null && !phone.isBlank()) {
-            smsService.sendSms(phone, title + " — " + body);
+            smsService.sendSms(phone, title + ": " + body);
         }
     }
 
@@ -468,12 +468,12 @@ public class AppNotificationService {
         if (booking.getStartAt() != null && booking.getEndAt() != null) {
             sb.append(" (")
                     .append(RENTAL_DATE.format(booking.getStartAt()))
-                    .append(" – ")
+                    .append(" to ")
                     .append(RENTAL_DATE.format(booking.getEndAt()))
                     .append(")");
         }
         if (booking.getTotalAmount() != null) {
-            sb.append(" — ").append(OrderInvoiceService.formatMoney(booking.getTotalAmount()));
+            sb.append(", ").append(OrderInvoiceService.formatMoney(booking.getTotalAmount()));
         }
         return sb.toString();
     }
@@ -538,7 +538,7 @@ public class AppNotificationService {
 
     private static String formatPaymentMethod(String paymentMethod) {
         if (paymentMethod == null || paymentMethod.isBlank()) {
-            return "—";
+            return "Not specified";
         }
         String normalized = paymentMethod.trim().replace('_', ' ');
         if (normalized.equalsIgnoreCase("CASH")) {

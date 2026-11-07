@@ -50,7 +50,7 @@ async function submit() {
     <header class="page-hero">
       <p class="page-hero__eyebrow">Client access</p>
       <h1 class="page-hero__title">Enter your code</h1>
-      <p class="page-hero__lead">Enter the 6-digit code sent to <strong>{{ target }}</strong>.</p>
+      <p class="page-hero__lead">Enter the 6 digit code sent to <strong>{{ target }}</strong>.</p>
     </header>
 
     <form class="surface-panel login-form" @submit.prevent="submit">

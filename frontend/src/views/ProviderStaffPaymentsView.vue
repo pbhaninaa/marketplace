@@ -5,6 +5,7 @@ import { providerTeamApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
+import { formatDateTime, formatMoney } from '../utils/display';
 
 const route = useRoute();
 const router = useRouter();
@@ -169,8 +170,7 @@ async function payAll() {
 }
 
 function money(v) {
-  if (v == null || v === '') return '—';
-  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(Number(v));
+  return formatMoney(v);
 }
 
 function payLabel(v) {
@@ -183,12 +183,11 @@ function payLabel(v) {
     WEEKLY: 'Per week',
     MONTHLY: 'Monthly',
   };
-  return map[v] || v || '—';
+  return map[v] || v || 'Pay method not set';
 }
 
 function formatWhen(iso) {
-  if (!iso) return '—';
-  return String(iso).replace('T', ' ').slice(0, 16);
+  return formatDateTime(iso, 'Date not recorded');
 }
 
 const visibleCalculations = computed(() => {

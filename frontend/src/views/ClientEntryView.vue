@@ -28,7 +28,7 @@ async function submit() {
       <p class="page-hero__eyebrow">Client access</p>
       <h1 class="page-hero__title">Continue as guest</h1>
       <p class="page-hero__lead">
-        Enter your email or phone number. We'll send a one-time code. In local development, check the API server log
+        Enter your email or phone number. We'll send you a sign in code. In local development, check the API server log
         for the code.
       </p>
     </header>

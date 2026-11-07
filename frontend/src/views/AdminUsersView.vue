@@ -115,11 +115,11 @@ async function removeAll() {
                 <td>
                   <div class="cell-stack">
                     <strong>{{ u.email }}</strong>
-                    <span class="muted small">{{ u.displayName || '—' }}</span>
+                    <span class="muted small">{{ u.displayName || 'No display name' }}</span>
                   </div>
                 </td>
                 <td>{{ u.role }}</td>
-                <td class="small muted">{{ u.providerName ? `${u.providerName} (#${u.providerId})` : '—' }}</td>
+                <td class="small muted">{{ u.providerName ? `${u.providerName} (#${u.providerId})` : 'No provider' }}</td>
                 <td>{{ u.enabled ? 'Yes' : 'No' }}</td>
                 <td class="cell-actions">
                   <button type="button" class="btn btn-ghost btn-danger" :disabled="!u.enabled" @click="remove(u)">
@@ -140,10 +140,10 @@ async function removeAll() {
                 <TextWithTooltip :text="u.email" />
               </strong>
               <span class="meta">
-                <TextWithTooltip :text="u.displayName || '—'" />
+                <TextWithTooltip :text="u.displayName || 'No display name'" />
               </span>
               <span class="meta">Role: {{ u.role }}</span>
-              <span class="meta">Provider: <TextWithTooltip :text="u.providerName ? `${u.providerName} (#${u.providerId})` : '—'" /></span>
+              <span class="meta">Provider: <TextWithTooltip :text="u.providerName ? `${u.providerName} (#${u.providerId})` : 'None'" /></span>
               <span class="meta">{{ u.enabled ? 'Enabled' : 'Disabled' }}</span>
               <button type="button" class="btn btn-ghost btn-danger" :disabled="!u.enabled" @click="remove(u)">
                 Delete
@@ -185,7 +185,7 @@ async function removeAll() {
 }
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
   gap: 0.85rem;
 }
 .record-card {

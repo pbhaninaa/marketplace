@@ -135,10 +135,10 @@ const displayDescription = computed(() => {
       <span class="provider-chip">{{ listing.providerName }}</span>
     </div>
     <h3 class="listing-card__title">
-      <TextWithTooltip :text="listing.title || '—'" />
+      <TextWithTooltip :text="listing.title || 'Untitled listing'" />
     </h3>
     <p class="muted small">
-      📍<TextWithTooltip :text="listing.providerLocation || '—'" :max-length="50" tag="span" />
+      📍<TextWithTooltip :text="listing.providerLocation || 'Location not shared'" :max-length="50" tag="span" />
     </p>
     <p class="listing-card__desc">
       <TextWithTooltip :text="displayDescription" :max-length="40" />

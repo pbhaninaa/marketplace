@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { providerDashboardApi, providerSubscriptionApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DateRangeFilter from '../components/ui/DateRangeFilter.vue';
+import { formatCount, formatDateRange, formatEnum, formatMoney } from '../utils/display';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -86,6 +87,12 @@ async function loadSubscription() {
   }
 }
 
+/** KPI text: real value once loaded, otherwise what is happening (never a dash). */
+const kpi = (formatted) => {
+  if (stats.value) return formatted;
+  return loading.value ? 'Loading…' : 'Unavailable';
+};
+
 const subProgress = computed(() => {
   if (subscription.value?.valid === true) return 100;
   if (subscription.value?.plan) return 55;
@@ -118,17 +125,18 @@ watch(
       <div class="kpis">
         <div class="kpi">
           <span class="kpi__label">Purchase orders</span>
-          <strong class="kpi__value">{{ stats?.purchasesCount ?? '—' }}</strong>
-          <span class="kpi__hint">Total: R {{ stats?.purchasesTotal ?? '—' }}</span>
+          <!-- Field names match ProviderDashboardStatsResponse (capital "O" in OrdersCount). -->
+          <strong class="kpi__value">{{ kpi(formatCount(stats?.OrdersCount)) }}</strong>
+          <span class="kpi__hint">Total: {{ kpi(formatMoney(stats?.OrdersTotal)) }}</span>
         </div>
         <div class="kpi">
           <span class="kpi__label">Rental bookings</span>
-          <strong class="kpi__value">{{ stats?.rentalsCount ?? '—' }}</strong>
-          <span class="kpi__hint">Total: R {{ stats?.rentalsTotal ?? '—' }}</span>
+          <strong class="kpi__value">{{ kpi(formatCount(stats?.rentalBookingsCount)) }}</strong>
+          <span class="kpi__hint">Total: {{ kpi(formatMoney(stats?.rentalBookingsTotal)) }}</span>
         </div>
         <div class="kpi">
           <span class="kpi__label">Range</span>
-          <strong class="kpi__value">{{ stats?.from ?? '—' }} → {{ stats?.to ?? '—' }}</strong>
+          <strong class="kpi__value">{{ kpi(formatDateRange(stats?.from, stats?.to)) }}</strong>
           <span class="kpi__hint">{{ loading ? 'Loading…' : 'Updated' }}</span>
         </div>
       </div>
@@ -154,7 +162,8 @@ watch(
             <div class="bar__fill" :style="{ width: `${subProgress}%` }" />
           </div>
           <p class="muted small">
-            Plan: <strong>{{ subscription?.plan || '—' }}</strong> · Cycle: <strong>{{ subscription?.billingCycle || '—' }}</strong>
+            Plan: <strong>{{ formatEnum(subscription?.plan, 'No plan yet') }}</strong> ·
+            Cycle: <strong>{{ formatEnum(subscription?.billingCycle, subscription?.onTrial ? 'Free trial' : 'Not set') }}</strong>
           </p>
           <router-link to="/provider/subscription" class="btn btn-primary btn-xs">Manage subscription</router-link>
         </div>
@@ -205,7 +214,7 @@ watch(
         </router-link>
         <router-link v-if="canManagePremium" to="/provider/staff-payments" class="dash-card">
           <strong>Staff payments</strong>
-          <span class="muted small">Order-based payouts and pay-all</span>
+          <span class="muted small">Payouts per order, or pay everyone at once</span>
         </router-link>
       </div>
     </section>

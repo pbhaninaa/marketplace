@@ -13,6 +13,16 @@ export const authApi = {
   },
 };
 
+/** The signed-in user's own account (any role with a stored account; not OTP customers). */
+export const profileApi = {
+  get() {
+    return api.get('/api/me/profile');
+  },
+  update(body) {
+    return api.put('/api/me/profile', body);
+  },
+};
+
 export const publicSessionApi = {
   createCartSession() {
     return api.post('/api/public/cart/session');

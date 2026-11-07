@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth';
 import DataTableShell from '../components/ui/DataTableShell.vue';
 import TablePager from '../components/ui/TablePager.vue';
 import TextWithTooltip from '../components/ui/TextWithTooltip.vue';
+import { formatDateTime } from '../utils/display';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -70,9 +71,9 @@ async function load() {
         </thead>
         <tbody>
           <tr v-for="t in paged" :key="t.id">
-            <td><TextWithTooltip class="cell-text" :text="t.status || '—'" :max-length="18" /></td>
-            <td><TextWithTooltip class="cell-text" :text="t.subject || '—'" :max-length="26" /></td>
-            <td class="small muted">{{ t.createdAt?.slice(0, 19) }}</td>
+            <td><TextWithTooltip class="cell-text" :text="t.status || 'Open'" :max-length="18" /></td>
+            <td><TextWithTooltip class="cell-text" :text="t.subject || 'No subject'" :max-length="26" /></td>
+            <td class="small muted">{{ formatDateTime(t.createdAt, 'Date not recorded') }}</td>
           </tr>
           <tr v-if="!paged.length">
             <td colspan="3" class="muted small">No tickets.</td>

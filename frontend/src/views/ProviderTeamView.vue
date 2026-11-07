@@ -5,6 +5,7 @@ import { providerTeamApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
+import { formatMoney } from '../utils/display';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -135,15 +136,15 @@ const filteredTeam = computed(() => {
 });
 
 function formatPayMethod(v) {
-  return PAY_METHODS.find((p) => p.value === v)?.label || v || '—';
+  return PAY_METHODS.find((p) => p.value === v)?.label || v || 'Not set';
 }
 
 function formatRole(v) {
-  return ROLE_OPTIONS.find((r) => r.value === v)?.label || v || '—';
+  return ROLE_OPTIONS.find((r) => r.value === v)?.label || v || 'No role';
 }
 
 function formatPerms(perms) {
-  if (!perms?.length) return '—';
+  if (!perms?.length) return 'No extra permissions';
   return perms.map((p) => PERM_LABELS[p] || p).join(', ');
 }
 
@@ -278,8 +279,8 @@ async function confirmDelete() {
 }
 
 function money(v) {
-  if (v == null || v === '') return '—';
-  return new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(Number(v));
+  if (v == null || v === '') return 'Not set';
+  return formatMoney(v);
 }
 </script>
 
@@ -332,10 +333,10 @@ function money(v) {
               <span v-if="m.owner" class="chip chip--owner">Owner</span>
             </td>
             <td>{{ m.email }}</td>
-            <td>{{ m.phoneNumber || '—' }}</td>
+            <td :class="{ muted: !m.phoneNumber }">{{ m.phoneNumber || 'Not added' }}</td>
             <td>{{ formatRole(m.role) }}</td>
-            <td>{{ m.owner ? '—' : formatPayMethod(m.rateUnit) }}</td>
-            <td>{{ m.owner ? '—' : money(m.rateAmount) }}</td>
+            <td :class="{ muted: m.owner }">{{ m.owner ? 'Owner (not paid)' : formatPayMethod(m.rateUnit) }}</td>
+            <td :class="{ muted: m.owner }">{{ m.owner ? 'Not applicable' : money(m.rateAmount) }}</td>
             <td>
               <span class="chip" :class="m.enabled ? 'chip--ok' : 'chip--off'">
                 {{ m.enabled ? 'Active' : 'Disabled' }}
@@ -518,12 +519,12 @@ function money(v) {
         <dl class="detail-list">
           <div><dt>Name</dt><dd>{{ displayName(viewing) }}</dd></div>
           <div><dt>Email</dt><dd>{{ viewing.email }}</dd></div>
-          <div><dt>Phone</dt><dd>{{ viewing.phoneNumber || '—' }}</dd></div>
+          <div><dt>Phone</dt><dd>{{ viewing.phoneNumber || 'Not added' }}</dd></div>
           <div><dt>Role</dt><dd>{{ formatRole(viewing.role) }}</dd></div>
           <div><dt>Pay method</dt><dd>{{ formatPayMethod(viewing.rateUnit) }}</dd></div>
           <div><dt>Rate</dt><dd>{{ money(viewing.rateAmount) }}</dd></div>
-          <div><dt>Target</dt><dd>{{ viewing.targetPeriod || '—' }} · {{ viewing.targetValue ?? '—' }}</dd></div>
-          <div><dt>Bonus</dt><dd>{{ viewing.bonusPercentage != null ? `${viewing.bonusPercentage}%` : '—' }}</dd></div>
+          <div><dt>Target</dt><dd>{{ viewing.targetPeriod || viewing.targetValue != null ? `${viewing.targetValue ?? 0} per ${String(viewing.targetPeriod || 'period').toLowerCase()}` : 'No target set' }}</dd></div>
+          <div><dt>Bonus</dt><dd>{{ viewing.bonusPercentage != null ? `${viewing.bonusPercentage}%` : 'No bonus' }}</dd></div>
           <div><dt>Active</dt><dd>{{ viewing.enabled ? 'Yes' : 'No' }}</dd></div>
           <div><dt>Permissions</dt><dd>{{ viewing.owner ? 'All' : formatPerms(viewing.permissions) }}</dd></div>
         </dl>

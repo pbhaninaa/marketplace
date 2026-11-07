@@ -64,7 +64,7 @@ async function download() {
     <section class="surface-panel inv-panel">
       <p v-if="error" class="err-toast">{{ error }}</p>
       <FormField label="Order number or verification code">
-        <input v-model="orderRef" type="text" autocomplete="off" placeholder="e.g. 42 or AB12-CD34" />
+        <input v-model="orderRef" type="text" autocomplete="off" placeholder="e.g. 42 or AB12CD34" />
       </FormField>
       <FormField v-if="!isSupport" label="Email (required if you use numeric order number)">
         <input v-model="email" type="email" autocomplete="email" placeholder="you@example.com" />

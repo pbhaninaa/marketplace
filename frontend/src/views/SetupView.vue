@@ -36,7 +36,7 @@ async function submit() {
 <template>
   <div class="page-document setup-page">
     <header class="page-hero">
-      <p class="page-hero__eyebrow">One-time setup</p>
+      <p class="page-hero__eyebrow">First time setup</p>
       <h1 class="page-hero__title">Platform administrator</h1>
       <p class="page-hero__lead">
         The first user with full platform access. You will use this account to create support users and manage

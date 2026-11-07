@@ -7,6 +7,7 @@ import DataTableShell from '../components/ui/DataTableShell.vue';
 import FormField from '../components/ui/FormField.vue';
 import TextWithTooltip from '../components/ui/TextWithTooltip.vue';
 import ResponsiveRecordShell from '../components/layout/ResponsiveRecordShell.vue';
+import { imageCountLabel } from '../utils/display';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -137,8 +138,8 @@ async function removeAll() {
                 <td>{{ l.listingType }}</td>
                 <td>
                   <div class="cell-stack">
-                    <strong><TextWithTooltip class="cell-text" :text="l.title || '—'" :max-length="22" /></strong>
-                    <span class="tiny muted clamp">Images: {{ l.imageUrls || '—' }}</span>
+                    <strong><TextWithTooltip class="cell-text" :text="l.title || 'Untitled listing'" :max-length="22" /></strong>
+                    <span class="tiny muted clamp">{{ imageCountLabel(l.imageUrls) }}</span>
                   </div>
                 </td>
                 <td>
@@ -172,7 +173,7 @@ async function removeAll() {
               <span class="meta">#{{ l.id }} · {{ l.listingType }} · {{ l.active ? 'Active' : 'Draft' }}</span>
               <span class="meta">Provider: <TextWithTooltip :text="`${l.providerName} (#${l.providerId})`" /></span>
               <span class="meta">Category: <TextWithTooltip :text="l.categoryName" /></span>
-              <span class="meta tiny clamp">Images: {{ l.imageUrls || '—' }}</span>
+              <span class="meta tiny clamp">{{ imageCountLabel(l.imageUrls) }}</span>
               <div class="card-actions">
                 <button v-if="l.active" type="button" class="btn btn-ghost" @click="setActive(l, false)">Unpublish</button>
                 <button v-else type="button" class="btn btn-ghost" @click="setActive(l, true)">Publish</button>
@@ -215,7 +216,7 @@ async function removeAll() {
 }
 .cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
   gap: 0.85rem;
 }
 .record-card {

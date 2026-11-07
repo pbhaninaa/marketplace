@@ -10,7 +10,7 @@ defineProps({
 const emit = defineEmits(['update-quantity', 'remove-line', 'show-limit-warning']);
 
 function rentalWindow(line) {
-  if (!line.rentalStart || !line.rentalEnd) return '—';
+  if (!line.rentalStart || !line.rentalEnd) return 'Not a rental';
   return formatRentalInclusiveRange(line.rentalStart, line.rentalEnd);
 }
 
