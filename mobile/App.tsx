@@ -1,30 +1,33 @@
 /**
- * Agri Marketplace mobile — WebView shell for the Vue web app.
+ * Agri Marketplace mobile — Native React Native app.
  */
 
-import React, { useEffect } from 'react';
-import { Platform, StatusBar, View } from 'react-native';
+import React from 'react';
+import { Platform, StatusBar } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import AppNavigator from './src/navigation/AppNavigator';
-import { MARKETPLACE_PRIMARY } from './src/config/branding';
-import { initializePushNotifications } from './src/services/pushNotificationService';
+import { NavigationContainer } from '@react-navigation/native';
+import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
+import { store, persistor } from './src/store';
+import RootNavigator from './src/navigation/RootNavigator';
+import { BRAND_COLORS } from './src/theme/colors';
 
 function App() {
-  useEffect(() => {
-    initializePushNotifications();
-  }, []);
-
   return (
-    <SafeAreaProvider>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={MARKETPLACE_PRIMARY}
-        translucent={Platform.OS === 'android'}
-      />
-      <View style={{ flex: 1, backgroundColor: MARKETPLACE_PRIMARY }}>
-        <AppNavigator />
-      </View>
-    </SafeAreaProvider>
+    <Provider store={store}>
+      <PersistGate loading={null} persistor={persistor}>
+        <SafeAreaProvider>
+          <NavigationContainer>
+            <StatusBar
+              barStyle="light-content"
+              backgroundColor={BRAND_COLORS.primary}
+              translucent={Platform.OS === 'android'}
+            />
+            <RootNavigator />
+          </NavigationContainer>
+        </SafeAreaProvider>
+      </PersistGate>
+    </Provider>
   );
 }
 

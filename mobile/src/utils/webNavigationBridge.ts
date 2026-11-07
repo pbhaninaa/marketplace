@@ -67,7 +67,8 @@ true;
 /** SPA-first navigation — avoids full WebView reload. */
 export function buildWebNavigateScript(path: string, baseUrl: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  const url = `${baseUrl.replace(/\\/+$/, '')}${normalizedPath}`;
+  const trimmedBase = baseUrl.replace(/\/+$/, '');
+  const url = `${trimmedBase}${normalizedPath}`;
   const safeUrl = JSON.stringify(url);
   const safePath = JSON.stringify(normalizedPath);
   return `
@@ -139,5 +140,6 @@ export function isWebAppStateMessage(raw: unknown): raw is WebAppStateMessage {
 
 export function buildWebAppUrl(baseUrl: string, path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${baseUrl.replace(/\\/+$/, '')}${normalizedPath}`;
+  const trimmedBase = baseUrl.replace(/\/+$/, '');
+  return `${trimmedBase}${normalizedPath}`;
 }

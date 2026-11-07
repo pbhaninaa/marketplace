@@ -27,7 +27,7 @@ export function isNetworkFailure(error: unknown): boolean {
   );
 }
 
-export function networkErrorMessage(error: unknown, fallback: string): string | null {
+export function networkErrorMessage(error: unknown, _fallback: string): string | null {
   if (!axiosLikeNetworkError(error)) {
     return null;
   }

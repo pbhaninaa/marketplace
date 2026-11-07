@@ -85,7 +85,7 @@ public class PasswordResetService {
         if (isLocalProfile()) {
             log.info("Password reset link for {}: {}", user.getEmail(), link);
         }
-        emailService.send(user.getEmail(), subject, plain, html);
+        emailService.send(EmailPurpose.SECURITY, user.getEmail(), subject, plain, html);
     }
 
     @Transactional

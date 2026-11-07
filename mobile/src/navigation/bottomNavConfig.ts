@@ -24,20 +24,14 @@ const SHOPPER_TABS: BottomNavTab[] = [
     label: 'Orders',
     icon: 'receipt-text-outline',
     path: '/order-invoice',
-    matchPaths: ['/order-invoice', '/client'],
+    matchPaths: ['/order-invoice'],
   },
   {
-    id: 'help',
-    label: 'Help',
-    icon: 'help-circle-outline',
-    path: '/help/client',
-  },
-  {
-    id: 'account',
-    label: 'Account',
-    icon: 'account',
-    path: '/login',
-    matchPaths: ['/login', '/register', '/client', '/forgot-password', '/reset-password'],
+    id: 'settings',
+    label: 'Settings',
+    icon: 'cog-outline',
+    path: '/settings',
+    matchPaths: ['/settings', '/login', '/register', '/client', '/forgot-password', '/reset-password', '/help/client'],
   },
 ];
 

@@ -27,6 +27,15 @@ public class DeployedProfileValidator {
         if (!isDeployedProfile()) {
             return;
         }
+        try {
+            validateDeployedConfig();
+        } catch (IllegalStateException ex) {
+            // Fail the process so Railway healthchecks surface a bad config instead of a half-started app.
+            throw new IllegalStateException("Deployed profile validation failed: " + ex.getMessage(), ex);
+        }
+    }
+
+    private void validateDeployedConfig() {
         String jwt = environment.getProperty("app.jwt.secret", "").trim();
         if (jwt.length() < 32) {
             throw new IllegalStateException("APP_JWT_SECRET must be at least 32 characters for UAT/PROD");
@@ -54,10 +63,26 @@ public class DeployedProfileValidator {
             String apiKey = emailProperties.getSendgridApiKey() == null
                     ? ""
                     : emailProperties.getSendgridApiKey().trim();
-            String from = emailProperties.getFrom() == null ? "" : emailProperties.getFrom().trim();
-            if (apiKey.isEmpty() || from.isEmpty()) {
-                throw new IllegalStateException("Email is enabled: set SENDGRID_API_KEY and EMAIL_FROM");
+            if (apiKey.isEmpty() || !emailProperties.hasConfiguredSender()) {
+                throw new IllegalStateException(
+                        "Email is enabled: set SENDGRID_API_KEY and either EMAIL_DOMAIN or EMAIL_FROM");
             }
+            if (!emailProperties.hasValidConfiguredDomain()) {
+                throw new IllegalStateException(
+                        "EMAIL_DOMAIN must be a domain such as example.com (without a scheme, path, or @)");
+            }
+        }
+
+        if (peachProperties.isEnabled() && !peachProperties.isConfigured()) {
+            throw new IllegalStateException(
+                    "PEACH_ENABLED=true requires PEACH_CLIENT_ID, PEACH_CLIENT_SECRET, "
+                            + "PEACH_MERCHANT_ID, PEACH_ENTITY_ID, and PEACH_SECRET_TOKEN");
+        }
+
+        if (peachProperties.isEnabled() && !peachProperties.isConfigured()) {
+            throw new IllegalStateException(
+                    "PEACH_ENABLED=true requires PEACH_CLIENT_ID, PEACH_CLIENT_SECRET, "
+                            + "PEACH_MERCHANT_ID, PEACH_ENTITY_ID, and PEACH_SECRET_TOKEN");
         }
 
         if (peachProperties.isEnabled() && !peachProperties.isConfigured()) {

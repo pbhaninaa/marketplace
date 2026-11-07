@@ -1,3 +1,4 @@
+/* eslint-env jest */
 jest.mock('@notifee/react-native', () => ({
   __esModule: true,
   default: {
@@ -29,7 +30,6 @@ jest.mock('react-native-webview', () => {
 jest.mock('react-native-vector-icons/MaterialCommunityIcons', () => 'Icon');
 
 jest.mock('react-native-safe-area-context', () => {
-  const React = require('react');
   return {
     SafeAreaProvider: ({ children }) => children,
     useSafeAreaInsets: () => ({ top: 24, bottom: 16, left: 0, right: 0 }),
