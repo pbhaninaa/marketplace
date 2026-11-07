@@ -1,5 +1,6 @@
 package com.agrimarket.service;
 
+import com.agrimarket.util.InputValidator;
 import com.agrimarket.api.dto.CreateStaffRequest;
 import com.agrimarket.api.dto.MarkStaffOrderPayrollRequest;
 import com.agrimarket.api.dto.StaffIncomeBundleDto;
@@ -623,7 +624,7 @@ public class ProviderStaffService {
             u.setLastName(lastName.trim());
         }
         if (phone != null) {
-            u.setPhoneNumber(phone.trim());
+            u.setPhoneNumber(phone.isBlank() ? phone.trim() : InputValidator.normalizePhoneOrKeep(phone));
         }
         String dn = displayNameOf(u);
         if (dn != null && !dn.isBlank()) {

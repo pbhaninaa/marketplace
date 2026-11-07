@@ -2,6 +2,7 @@ package com.agrimarket.service;
 
 import com.agrimarket.api.dto.GuestCheckoutRequest;
 import com.agrimarket.api.error.ApiException;
+import com.agrimarket.util.InputValidator;
 import com.agrimarket.domain.BookingStatus;
 import com.agrimarket.domain.ProviderStatus;
 import com.agrimarket.domain.CartLine;
@@ -53,6 +54,10 @@ public class CheckoutService {
 
     @Transactional
     public Map<String, Object> guestCheckout(String sessionKey, GuestCheckoutRequest req) {
+        // Formats are checked on the request DTO; store a tidy, consistent form (phone as +27...).
+        String guestName = req.guestName() == null ? null : req.guestName().trim().replaceAll("\\s+", " ");
+        String guestEmail = req.guestEmail() == null ? null : req.guestEmail().trim();
+        String guestPhone = InputValidator.normalizePhoneOrKeep(req.guestPhone());
         CartSession cart = cartService.requireCartWithLines(sessionKey);
         Long providerId = cart.getProvider().getId();
 
@@ -228,9 +233,9 @@ public class CheckoutService {
         if (!saleLines.isEmpty()) {
             Order order = new Order();
             order.setProvider(cart.getProvider());
-            order.setGuestName(req.guestName());
-            order.setGuestEmail(req.guestEmail());
-            order.setGuestPhone(req.guestPhone());
+            order.setGuestName(guestName);
+            order.setGuestEmail(guestEmail);
+            order.setGuestPhone(guestPhone);
             order.setDeliveryOrPickup(req.deliveryOrPickup());
             order.setDeliveryDistanceKm(req.deliveryDistanceKm());
             order.setDeliveryFee(deliveryFee);
@@ -271,9 +276,9 @@ public class CheckoutService {
             RentalBooking b = new RentalBooking();
             b.setProvider(cart.getProvider());
             b.setListing(l);
-            b.setGuestName(req.guestName());
-            b.setGuestEmail(req.guestEmail());
-            b.setGuestPhone(req.guestPhone());
+            b.setGuestName(guestName);
+            b.setGuestEmail(guestEmail);
+            b.setGuestPhone(guestPhone);
             b.setDeliveryOrPickup(req.deliveryOrPickup());
             b.setDeliveryDistanceKm(req.deliveryDistanceKm());
             b.setDeliveryFee(deliveryFee);
@@ -320,9 +325,9 @@ public class CheckoutService {
             appNotificationService.notifyCheckout(
                     createdOrders,
                     createdRentals,
-                    req.guestName(),
-                    req.guestEmail(),
-                    req.guestPhone(),
+                    guestName,
+                    guestEmail,
+                    guestPhone,
                     req.paymentMethod() == null ? "" : req.paymentMethod().name(),
                     req.deliveryOrPickup());
         } catch (Exception ignored) {

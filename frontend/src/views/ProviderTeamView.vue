@@ -6,6 +6,7 @@ import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import DataTableShell from '../components/ui/DataTableShell.vue';
 import { formatMoney } from '../utils/display';
+import { emailError, personNameError, phoneError, numberError, textError, LIMITS } from '../utils/validation';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -154,8 +155,30 @@ function displayName(m) {
   return n || m.email;
 }
 
+/* Inline validation (same rules as the API); "required" messages appear after a save attempt. */
+const createTried = ref(false);
+const editTried = ref(false);
+
+function staffFormErrors(f, { create, tried }) {
+  return {
+    email: create ? emailError(f.email, { required: tried }) : '',
+    password: create ? textError(f.password, { required: tried, label: 'Password', min: 8, max: 100 }) : '',
+    firstName: personNameError(f.firstName, { required: false, label: 'First name' }),
+    lastName: personNameError(f.lastName, { required: false, label: 'Last name' }),
+    phoneNumber: phoneError(f.phoneNumber, { required: false }),
+    rateAmount: numberError(f.rateAmount, { required: tried, label: 'Pay rate', min: 0, max: LIMITS.maxPrice }),
+    targetValue: numberError(f.targetValue, { label: 'Target value', min: 0, max: LIMITS.maxPrice }),
+    bonusPercentage: numberError(f.bonusPercentage, { label: 'Bonus %', min: 0, max: 100 }),
+  };
+}
+
+const createErrors = computed(() => staffFormErrors(createForm.value, { create: true, tried: createTried.value }));
+const editErrors = computed(() => staffFormErrors(editForm.value, { create: false, tried: editTried.value }));
+const hasErrors = (errs) => Object.values(errs).some(Boolean);
+
 function openAdd() {
   error.value = '';
+  createTried.value = false;
   createForm.value = { ...emptyForm(), permissions: [...defaultPermissions.value] };
   showAdd.value = true;
 }
@@ -163,6 +186,7 @@ function openAdd() {
 function openEdit(m) {
   if (m.owner) return;
   editing.value = m;
+  editTried.value = false;
   editForm.value = {
     email: m.email,
     password: '',
@@ -194,11 +218,13 @@ function openDelete(m) {
 
 async function submitCreate() {
   if (!canManageTeam.value) return;
+  createTried.value = true;
+  if (hasErrors(createErrors.value)) return;
   saving.value = true;
   error.value = '';
   try {
     const body = {
-      email: createForm.value.email,
+      email: createForm.value.email.trim(),
       password: createForm.value.password,
       firstName: createForm.value.firstName || null,
       lastName: createForm.value.lastName || null,
@@ -224,6 +250,8 @@ async function submitCreate() {
 
 async function submitEdit() {
   if (!editing.value) return;
+  editTried.value = true;
+  if (hasErrors(editErrors.value)) return;
   saving.value = true;
   error.value = '';
   try {
@@ -384,11 +412,11 @@ function money(v) {
           New team members receive the <strong>same permissions as you</strong>.
         </p>
         <div class="form-grid">
-          <FormField label="Email"><input v-model="createForm.email" type="email" required /></FormField>
-          <FormField label="Password"><input v-model="createForm.password" type="password" minlength="8" required /></FormField>
-          <FormField label="First name"><input v-model="createForm.firstName" type="text" /></FormField>
-          <FormField label="Last name"><input v-model="createForm.lastName" type="text" /></FormField>
-          <FormField label="Phone"><input v-model="createForm.phoneNumber" type="tel" /></FormField>
+          <FormField label="Email" :error="createErrors.email"><input v-model="createForm.email" type="email" :maxlength="LIMITS.email" required /></FormField>
+          <FormField label="Password" :error="createErrors.password"><input v-model="createForm.password" type="password" minlength="8" maxlength="100" required /></FormField>
+          <FormField label="First name" :error="createErrors.firstName"><input v-model="createForm.firstName" type="text" :maxlength="LIMITS.personName" /></FormField>
+          <FormField label="Last name" :error="createErrors.lastName"><input v-model="createForm.lastName" type="text" :maxlength="LIMITS.personName" /></FormField>
+          <FormField label="Phone" :error="createErrors.phoneNumber"><input v-model="createForm.phoneNumber" type="tel" placeholder="+27 82 123 4567" /></FormField>
           <FormField label="Role">
             <select v-model="createForm.role">
               <option v-for="r in ROLE_OPTIONS" :key="r.value" :value="r.value">{{ r.label }}</option>
@@ -399,7 +427,7 @@ function money(v) {
               <option v-for="p in PAY_METHODS" :key="p.value" :value="p.value">{{ p.label }}</option>
             </select>
           </FormField>
-          <FormField label="Pay rate (ZAR)">
+          <FormField label="Pay rate (ZAR)" :error="createErrors.rateAmount">
             <input v-model="createForm.rateAmount" type="number" min="0" step="0.01" required />
           </FormField>
           <FormField label="Target period">
@@ -409,10 +437,10 @@ function money(v) {
               <option value="MONTHLY">Monthly</option>
             </select>
           </FormField>
-          <FormField label="Target value">
+          <FormField label="Target value" :error="createErrors.targetValue">
             <input v-model="createForm.targetValue" type="number" min="0" step="0.01" />
           </FormField>
-          <FormField label="Bonus %">
+          <FormField label="Bonus %" :error="createErrors.bonusPercentage">
             <input v-model="createForm.bonusPercentage" type="number" min="0" max="100" step="0.1" />
           </FormField>
         </div>
@@ -449,9 +477,9 @@ function money(v) {
         </header>
         <p class="muted small">{{ editing.email }}</p>
         <div class="form-grid">
-          <FormField label="First name"><input v-model="editForm.firstName" type="text" /></FormField>
-          <FormField label="Last name"><input v-model="editForm.lastName" type="text" /></FormField>
-          <FormField label="Phone"><input v-model="editForm.phoneNumber" type="tel" /></FormField>
+          <FormField label="First name" :error="editErrors.firstName"><input v-model="editForm.firstName" type="text" :maxlength="LIMITS.personName" /></FormField>
+          <FormField label="Last name" :error="editErrors.lastName"><input v-model="editForm.lastName" type="text" :maxlength="LIMITS.personName" /></FormField>
+          <FormField label="Phone" :error="editErrors.phoneNumber"><input v-model="editForm.phoneNumber" type="tel" placeholder="+27 82 123 4567" /></FormField>
           <FormField label="Role">
             <select v-model="editForm.role">
               <option v-for="r in ROLE_OPTIONS" :key="r.value" :value="r.value">{{ r.label }}</option>
@@ -462,7 +490,7 @@ function money(v) {
               <option v-for="p in PAY_METHODS" :key="p.value" :value="p.value">{{ p.label }}</option>
             </select>
           </FormField>
-          <FormField label="Pay rate (ZAR)">
+          <FormField label="Pay rate (ZAR)" :error="editErrors.rateAmount">
             <input v-model="editForm.rateAmount" type="number" min="0" step="0.01" required />
           </FormField>
           <FormField label="Target period">
@@ -472,10 +500,10 @@ function money(v) {
               <option value="MONTHLY">Monthly</option>
             </select>
           </FormField>
-          <FormField label="Target value">
+          <FormField label="Target value" :error="editErrors.targetValue">
             <input v-model="editForm.targetValue" type="number" min="0" step="0.01" />
           </FormField>
-          <FormField label="Bonus %">
+          <FormField label="Bonus %" :error="editErrors.bonusPercentage">
             <input v-model="editForm.bonusPercentage" type="number" min="0" max="100" step="0.1" />
           </FormField>
           <FormField label="Status">

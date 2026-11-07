@@ -1,5 +1,6 @@
 package com.agrimarket.service;
 
+import com.agrimarket.util.InputValidator;
 import com.agrimarket.api.dto.PlatformSettingsUpdateRequest;
 import com.agrimarket.config.BankDetailsProperties;
 import com.agrimarket.config.SubscriptionPricingProperties;
@@ -46,8 +47,8 @@ public class PlatformSettingsService {
         s.setSystemName(req.systemName());
         s.setBankName(req.bankName());
         s.setAccountName(req.accountName());
-        s.setAccountNumber(req.accountNumber());
-        s.setBranchCode(req.branchCode());
+        s.setAccountNumber(InputValidator.normalizeDigits(req.accountNumber()));
+        s.setBranchCode(InputValidator.normalizeDigits(req.branchCode()));
         s.setReferenceHint(req.referenceHint());
         s.setBasicMonthly(req.basicMonthly());
         s.setPremiumMonthly(req.premiumMonthly());

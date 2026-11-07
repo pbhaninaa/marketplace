@@ -8,7 +8,15 @@ import { publicCartApi, publicPeachApi } from '../services/marketplaceApi';
 import { useSessionStore } from '../stores/session';
 import { useCartStore } from '../stores/cart';
 import { useDialog } from '../composables/useDialog';
-import { isNonEmptyString, isValidEmail, isPositiveNumber, isValidSAPhoneNumber, getFieldErrorMessage } from '../utils/validation';
+import {
+  isNonEmptyString,
+  isPositiveNumber,
+  personNameError,
+  emailError,
+  phoneError,
+  numberError,
+  LIMITS,
+} from '../utils/validation';
 import { getCurrentLocation } from "../utils/getCurrentLocation";
 import FormField from '../components/ui/FormField.vue';
 import CartLinesSection from '../components/cart/CartLinesSection.vue';
@@ -151,26 +159,19 @@ const calculatedDeliveryFee = computed(() => {
 });
 
 /* ================= VALIDATION ================= */
-const guestNameError = computed(() => {
-  if (!touched.value.guestName) return '';
-  return !isNonEmptyString(guestName.value) ? 'Name is required' : '';
-});
+// Same rules as the API (utils/validation.js mirrors backend InputValidator).
+const guestNameError = computed(() => (touched.value.guestName ? personNameError(guestName.value) : ''));
+const guestEmailError = computed(() => (touched.value.guestEmail ? emailError(guestEmail.value) : ''));
+const guestPhoneError = computed(() => (touched.value.guestPhone ? phoneError(guestPhone.value) : ''));
+const deliveryDistanceError = computed(() =>
+  deliveryMode.value === 'DELIVERY' && deliveryDistanceKm.value !== ''
+    ? numberError(deliveryDistanceKm.value, { label: 'Distance', min: 0, exclusiveMin: true, max: LIMITS.maxDeliveryKm })
+    : ''
+);
 
-const guestEmailError = computed(() => {
-  if (!touched.value.guestEmail) return '';
-  if (!guestEmail.value) return 'Email is required';
-  return !isValidEmail(guestEmail.value) ? 'Please enter a valid email address (e.g., name@example.com)' : '';
-});
-
-const guestPhoneError = computed(() => {
-  if (!touched.value.guestPhone) return '';
-  if (!guestPhone.value) return 'Phone number is required';
-  return !isValidSAPhoneNumber(guestPhone.value) ? 'Please enter a valid South African phone number (e.g., 0721234567 or +27721234567)' : '';
-});
-
-const isNameValid = computed(() => isNonEmptyString(guestName.value));
-const isEmailValid = computed(() => isValidEmail(guestEmail.value));
-const isPhoneValid = computed(() => isValidSAPhoneNumber(guestPhone.value));
+const isNameValid = computed(() => !personNameError(guestName.value));
+const isEmailValid = computed(() => !emailError(guestEmail.value));
+const isPhoneValid = computed(() => !phoneError(guestPhone.value));
 
 const isDeliveryChoiceComplete = computed(() => {
   if (!deliveryAvailable.value) {
@@ -179,7 +180,7 @@ const isDeliveryChoiceComplete = computed(() => {
   if (!deliveryMode.value) return false;
   if (deliveryMode.value === 'PICKUP') return true;
   if (!deliveryRate.value || deliveryRate.value <= 0) return false;
-  return isPositiveNumber(deliveryDistanceKm.value) && calculatedDeliveryFee.value > 0;
+  return isPositiveNumber(deliveryDistanceKm.value) && !deliveryDistanceError.value && calculatedDeliveryFee.value > 0;
 });
 
 const canCheckout = computed(() =>
@@ -213,9 +214,9 @@ async function submitCheckout() {
   markFieldTouched('guestPhone');
 
   // Validate required fields
-  if (!isNameValid.value) return warning('Please enter your name.', 'Invalid Input');
-  if (!isEmailValid.value) return warning('Please enter a valid email address.', 'Invalid Input');
-  if (!isPhoneValid.value) return warning('Please enter a valid phone number.', 'Invalid Input');
+  if (!isNameValid.value) return warning(personNameError(guestName.value), 'Invalid Input');
+  if (!isEmailValid.value) return warning(emailError(guestEmail.value), 'Invalid Input');
+  if (!isPhoneValid.value) return warning(phoneError(guestPhone.value), 'Invalid Input');
   if (paymentMethod.value === 'PEACH' && !peachPaymentMethod.value) {
     return warning('Choose Card or Instant EFT for your Peach payment.', 'Missing payment option');
   }
@@ -231,6 +232,9 @@ async function submitCheckout() {
     if (!isPositiveNumber(deliveryDistanceKm.value)) {
       return warning('Please enter how far delivery is in km (greater than zero).', 'Invalid distance');
     }
+    if (deliveryDistanceError.value) {
+      return warning(deliveryDistanceError.value, 'Invalid distance');
+    }
     if (calculatedDeliveryFee.value <= 0) {
       return warning('Please enter a valid delivery distance to calculate the fee.', 'Invalid distance');
     }
@@ -240,14 +244,18 @@ async function submitCheckout() {
 
   try {
     const response = await publicCartApi.checkout(session.sessionId, {
-      guestName: guestName.value,
-      guestEmail: guestEmail.value,
-      guestPhone: guestPhone.value,
+      guestName: guestName.value.trim(),
+      guestEmail: guestEmail.value.trim(),
+      guestPhone: guestPhone.value.trim(),
       deliveryOrPickup: deliveryMode.value,
       paymentMethod: paymentMethod.value,
       ...peachPaymentPayload(paymentMethod.value, peachPaymentMethod.value),
       deliveryDistanceKm:deliveryMode.value === 'DELIVERY' ? Number(deliveryDistanceKm.value): null,
-      deliveryAddress: deliveryMode.value === 'DELIVERY' ? locationName.value : null,
+      // Reverse-geocoded names can be long; the API keeps up to 255 characters.
+      deliveryAddress:
+        deliveryMode.value === 'DELIVERY' && locationName.value
+          ? String(locationName.value).slice(0, LIMITS.deliveryAddress)
+          : null,
       latitude: deliveryMode.value === 'DELIVERY' ? coords.value.latitude : null,
       longitude: deliveryMode.value === 'DELIVERY' ? coords.value.longitude : null,
     });
@@ -355,17 +363,18 @@ async function handleLimitWarning({ message, type }) {
           <h2>Checkout</h2>
 
           <FormField label="Name" :error="guestNameError">
-            <input v-model="guestName" @blur="markFieldTouched('guestName')" placeholder="Your full name" />
+            <input v-model="guestName" @blur="markFieldTouched('guestName')" placeholder="Your full name"
+              :maxlength="LIMITS.personName" autocomplete="name" />
           </FormField>
 
           <FormField label="Email" :error="guestEmailError">
             <input v-model="guestEmail" @blur="markFieldTouched('guestEmail')" type="email"
-              placeholder="your.email@example.com" />
+              placeholder="your.email@example.com" :maxlength="LIMITS.email" autocomplete="email" />
           </FormField>
 
           <FormField label="Phone" :error="guestPhoneError">
             <input v-model="guestPhone" @blur="markFieldTouched('guestPhone')" type="tel"
-              placeholder="0721234567 or +27721234567" />
+              placeholder="+27 82 123 4567 or 082 123 4567" autocomplete="tel" />
           </FormField>
 
           <!-- DELIVERY: only when provider offers it; otherwise pickup-only -->
@@ -385,8 +394,8 @@ async function handleLimitWarning({ message, type }) {
             </FormField>
 
             <div v-if="deliveryMode === 'DELIVERY'">
-              <FormField label="Delivery distance (km)">
-                <input v-model="deliveryDistanceKm" type="number" min="0" step="0.1" placeholder="e.g. 12.5" />
+              <FormField label="Delivery distance (km)" :error="deliveryDistanceError">
+                <input v-model="deliveryDistanceKm" type="number" min="0" :max="LIMITS.maxDeliveryKm" step="0.1" placeholder="e.g. 12.5" />
               </FormField>
               <p v-if="deliveryRate > 0 && calculatedDeliveryFee > 0" class="muted mt-3" style="margin: 0.5rem 0 1rem;">
                 Delivery fee: <strong>R{{ calculatedDeliveryFee.toFixed(2) }}</strong>

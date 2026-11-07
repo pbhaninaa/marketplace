@@ -1,9 +1,10 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { publicSetupApi } from '../services/marketplaceApi';
 import { useSetupStore } from '../stores/setup';
 import FormField from '../components/ui/FormField.vue';
+import { emailError, textError, LIMITS } from '../utils/validation';
 
 const router = useRouter();
 const setup = useSetupStore();
@@ -12,6 +13,11 @@ const email = ref('');
 const password = ref('');
 const error = ref('');
 const done = ref(false);
+const showErrors = ref(false);
+const emailMsg = computed(() => (showErrors.value ? emailError(email.value, { label: 'Administrator email' }) : ''));
+const passwordMsg = computed(() =>
+  showErrors.value ? textError(password.value, { required: true, label: 'Password', min: 8, max: 100 }) : ''
+);
 
 onMounted(async () => {
   await setup.fetchStatus();
@@ -22,8 +28,10 @@ onMounted(async () => {
 
 async function submit() {
   error.value = '';
+  showErrors.value = true;
+  if (emailMsg.value || passwordMsg.value) return;
   try {
-    await publicSetupApi.createFirstAdmin({ email: email.value, password: password.value });
+    await publicSetupApi.createFirstAdmin({ email: email.value.trim(), password: password.value });
     done.value = true;
     await setup.fetchStatus();
     setTimeout(() => router.push('/login'), 1500);
@@ -45,11 +53,11 @@ async function submit() {
     </header>
 
     <form class="surface-panel setup-form" @submit.prevent="submit">
-      <FormField label="Administrator email">
-        <input v-model="email" type="email" required autocomplete="email" />
+      <FormField label="Administrator email" :error="emailMsg">
+        <input v-model="email" type="email" required :maxlength="LIMITS.email" autocomplete="email" />
       </FormField>
-      <FormField label="Password">
-        <input v-model="password" type="password" required minlength="8" autocomplete="new-password" />
+      <FormField label="Password" :error="passwordMsg">
+        <input v-model="password" type="password" required minlength="8" maxlength="100" autocomplete="new-password" />
       </FormField>
       <p v-if="error" class="err-toast">{{ error }}</p>
       <p v-if="done" class="ok-msg">Administrator created. Redirecting to sign in…</p>

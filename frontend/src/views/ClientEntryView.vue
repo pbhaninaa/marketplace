@@ -3,15 +3,19 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { publicClientOtpApi } from '../services/marketplaceApi';
 import FormField from '../components/ui/FormField.vue';
+import { emailOrPhoneError } from '../utils/validation';
 
 const router = useRouter();
 const target = ref('');
 const error = ref('');
+const targetError = ref('');
 const done = ref(false);
 
 async function submit() {
   error.value = '';
   done.value = false;
+  targetError.value = emailOrPhoneError(target.value);
+  if (targetError.value) return;
   try {
     await publicClientOtpApi.request({ target: target.value.trim() });
     done.value = true;
@@ -34,8 +38,8 @@ async function submit() {
     </header>
 
     <form class="surface-panel login-form" @submit.prevent="submit">
-      <FormField label="Email or phone">
-        <input v-model="target" type="text" required autocomplete="email" />
+      <FormField label="Email or phone" :error="targetError">
+        <input v-model="target" type="text" required maxlength="200" autocomplete="email" />
       </FormField>
       <p v-if="error" class="err-toast">{{ error }}</p>
       <p v-if="done" class="ok-msg">Code requested. Redirecting…</p>

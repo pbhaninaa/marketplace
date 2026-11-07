@@ -1,8 +1,9 @@
 <script setup>
-import { nextTick, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
+import { textError, numberError, LIMITS } from '../utils/validation';
 import { adminSettingsApi, adminMaintenanceApi, adminOrderInvoiceApi } from '../services/marketplaceApi';
 
 const router = useRouter();
@@ -71,10 +72,27 @@ async function load() {
   }
 }
 
+/** Inline messages (same limits as the API). */
+const fieldErrors = computed(() => {
+  const f = form.value;
+  const fee = (v, label) => numberError(v, { label, min: 0, max: LIMITS.maxPrice });
+  return {
+    systemName: textError(f.systemName, { required: true, label: 'System name', max: LIMITS.systemName }),
+    basicMonthly: fee(f.basicMonthly, 'Basic price'),
+    premiumMonthly: fee(f.premiumMonthly, 'Premium price'),
+    usageFeePercent: numberError(f.usageFeePercent, { required: true, label: 'Usage fee', min: 0, max: 100 }),
+  };
+});
+
 async function save() {
-  saving.value = true;
   error.value = '';
   message.value = '';
+  const firstFieldError = Object.values(fieldErrors.value).find(Boolean);
+  if (firstFieldError) {
+    error.value = firstFieldError;
+    return;
+  }
+  saving.value = true;
   try {
     await adminSettingsApi.update({
       ...form.value,
@@ -142,20 +160,20 @@ async function downloadStaffInvoice() {
     <section v-else class="surface-panel settings-panel">
       <h2>Platform</h2>
       <div class="grid">
-        <FormField label="System name">
-          <input v-model="form.systemName" type="text" />
+        <FormField label="System name" :error="fieldErrors.systemName">
+          <input v-model="form.systemName" type="text" :maxlength="LIMITS.systemName" />
         </FormField>
       </div>
 
       <h2 class="mt">Subscription pricing (Monthly)</h2>
       <div class="grid grid--2">
-        <FormField label="Basic (ZAR)">
+        <FormField label="Basic (ZAR)" :error="fieldErrors.basicMonthly">
           <input v-model.number="form.basicMonthly" type="number" step="0.01" min="0" />
         </FormField>
-        <FormField label="Premium (ZAR)">
+        <FormField label="Premium (ZAR)" :error="fieldErrors.premiumMonthly">
           <input v-model.number="form.premiumMonthly" type="number" step="0.01" min="0" />
         </FormField>
-        <FormField label="Usage fee (% per paid order)">
+        <FormField label="Usage fee (% per paid order)" :error="fieldErrors.usageFeePercent">
           <input v-model.number="form.usageFeePercent" type="number" step="0.01" min="0" max="100" />
           <p class="muted small">
             Applied to each order total once the order is PAID. First subscription invoice: plan price plus the sum of

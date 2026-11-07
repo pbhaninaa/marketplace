@@ -43,7 +43,7 @@ public class PublicCartController {
     }
 
     @PostMapping("/add")
-    public CartResponse add(@RequestHeader(SESSION_HEADER) String sessionId, @RequestBody CartAddRequest req) {
+    public CartResponse add(@RequestHeader(SESSION_HEADER) String sessionId, @Valid @RequestBody CartAddRequest req) {
         return cartService.addItem(sessionId, req);
     }
 
@@ -68,7 +68,7 @@ public class PublicCartController {
     }
 
     @PostMapping("/checkout")
-    public Map<String, Object> checkout(@RequestHeader(SESSION_HEADER) String sessionId, @RequestBody GuestCheckoutRequest req) {
+    public Map<String, Object> checkout(@RequestHeader(SESSION_HEADER) String sessionId, @Valid @RequestBody GuestCheckoutRequest req) {
         return checkoutService.guestCheckout(sessionId, req);
     }
 }
