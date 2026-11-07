@@ -25,9 +25,9 @@ const inviteLink = computed(() =>
 );
 
 function formatDate(value) {
-  if (!value) return '—';
+  if (!value) return 'Not set';
   const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+  return Number.isNaN(d.getTime()) ? 'Not set' : d.toLocaleDateString();
 }
 
 async function load() {
@@ -49,7 +49,7 @@ async function copy(text, what) {
     await navigator.clipboard.writeText(text);
     copied.value = what;
   } catch {
-    copied.value = 'Copy failed — select the text and copy it manually.';
+    copied.value = 'Copy failed. Select the text and copy it manually.';
   }
 }
 
@@ -82,7 +82,7 @@ async function submitClaim() {
     const res = await providerReferralsApi.claim(code);
     data.value = res.data;
     claimCode.value = '';
-    claimMessage.value = 'Thanks — your referrer has been recorded.';
+    claimMessage.value = 'Thanks, your referrer has been recorded.';
   } catch (e) {
     claimError.value = e.response?.data?.message || e.message || 'Could not add the referral code.';
   } finally {
@@ -174,8 +174,8 @@ onMounted(load);
                 <td>{{ r.businessName }}</td>
                 <td>{{ formatDate(r.joinedAt) }}</td>
                 <td>{{ referralStatusLabel(r.status) }}</td>
-                <td>{{ r.commissionPercent != null ? formatPercent(r.commissionPercent) : '—' }}</td>
-                <td>{{ r.commissionAmount != null ? formatZar(r.commissionAmount) : '—' }}</td>
+                <td>{{ r.commissionPercent != null ? formatPercent(r.commissionPercent) : 'Not set' }}</td>
+                <td>{{ r.commissionAmount != null ? formatZar(r.commissionAmount) : 'Not set' }}</td>
               </tr>
             </tbody>
           </table>

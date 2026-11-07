@@ -67,24 +67,24 @@ export function buildInviteLink(origin, code) {
 
 export function formatPercent(value) {
   const n = Number(value);
-  if (!Number.isFinite(n)) return '—';
+  if (!Number.isFinite(n)) return 'Not set';
   return `${Number.isInteger(n) ? n : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}%`;
 }
 
 export function formatZar(value) {
   const n = Number(value);
-  if (!Number.isFinite(n)) return '—';
+  if (!Number.isFinite(n)) return 'Not set';
   return `R ${n.toFixed(2)}`;
 }
 
 const STATUS_LABELS = {
-  PENDING: 'Signed up — waiting for first payment',
-  EARNED: 'Commission earned — payout pending',
+  PENDING: 'Signed up, waiting for first payment',
+  EARNED: 'Commission earned, payout pending',
   PAID: 'Commission paid out',
 };
 
 export function referralStatusLabel(status) {
-  return STATUS_LABELS[status] || status || '—';
+  return STATUS_LABELS[status] || status || 'Not set';
 }
 
 /** Admin list query params from the filter form (drops blanks). */

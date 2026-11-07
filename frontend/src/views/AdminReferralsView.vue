@@ -23,9 +23,9 @@ const message = ref('');
 const busyId = ref(null);
 
 function formatDate(value) {
-  if (!value) return '—';
+  if (!value) return 'Not set';
   const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString();
+  return Number.isNaN(d.getTime()) ? 'Not set' : d.toLocaleString();
 }
 
 async function load(toPage = 0) {
@@ -150,27 +150,27 @@ onMounted(() => load(0));
             <tr v-for="r in rows" :key="r.id">
               <td>{{ formatDate(r.createdAt) }}</td>
               <td>
-                <div>{{ r.referrerBusiness || r.referrerName || '—' }}</div>
+                <div>{{ r.referrerBusiness || r.referrerName || 'Not set' }}</div>
                 <div class="muted small">{{ r.referrerEmail }} · {{ r.referralCode }}</div>
               </td>
               <td>
                 <div>{{ r.refereeBusiness }}</div>
-                <div class="muted small">{{ r.refereeEmail || '—' }}</div>
+                <div class="muted small">{{ r.refereeEmail || 'Not set' }}</div>
               </td>
               <td>{{ r.source === 'CLAIM' ? 'Added later' : 'Sign-up' }}</td>
               <td>
                 <div>{{ referralStatusLabel(r.status) }}</div>
                 <div v-if="r.earnedAt" class="muted small">Earned {{ formatDate(r.earnedAt) }}</div>
                 <div v-if="r.paidOutAt" class="muted small">
-                  Paid {{ formatDate(r.paidOutAt) }} by {{ r.paidOutBy }}<span v-if="r.payoutNote"> — {{ r.payoutNote }}</span>
+                  Paid {{ formatDate(r.paidOutAt) }} by {{ r.paidOutBy }}<span v-if="r.payoutNote">: {{ r.payoutNote }}</span>
                 </div>
               </td>
               <td>
-                <div>{{ r.paymentAmount != null ? formatZar(r.paymentAmount) : '—' }}</div>
+                <div>{{ r.paymentAmount != null ? formatZar(r.paymentAmount) : 'Not set' }}</div>
                 <div v-if="r.qualifyingPaymentRef" class="muted small">{{ r.qualifyingPaymentRef }}</div>
               </td>
               <td>
-                {{ r.commissionAmount != null ? formatZar(r.commissionAmount) : '—' }}
+                {{ r.commissionAmount != null ? formatZar(r.commissionAmount) : 'Not set' }}
                 <span v-if="r.commissionPercent != null" class="muted small">({{ formatPercent(r.commissionPercent) }})</span>
               </td>
               <td>
