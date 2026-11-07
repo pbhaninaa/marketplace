@@ -39,7 +39,7 @@ public class OrderInvoiceService {
                 .findWithLinesById(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Order not found"));
         if (!o.getProvider().getId().equals(providerId)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not your order");
+            throw new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Order not found");
         }
         return buildPurchaseInvoiceBytesPdf(o);
     }
@@ -50,29 +50,54 @@ public class OrderInvoiceService {
         return buildPurchaseInvoiceBytesPdf(o);
     }
 
+    /**
+     * Guest invoice download. An order number (numeric id or friendly {@code ORD-YYYY-NNNNNN}) is sequential and
+     * guessable, so it must be paired with the checkout email. The random verification code alone is accepted
+     * (it is the guest's secret); if an email is also given it must match. Every mismatch is reported as the same
+     * 404 so callers cannot tell which order numbers exist.
+     */
     @Transactional(readOnly = true)
     public byte[] buildPurchaseInvoicePdfForGuest(String orderRef, String email) {
-        Order o = resolvePurchaseOrderWithLines(orderRef);
-        validateGuestInvoiceAccess(o, orderRef, email);
-        return buildPurchaseInvoiceBytesPdf(o);
-    }
-
-    private void validateGuestInvoiceAccess(Order order, String rawRef, String email) {
-        String ref = rawRef == null ? "" : rawRef.trim();
+        String ref = orderRef == null ? "" : orderRef.trim();
         if (ref.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "ORDER", "Order reference is required");
         }
-        boolean numericOnly = ref.chars().allMatch(Character::isDigit);
-        if (numericOnly) {
-            if (email == null || email.isBlank()) {
+        boolean emailGiven = email != null && !email.isBlank();
+        Long orderNumber = parseOrderNumber(ref);
+        Order o;
+        if (orderNumber != null) {
+            if (!emailGiven) {
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST, "ORDER", "Email is required when using numeric order number");
             }
-            if (!emailsEqual(email, order.getGuestEmail())) {
-                throw new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Invoice not available");
-            }
-        } else if (email != null && !email.isBlank() && !emailsEqual(email, order.getGuestEmail())) {
+            o = orderRepository.findWithLinesById(orderNumber).orElse(null);
+        } else {
+            o = findPurchaseOrderByVerificationRef(ref).orElse(null);
+        }
+        if (o == null || (emailGiven && !emailsEqual(email, o.getGuestEmail()))) {
             throw new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Invoice not available");
+        }
+        return buildPurchaseInvoiceBytesPdf(o);
+    }
+
+    /**
+     * Parses an order number: plain digits or the friendly form {@code ORD-2026-000012}. Returns null when the
+     * reference is not an order number (it is then treated as a verification code).
+     */
+    static Long parseOrderNumber(String rawRef) {
+        String ref = rawRef == null ? "" : rawRef.trim();
+        if (ref.toUpperCase(Locale.ROOT).startsWith("ORD-")) {
+            ref = ref.substring(4).replaceAll("^[0-9]{4}-", "").replace("-", "");
+        } else if (ref.isEmpty() || !ref.chars().allMatch(Character::isDigit)) {
+            return null;
+        }
+        if (ref.isEmpty() || !ref.chars().allMatch(Character::isDigit)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "ORDER", "Invalid order number");
+        }
+        try {
+            return Long.parseLong(ref);
+        } catch (NumberFormatException e) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "ORDER", "Invalid order number");
         }
     }
 
@@ -83,29 +108,18 @@ public class OrderInvoiceService {
 
     /**
      * Resolves {@code orderRef} as numeric order id, or as the order verification code (with or without hyphen).
+     * Admin/support only: performs no ownership check.
      */
     public Order resolvePurchaseOrderWithLines(String orderRef) {
         if (orderRef == null || orderRef.isBlank()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "ORDER", "Order reference is required");
         }
         String ref = orderRef.trim();
-        // Accept friendly order numbers like ORD-2026-000012
-        if (ref.toUpperCase(Locale.ROOT).startsWith("ORD-")) {
-            String cleaned = ref.toUpperCase(Locale.ROOT).replace("ORD-", "");
-            // remove year segment if present
-            cleaned = cleaned.replaceAll("^[0-9]{4}-", "");
-            cleaned = cleaned.replace("-", "");
-            ref = cleaned;
-        }
-        if (ref.chars().allMatch(Character::isDigit)) {
-            try {
-                long id = Long.parseLong(ref);
-                return orderRepository
-                        .findWithLinesById(id)
-                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Order not found"));
-            } catch (NumberFormatException e) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "ORDER", "Invalid order number");
-            }
+        Long orderNumber = parseOrderNumber(ref);
+        if (orderNumber != null) {
+            return orderRepository
+                    .findWithLinesById(orderNumber)
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Order not found"));
         }
         return findPurchaseOrderByVerificationRef(ref)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Order not found"));
@@ -246,7 +260,7 @@ public class OrderInvoiceService {
                 .findWithDetailsById(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOOKING", "Booking not found"));
         if (!b.getProvider().getId().equals(providerId)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not your booking");
+            throw new ApiException(HttpStatus.NOT_FOUND, "BOOKING", "Booking not found");
         }
         Provider provider = b.getProvider();
         String invoiceNo = formatInvoiceNumber(b.getId(), b.getCreatedAt());

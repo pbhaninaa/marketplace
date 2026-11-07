@@ -44,20 +44,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**")
                         .permitAll()
-                        .requestMatchers("/actuator/health", "/actuator/health/**")
+                        .requestMatchers(SecurityPaths.PUBLIC)
                         .permitAll()
-                        .requestMatchers("/api/public/**", "/api/auth/login")
-                        .permitAll()
-                        .requestMatchers("/api/admin/**")
+                        .requestMatchers(SecurityPaths.ADMIN)
                         .hasRole("PLATFORM_ADMIN")
-                        .requestMatchers("/api/support/**")
-                        .hasAnyRole("PLATFORM_ADMIN", "SUPPORT")
-                        .requestMatchers("/api/provider/**")
-                        .hasAnyRole(
-                                "PROVIDER_OWNER",
-                                "PROVIDER_ADMIN",
-                                "PROVIDER_STAFF",
-                                "PROVIDER_VIEWER")
+                        .requestMatchers(SecurityPaths.SUPPORT)
+                        .hasAnyRole(SecurityPaths.SUPPORT_ROLES)
+                        .requestMatchers(SecurityPaths.PROVIDER)
+                        .hasAnyRole(SecurityPaths.PROVIDER_ROLES)
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -98,10 +92,36 @@ public class SecurityConfig {
         }
         addOrigins(origins, environment.getProperty("app.cors.allowed-origins"));
 
+        if (isDeployedProfile()) {
+            // Fail closed on UAT/PROD: never fall back to (or keep) a dev origin. An empty list rejects every
+            // cross-origin request; DeployedProfileValidator also refuses to start without UAT/PROD_CORS_ORIGINS.
+            boolean removed = origins.removeIf(SecurityConfig::isLocalOrigin);
+            if (removed) {
+                log.warn("Ignoring localhost CORS origins on a deployed profile");
+            }
+            if (origins.isEmpty()) {
+                log.error("No CORS origins configured for a deployed profile; cross-origin requests will be rejected");
+            }
+            return new ArrayList<>(origins);
+        }
         if (origins.isEmpty()) {
             origins.add("http://localhost:5173");
         }
         return new ArrayList<>(origins);
+    }
+
+    private boolean isDeployedProfile() {
+        for (String profile : environment.getActiveProfiles()) {
+            if ("uat".equalsIgnoreCase(profile) || "prod".equalsIgnoreCase(profile)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static boolean isLocalOrigin(String origin) {
+        String o = origin.toLowerCase(java.util.Locale.ROOT);
+        return o.contains("://localhost") || o.contains("://127.0.0.1") || o.contains("://[::1]");
     }
 
     private static void addOrigins(LinkedHashSet<String> target, String raw) {

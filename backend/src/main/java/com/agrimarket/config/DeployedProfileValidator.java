@@ -51,6 +51,14 @@ public class DeployedProfileValidator {
         if (cors == null || cors.isBlank()) {
             throw new IllegalStateException("Set UAT_CORS_ORIGINS or PROD_CORS_ORIGINS to your frontend URL");
         }
+        // SecurityConfig drops localhost origins on UAT/PROD, so a localhost-only list would allow nothing.
+        boolean hasNonLocalOrigin = java.util.Arrays.stream(cors.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .anyMatch(s -> !s.toLowerCase(java.util.Locale.ROOT).matches("^https?://(localhost|127\\.0\\.0\\.1|\\[::1\\]).*"));
+        if (!hasNonLocalOrigin) {
+            throw new IllegalStateException("UAT_CORS_ORIGINS / PROD_CORS_ORIGINS must list your deployed frontend URL (not localhost)");
+        }
 
         String publicUrl = firstNonBlank(
                 environment.getProperty("PUBLIC_APP_BASE_URL"),

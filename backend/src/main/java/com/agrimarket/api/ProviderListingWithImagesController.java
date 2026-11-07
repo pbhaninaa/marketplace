@@ -2,7 +2,9 @@ package com.agrimarket.api;
 
 import com.agrimarket.api.dto.ListingResponse;
 import com.agrimarket.api.dto.ListingUpsertRequest;
+import com.agrimarket.security.AccessGuard;
 import com.agrimarket.security.MarketUserPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.agrimarket.service.ProviderListingService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -28,6 +30,7 @@ public class ProviderListingWithImagesController {
      * - part "files" (0..n) -> image files
      */
     @PostMapping(path = "/listing-with-images", consumes = {"multipart/form-data"})
+    @PreAuthorize(AccessGuard.LISTING_WRITE)
     public ListingResponse createWithImages(
             @AuthenticationPrincipal MarketUserPrincipal user,
             @Valid @RequestPart("listing") ListingUpsertRequest listing,

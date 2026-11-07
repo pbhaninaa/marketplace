@@ -1,7 +1,9 @@
 package com.agrimarket.api;
 
 import com.agrimarket.api.dto.UploadImageResponse;
+import com.agrimarket.security.AccessGuard;
 import com.agrimarket.security.MarketUserPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.agrimarket.service.ProviderListingImageService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ public class ProviderUploadController {
     private final ProviderListingImageService providerListingImageService;
 
     @PostMapping("/images")
+    @PreAuthorize(AccessGuard.LISTING_WRITE)
     public UploadImageResponse uploadImages(
             @AuthenticationPrincipal MarketUserPrincipal actor,
             @RequestParam("files") List<MultipartFile> files) {

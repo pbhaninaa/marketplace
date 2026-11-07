@@ -12,6 +12,7 @@ import com.agrimarket.repo.CartLineRepository;
 import com.agrimarket.repo.PaymentRecordRepository;
 import com.agrimarket.repo.OrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
+import com.agrimarket.repo.UserAccountRepository;
 import com.agrimarket.security.MarketUserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -37,6 +38,7 @@ public class OrderManagementService {
     private final RentalBookingRepository rentalBookingRepository;
     private final CartLineRepository cartLineRepository;
     private final AppNotificationService appNotificationService;
+    private final UserAccountRepository userAccountRepository;
 
     @Transactional(readOnly = true)
     public Page<Order> getProviderOrders(Long providerId, Pageable pageable) {
@@ -54,7 +56,7 @@ public class OrderManagementService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "Order not found"));
 
         if (!order.getProvider().getId().equals(providerId)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You don't have access to this order");
+            throw new ApiException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "Order not found");
         }
 
         return order;
@@ -66,7 +68,7 @@ public class OrderManagementService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "RENTAL_NOT_FOUND", "Rental booking not found"));
 
         if (!rental.getProvider().getId().equals(providerId)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You don't have access to this rental");
+            throw new ApiException(HttpStatus.NOT_FOUND, "RENTAL_NOT_FOUND", "Rental booking not found");
         }
 
         return rental;
@@ -102,6 +104,7 @@ public class OrderManagementService {
     public Order updateOrderStatus(
             Long providerId, Long orderId, OrderStatus newStatus, Long actorUserId, Long completedByStaffId) {
         Order order = getOrderById(providerId, orderId);
+        requireStaffOfProvider(providerId, completedByStaffId);
 
         // Validate status transitions
         OrderStatus current = order.getStatus();
@@ -160,6 +163,16 @@ public class OrderManagementService {
             // Never fail status update due to notifications.
         }
         return saved;
+    }
+
+    /** Payroll attribution may only point at a member of the same provider. */
+    private void requireStaffOfProvider(Long providerId, Long staffUserId) {
+        if (staffUserId == null) {
+            return;
+        }
+        if (userAccountRepository.findByIdAndProvider_Id(staffUserId, providerId).isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "STAFF", "Staff member not found in this organization");
+        }
     }
 
     @Transactional
@@ -252,7 +265,7 @@ public class OrderManagementService {
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "Order not found"));
 
             if (!order.getProvider().getId().equals(providerId)) {
-                throw new ApiException(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You don't have access to this order");
+                throw new ApiException(HttpStatus.NOT_FOUND, "ORDER_NOT_FOUND", "Order not found");
             }
 
             // Only allow deletion if payment is PENDING
@@ -301,7 +314,7 @@ public class OrderManagementService {
         RentalBooking rental = rentalBookingRepository.findById(rentalId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOOKING", "Booking not found"));
         if (rental.getProvider() == null || !rental.getProvider().getId().equals(user.getProviderId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not your booking");
+            throw new ApiException(HttpStatus.NOT_FOUND, "BOOKING", "Booking not found");
         }
 
         if (rental.getStatus() != BookingStatus.CANCELLED && rental.getStatus() != BookingStatus.PENDING_PAYMENT) {
@@ -375,7 +388,7 @@ public class OrderManagementService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "RENTAL_NOT_FOUND", "Rental booking not found"));
 
         if (!rental.getProvider().getId().equals(providerId)) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "You don't have access to this rental");
+            throw new ApiException(HttpStatus.NOT_FOUND, "RENTAL_NOT_FOUND", "Rental booking not found");
         }
 
         BookingStatus current = rental.getStatus();
