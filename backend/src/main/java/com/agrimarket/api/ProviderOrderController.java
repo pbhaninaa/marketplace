@@ -6,6 +6,7 @@ import com.agrimarket.domain.Listing;
 import com.agrimarket.domain.Order;
 import com.agrimarket.domain.OrderStatus;
 import com.agrimarket.domain.RentalBooking;
+import com.agrimarket.security.AccessGuard;
 import com.agrimarket.security.MarketUserPrincipal;
 import com.agrimarket.service.OrderManagementService;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,7 @@ import java.util.Map;
 public class ProviderOrderController {
 
     private final OrderManagementService orderManagementService;
+    private final AccessGuard accessGuard;
 
     /**
      * GET /api/provider/orders
@@ -47,6 +49,7 @@ public class ProviderOrderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
+        accessGuard.requireOrderRead(user);
         log.info("Provider {} fetching orders - page: {}, size: {}", user.getProviderId(), page, size);
 
         Pageable pageable = PageRequest.of(page, size);
@@ -65,6 +68,7 @@ public class ProviderOrderController {
             @AuthenticationPrincipal MarketUserPrincipal user,
             @PathVariable Long orderId) {
 
+        accessGuard.requireOrderRead(user);
         log.info("Provider {} fetching order {}", user.getProviderId(), orderId);
 
         Order order = orderManagementService.getOrderById(user.getProviderId(), orderId);
@@ -82,6 +86,7 @@ public class ProviderOrderController {
             @AuthenticationPrincipal MarketUserPrincipal user,
             @PathVariable Long orderId) {
 
+        accessGuard.requireOrderRead(user);
         log.info("Provider {} fetching items for order {}", user.getProviderId(), orderId);
 
         List<Listing> listings = orderManagementService.getListingsFromOrder(user.getProviderId(), orderId);
@@ -99,6 +104,7 @@ public class ProviderOrderController {
             @PathVariable Long orderId,
             @RequestBody UpdateOrderStatusRequest request) {
 
+        accessGuard.requireOrderWrite(user);
         log.info("Provider {} updating order {} to status {}",
                 user.getProviderId(), orderId, request.status());
 
@@ -122,6 +128,7 @@ public class ProviderOrderController {
             @AuthenticationPrincipal MarketUserPrincipal user,
             @PathVariable Long orderId) {
 
+        accessGuard.requireOrderWrite(user);
         log.info("Provider {} cancelling order {}", user.getProviderId(), orderId);
 
         orderManagementService.cancelOrder(user.getProviderId(), orderId);
@@ -140,6 +147,7 @@ public class ProviderOrderController {
             @AuthenticationPrincipal MarketUserPrincipal user,
             @PathVariable Long orderId) {
 
+        accessGuard.requireOrderWrite(user);
         log.info("Provider {} deleting order {}", user.getProviderId(), orderId);
 
         orderManagementService.deleteOrder(user, orderId);
@@ -158,10 +166,12 @@ public class ProviderOrderController {
             @AuthenticationPrincipal MarketUserPrincipal user,
             @RequestBody(required = false) BulkDeleteRequest request) {
 
+        accessGuard.requireOrderWrite(user);
         log.warn("Provider {} requesting bulk order deletion", user.getProviderId());
 
         int deletedCount;
         if (request == null || request.orderIds() == null || request.orderIds().isEmpty()) {
+            accessGuard.requireProviderManager(user);
             deletedCount = orderManagementService.deleteAllProviderPurchases(user.getProviderId());
         } else {
             deletedCount = orderManagementService.deleteProviderPurchases(
@@ -187,6 +197,7 @@ public class ProviderOrderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
+        accessGuard.requireOrderRead(user);
         log.info("Provider {} fetching rentals - page: {}, size: {}", user.getProviderId(), page, size);
 
         Pageable pageable = PageRequest.of(page, size);
@@ -204,6 +215,7 @@ public class ProviderOrderController {
             @AuthenticationPrincipal MarketUserPrincipal user,
             @PathVariable Long rentalId) {
 
+        accessGuard.requireOrderRead(user);
         log.info("Provider {} fetching rental {}", user.getProviderId(), rentalId);
 
         RentalBooking rental = orderManagementService.getRentalById(user.getProviderId(), rentalId);
@@ -221,6 +233,7 @@ public class ProviderOrderController {
             @PathVariable Long rentalId,
             @RequestParam BookingStatus status) {
 
+        accessGuard.requireOrderWrite(user);
         log.info("Provider {} updating rental {} to status {}",
                 user.getProviderId(), rentalId, status);
 
@@ -240,6 +253,7 @@ public class ProviderOrderController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
+        accessGuard.requireOrderRead(user);
         log.info("Provider {} fetching purchases - page: {}, size: {}", user.getProviderId(), page, size);
 
         Pageable pageable = PageRequest.of(page, size);
@@ -258,6 +272,7 @@ public class ProviderOrderController {
             @AuthenticationPrincipal MarketUserPrincipal user,
             @PathVariable Long orderId) {
 
+        accessGuard.requireOrderRead(user);
         log.info("Provider {} fetching purchase {}", user.getProviderId(), orderId);
 
         Order order = orderManagementService.getOrderById(user.getProviderId(), orderId);
@@ -276,6 +291,7 @@ public class ProviderOrderController {
             @PathVariable Long orderId,
             @RequestParam OrderStatus status) {
 
+        accessGuard.requireOrderWrite(user);
         log.info("Provider {} updating purchase {} to status {}",
                 user.getProviderId(), orderId, status);
 

@@ -2,7 +2,9 @@ package com.agrimarket.api;
 
 import com.agrimarket.api.dto.ListingResponse;
 import com.agrimarket.api.dto.ListingUpsertRequest;
+import com.agrimarket.security.AccessGuard;
 import com.agrimarket.security.MarketUserPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.agrimarket.service.ProviderListingService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -31,6 +33,7 @@ public class ProviderListingsController {
     private final ProviderListingService providerListingService;
 
     @GetMapping
+    @PreAuthorize(AccessGuard.PROVIDER_USER)
     public Page<ListingResponse> list(
             @AuthenticationPrincipal MarketUserPrincipal user,
             @RequestParam(defaultValue = "0") int page,
@@ -44,6 +47,7 @@ public class ProviderListingsController {
     }
 
     @PostMapping
+    @PreAuthorize(AccessGuard.LISTING_WRITE)
     public ListingResponse create(
             @AuthenticationPrincipal MarketUserPrincipal user,
             @Valid @RequestBody ListingUpsertRequest req) {
@@ -51,6 +55,7 @@ public class ProviderListingsController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize(AccessGuard.LISTING_WRITE)
     public ListingResponse update(
             @AuthenticationPrincipal MarketUserPrincipal user,
             @PathVariable Long id,
@@ -59,6 +64,7 @@ public class ProviderListingsController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize(AccessGuard.LISTING_WRITE)
     public void delete(@AuthenticationPrincipal MarketUserPrincipal user, @PathVariable Long id) {
         providerListingService.delete(user, id);
     }
@@ -67,6 +73,7 @@ public class ProviderListingsController {
      * PUT /api/provider/me/listings/{id}/with-images
      */
     @PutMapping(path = "/{id}/with-images", consumes = {"multipart/form-data"})
+    @PreAuthorize(AccessGuard.LISTING_WRITE)
     public ListingResponse updateWithImages(
             @AuthenticationPrincipal MarketUserPrincipal user,
             @PathVariable Long id,

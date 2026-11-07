@@ -2,7 +2,9 @@ package com.agrimarket.api;
 
 import com.agrimarket.api.dto.ProviderSettingsResponse;
 import com.agrimarket.api.dto.ProviderSettingsUpdateRequest;
+import com.agrimarket.security.AccessGuard;
 import com.agrimarket.security.MarketUserPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import com.agrimarket.service.ProviderSettingsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +28,7 @@ public class ProviderSettingsController {
     }
 
     @PatchMapping
+    @PreAuthorize(AccessGuard.PROVIDER_MANAGER)
     public ProviderSettingsResponse update(
             @AuthenticationPrincipal MarketUserPrincipal actor,
             @Valid @RequestBody ProviderSettingsUpdateRequest req) {

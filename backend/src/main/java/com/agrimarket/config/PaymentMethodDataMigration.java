@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.core.annotation.Order;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
@@ -18,6 +19,10 @@ import org.springframework.stereotype.Component;
  *
  * <p>Current selectable cart methods are CASH, EFT (manual), and PEACH. Legacy BOTH expands to
  * CASH+EFT; historical CARD provider rows and payment records map to PEACH.
+ *
+ * <p>On a fresh schema Hibernate 6.5+ may create a native enum column (e.g. H2) that only admits the
+ * current enum values. Such a column cannot hold BOTH/CARD, and some databases reject even comparing it
+ * with those literals, so a rejected legacy statement simply means there is nothing to migrate.
  */
 @Component
 @Order(2)
@@ -38,9 +43,8 @@ public class PaymentMethodDataMigration implements ApplicationRunner {
         if (tableExists("provider_accepted_payment_methods")) {
             expandBothToCashAndEft();
             mapCardProviderMethodToPeach();
-            int removed =
-                    jdbcTemplate.update(
-                            "DELETE FROM provider_accepted_payment_methods WHERE payment_method IN ('BOTH', 'CARD')");
+            int removed = legacyUpdate(
+                    "DELETE FROM provider_accepted_payment_methods WHERE payment_method IN ('BOTH', 'CARD')");
             if (removed > 0) {
                 log.info("Normalized {} legacy provider payment-method rows (BOTH/CARD)", removed);
             }
@@ -48,7 +52,7 @@ public class PaymentMethodDataMigration implements ApplicationRunner {
 
         // CARD was a historical top-level value but is not a current PaymentMethod enum member.
         if (tableExists("payments")) {
-            int updated = jdbcTemplate.update("UPDATE payments SET method = 'PEACH' WHERE method = 'CARD'");
+            int updated = legacyUpdate("UPDATE payments SET method = 'PEACH' WHERE method = 'CARD'");
             if (updated > 0) {
                 log.info("Normalized {} historical CARD payment records to PEACH", updated);
             }
@@ -57,7 +61,7 @@ public class PaymentMethodDataMigration implements ApplicationRunner {
 
     private void expandBothToCashAndEft() {
         for (String method : new String[] {"CASH", "EFT"}) {
-            jdbcTemplate.update(
+            legacyUpdate(
                     """
                     INSERT INTO provider_accepted_payment_methods (provider_id, payment_method)
                     SELECT DISTINCT legacy.provider_id, ?
@@ -76,7 +80,7 @@ public class PaymentMethodDataMigration implements ApplicationRunner {
     }
 
     private void mapCardProviderMethodToPeach() {
-        jdbcTemplate.update(
+        legacyUpdate(
                 """
                 INSERT INTO provider_accepted_payment_methods (provider_id, payment_method)
                 SELECT DISTINCT legacy.provider_id, 'PEACH'
@@ -89,6 +93,17 @@ public class PaymentMethodDataMigration implements ApplicationRunner {
                       AND current_method.payment_method = 'PEACH'
                   )
                 """);
+    }
+
+    /** Runs a statement that references legacy values; 0 when the column type cannot hold them. */
+    private int legacyUpdate(String sql, Object... params) {
+        try {
+            return jdbcTemplate.update(sql, params);
+        } catch (DataIntegrityViolationException ex) {
+            log.debug("Skipping legacy payment-method migration step (column rejects legacy values): {}",
+                    ex.getMostSpecificCause().getMessage());
+            return 0;
+        }
     }
 
     private boolean tableExists(String tableName) throws Exception {

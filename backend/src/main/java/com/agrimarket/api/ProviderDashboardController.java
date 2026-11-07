@@ -3,6 +3,7 @@ package com.agrimarket.api;
 import com.agrimarket.api.dto.ProviderDashboardStatsResponse;
 import com.agrimarket.repo.OrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
+import com.agrimarket.security.AccessGuard;
 import com.agrimarket.security.MarketUserPrincipal;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -22,12 +23,14 @@ public class ProviderDashboardController {
 
     private final OrderRepository orderRepository;
     private final RentalBookingRepository rentalBookingRepository;
+    private final AccessGuard accessGuard;
 
     @GetMapping("/stats")
     public ProviderDashboardStatsResponse stats(
             @AuthenticationPrincipal MarketUserPrincipal actor,
             @RequestParam(name = "from", required = false) LocalDate from,
             @RequestParam(name = "to", required = false) LocalDate to) {
+        accessGuard.requireOrderRead(actor);
         LocalDate safeTo = to == null ? LocalDate.now(ZoneOffset.UTC) : to;
         LocalDate safeFrom = from == null ? safeTo.minusDays(30) : from;
 

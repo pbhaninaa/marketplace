@@ -240,7 +240,7 @@ public class ProviderStaffService {
                 .findById(req.orderId())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Order not found"));
         if (!order.getProvider().getId().equals(actor.getProviderId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "ORDER", "Not your order");
+            throw new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Order not found");
         }
         if (order.getStatus() != OrderStatus.COLLECTED) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "ORDER", "Only collected orders can be marked paid for payroll");

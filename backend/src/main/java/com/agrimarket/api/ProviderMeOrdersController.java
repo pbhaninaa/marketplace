@@ -15,7 +15,7 @@ import com.agrimarket.repo.RentalBookingRepository;
 import com.agrimarket.security.MarketUserPrincipal;
 import com.agrimarket.service.OrderInvoiceService;
 import com.agrimarket.service.OrderManagementService;
-import com.agrimarket.service.TenantAccess;
+import com.agrimarket.security.AccessGuard;
 import jakarta.validation.Valid;
 import java.time.Instant;
 import java.util.List;
@@ -51,6 +51,7 @@ public class ProviderMeOrdersController {
     private final RentalBookingRepository rentalBookingRepository;
     private final ListingRepository listingRepository;
     private final OrderInvoiceService orderInvoiceService;
+    private final AccessGuard accessGuard;
 
     public record OrderItemResponse(Long listingId, String listingName, int quantity) {}
 
@@ -62,7 +63,7 @@ public class ProviderMeOrdersController {
             @AuthenticationPrincipal MarketUserPrincipal actor,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "5") int size) {
-        TenantAccess.requireProviderUser(actor);
+        accessGuard.requireOrderRead(actor);
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         return orderRepository.findByProvider_IdOrderByCreatedAtDesc(actor.getProviderId(), pageable).map(OrderResponse::from);
     }
@@ -73,6 +74,7 @@ public class ProviderMeOrdersController {
             @AuthenticationPrincipal MarketUserPrincipal actor,
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "5") int size) {
+        accessGuard.requireOrderRead(actor);
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
         return orderManagementService.getProviderRentals(actor.getProviderId(), pageable);
     }
@@ -80,10 +82,10 @@ public class ProviderMeOrdersController {
     @GetMapping("/orders/purchases/{id}")
     @Transactional(readOnly = true)
     public OrderResponse getPurchase(@AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable Long id) {
-        TenantAccess.requireProviderUser(actor);
+        accessGuard.requireOrderRead(actor);
         Order o = orderRepository.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Order not found"));
         if (!o.getProvider().getId().equals(actor.getProviderId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not your order");
+            throw new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Order not found");
         }
         return OrderResponse.from(o);
     }
@@ -91,11 +93,11 @@ public class ProviderMeOrdersController {
     @GetMapping("/orders/rentals/{id}")
     @Transactional(readOnly = true)
     public RentalBooking getRental(@AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable Long id) {
-        TenantAccess.requireProviderUser(actor);
+        accessGuard.requireOrderRead(actor);
         RentalBooking b = rentalBookingRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "BOOKING", "Booking not found"));
         if (!b.getProvider().getId().equals(actor.getProviderId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not your booking");
+            throw new ApiException(HttpStatus.NOT_FOUND, "BOOKING", "Booking not found");
         }
         return b;
     }
@@ -104,7 +106,7 @@ public class ProviderMeOrdersController {
     @Transactional(readOnly = true)
     public ResponseEntity<byte[]> downloadPurchaseInvoice(
             @AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable Long orderId) {
-        TenantAccess.requireProviderUser(actor);
+        accessGuard.requireOrderRead(actor);
         byte[] body = orderInvoiceService.buildPurchaseInvoicePdf(actor.getProviderId(), orderId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
@@ -119,7 +121,7 @@ public class ProviderMeOrdersController {
     @Transactional(readOnly = true)
     public ResponseEntity<byte[]> downloadRentalInvoice(
             @AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable Long rentalId) {
-        TenantAccess.requireProviderUser(actor);
+        accessGuard.requireOrderRead(actor);
         byte[] body = orderInvoiceService.buildRentalInvoicePdf(actor.getProviderId(), rentalId);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_PDF);
@@ -134,11 +136,11 @@ public class ProviderMeOrdersController {
     @Transactional(readOnly = true)
     public List<OrderItemResponse> getPurchaseItems(
             @AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable Long orderId) {
-        TenantAccess.requireProviderUser(actor);
+        accessGuard.requireOrderRead(actor);
         Order o = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Order not found"));
         if (!o.getProvider().getId().equals(actor.getProviderId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not your order");
+            throw new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Order not found");
         }
         return o.getLines().stream()
                 .map(l -> new OrderItemResponse(
@@ -153,6 +155,7 @@ public class ProviderMeOrdersController {
             @AuthenticationPrincipal MarketUserPrincipal actor,
             @PathVariable Long id,
             @RequestParam("status") OrderStatus status) {
+        accessGuard.requireOrderWrite(actor);
         orderManagementService.updateOrderStatus(actor.getProviderId(), id, status, actor.getUserId());
     }
 
@@ -161,11 +164,13 @@ public class ProviderMeOrdersController {
             @AuthenticationPrincipal MarketUserPrincipal actor,
             @PathVariable Long id,
             @RequestParam("status") BookingStatus status) {
+        accessGuard.requireOrderWrite(actor);
         orderManagementService.updateRentalStatus(actor.getProviderId(), id, status);
     }
 
     @DeleteMapping("/orders/purchases/{id}")
     public void deletePurchase(@AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable Long id) {
+        accessGuard.requireOrderWrite(actor);
         orderManagementService.deleteOrder(actor, id);
     }
 
@@ -173,7 +178,9 @@ public class ProviderMeOrdersController {
     public int deletePurchases(
             @AuthenticationPrincipal MarketUserPrincipal actor,
             @RequestParam(name = "ids", required = false) List<Long> ids) {
+        accessGuard.requireOrderWrite(actor);
         if (ids == null || ids.isEmpty()) {
+            accessGuard.requireProviderManager(actor);
             return orderManagementService.deleteAllProviderPurchases(actor.getProviderId());
         }
         return orderManagementService.deleteProviderPurchases(actor.getProviderId(), ids);
@@ -181,12 +188,14 @@ public class ProviderMeOrdersController {
 
     @DeleteMapping("/orders/rentals")
     public int deleteAllRentals(@AuthenticationPrincipal MarketUserPrincipal actor) {
+        accessGuard.requireOrderWrite(actor);
+        accessGuard.requireProviderManager(actor);
         return orderManagementService.deleteAllProviderRentals(actor.getProviderId());
     }
 
     @DeleteMapping("/orders/rentals/{id}")
     public void deleteRental(@AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable Long id) {
-        TenantAccess.requireProviderUser(actor);
+        accessGuard.requireOrderWrite(actor);
         orderManagementService.deleteRental(actor, id);
     }
 
@@ -198,7 +207,7 @@ public class ProviderMeOrdersController {
     @PutMapping("/listings/update-stock")
     public void updateStock(
             @AuthenticationPrincipal MarketUserPrincipal actor, @Valid @RequestBody List<StockUpdateItem> items) {
-        TenantAccess.requireProviderUser(actor);
+        accessGuard.requireOrderWrite(actor);
         if (items == null) return;
         for (var it : items) {
             if (it == null || it.listingId() == null || it.quantity() == null) continue;
@@ -214,12 +223,12 @@ public class ProviderMeOrdersController {
     @PostMapping("/verify/order/{code}")
     public OrderVerificationResponse verifyPurchaseCode(
             @AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable String code) {
-        TenantAccess.requireProviderUser(actor);
+        accessGuard.requireOrderWrite(actor);
         String normalized = code == null ? "" : code.trim();
         Order o = orderRepository.findByVerificationCode(normalized)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CODE", "Order not found for this code"));
         if (o.getProvider() == null || !o.getProvider().getId().equals(actor.getProviderId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not your order");
+            throw new ApiException(HttpStatus.NOT_FOUND, "ORDER", "Order not found");
         }
         if (o.getStatus() != OrderStatus.PENDING_PAYMENT) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "CODE", "Order is not awaiting payment verification");
@@ -232,12 +241,12 @@ public class ProviderMeOrdersController {
     @PostMapping("/verify/booking/{code}")
     public BookingVerificationResponse verifyBookingCode(
             @AuthenticationPrincipal MarketUserPrincipal actor, @PathVariable String code) {
-        TenantAccess.requireProviderUser(actor);
+        accessGuard.requireOrderWrite(actor);
         String normalized = code == null ? "" : code.trim();
         RentalBooking b = rentalBookingRepository.findByVerificationCode(normalized)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CODE", "Booking not found for this code"));
         if (b.getProvider() == null || !b.getProvider().getId().equals(actor.getProviderId())) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "PROVIDER", "Not your booking");
+            throw new ApiException(HttpStatus.NOT_FOUND, "BOOKING", "Booking not found");
         }
         if (b.getStatus() != BookingStatus.PENDING_PAYMENT) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "CODE", "Booking is not awaiting payment verification");
