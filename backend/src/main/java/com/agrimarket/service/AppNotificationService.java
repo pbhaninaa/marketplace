@@ -17,6 +17,7 @@ import com.agrimarket.repo.AppNotificationRepository;
 import com.agrimarket.repo.ProviderStaffPermissionRepository;
 import com.agrimarket.repo.UserAccountRepository;
 import com.agrimarket.security.MarketUserPrincipal;
+import com.agrimarket.service.live.LiveEvent;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -28,6 +29,7 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -52,6 +54,7 @@ public class AppNotificationService {
     private final SubscriptionService subscriptionService;
     private final EmailService emailService;
     private final SmsService smsService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(readOnly = true)
     public List<AppNotificationResponse> listMine(MarketUserPrincipal actor) {
@@ -105,6 +108,7 @@ public class AppNotificationService {
         if (provider == null) {
             return;
         }
+        live(LiveEvent.ORDER_CREATED, provider.getId());
 
         List<String> purchaseItems = formatPurchaseItems(orders);
         List<String> rentalItems = formatRentalItems(rentals);
@@ -176,6 +180,7 @@ public class AppNotificationService {
         }
         Provider provider = order.getProvider();
         String title = "New order #" + order.getId();
+        live(LiveEvent.ORDER_CREATED, provider.getId());
         String body = "Guest " + nullToEmpty(order.getGuestName()) + " placed an order totaling "
                 + order.getTotalAmount() + ".";
         for (UserAccount u : recipientsForOrders(provider)) {
@@ -206,6 +211,7 @@ public class AppNotificationService {
         if (order == null) {
             return;
         }
+        live(LiveEvent.ORDER_STATUS, providerIdOf(order.getProvider()));
         String status = order.getStatus() == null ? "" : order.getStatus().name();
         String title = "Order #" + order.getId() + " update";
         String body = "Your order is now " + status + ".";
@@ -250,6 +256,7 @@ public class AppNotificationService {
         if (order == null) {
             return;
         }
+        live(LiveEvent.ORDER_STATUS, providerIdOf(order.getProvider()));
         String title = "Order #" + order.getId() + " cancelled";
         String body = "Your order has been cancelled.";
         deliverClient(
@@ -282,6 +289,7 @@ public class AppNotificationService {
         if (rental == null) {
             return;
         }
+        live(LiveEvent.RENTAL_STATUS, providerIdOf(rental.getProvider()));
         String status = rental.getStatus() == null ? "" : rental.getStatus().name();
         String title = "Booking #" + rental.getId() + " update";
         String body = "Your rental booking is now " + status + ".";
@@ -321,6 +329,7 @@ public class AppNotificationService {
 
     @Transactional
     public void notifySubscriptionProofPending(Long providerId, String providerName) {
+        live(LiveEvent.SUBSCRIPTION, providerId);
         String title = "Subscription proof pending";
         String body = "Provider " + (providerName != null ? providerName : ("#" + providerId))
                 + " uploaded a subscription payment proof.";
@@ -351,6 +360,7 @@ public class AppNotificationService {
         if (provider == null) {
             return;
         }
+        live(LiveEvent.SUBSCRIPTION, provider.getId());
         String title = approved ? "Subscription approved" : "Subscription proof rejected";
         String body = approved
                 ? "Your subscription payment proof was approved."
@@ -398,6 +408,19 @@ public class AppNotificationService {
     @Transactional
     public void notifyOrderStatusByGuestEmail(Order order, String statusLabel) {
         notifyOrderStatus(order);
+    }
+
+    /** Signals open dashboards (after commit) that data for this provider changed. */
+    public void live(String type, Long providerId) {
+        try {
+            eventPublisher.publishEvent(LiveEvent.of(type, providerId));
+        } catch (Exception e) {
+            log.debug("Live update not published: {}", e.getMessage());
+        }
+    }
+
+    private static Long providerIdOf(Provider provider) {
+        return provider == null ? null : provider.getId();
     }
 
     private void deliverClient(

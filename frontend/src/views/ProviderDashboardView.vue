@@ -5,6 +5,8 @@ import { providerDashboardApi, providerSubscriptionApi } from '../services/marke
 import { useAuthStore } from '../stores/auth';
 import DateRangeFilter from '../components/ui/DateRangeFilter.vue';
 import { formatCount, formatDateRange, formatEnum, formatMoney } from '../utils/display';
+import LiveStatus from '../components/LiveStatus.vue';
+import { useLiveRefresh } from '../composables/useLiveRefresh';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -60,30 +62,34 @@ function computeQuery() {
   return { from: range.value.from, to: range.value.to };
 }
 
-async function loadStats() {
-  loading.value = true;
-  error.value = '';
+async function loadStats({ quiet = false } = {}) {
+  if (!quiet) {
+    loading.value = true;
+    error.value = '';
+  }
   try {
     const q = computeQuery();
     const params = q ? { params: q } : undefined;
     const { data } = await providerDashboardApi.stats(params);
     stats.value = data;
+    error.value = '';
   } catch (e) {
+    if (quiet) throw e; // background refresh: keep the numbers on screen
     error.value = e.response?.data?.message || e.message;
   } finally {
-    loading.value = false;
+    if (!quiet) loading.value = false;
   }
 }
 
-async function loadSubscription() {
-  subLoading.value = true;
+async function loadSubscription({ quiet = false } = {}) {
+  if (!quiet) subLoading.value = true;
   try {
     const { data } = await providerSubscriptionApi.status();
     subscription.value = data;
   } catch {
-    subscription.value = null;
+    if (!quiet) subscription.value = null;
   } finally {
-    subLoading.value = false;
+    if (!quiet) subLoading.value = false;
   }
 }
 
@@ -92,6 +98,11 @@ const kpi = (formatted) => {
   if (stats.value) return formatted;
   return loading.value ? 'Loading…' : 'Unavailable';
 };
+
+// Live: reload on this provider's order / payment / subscription pushes, tab re-focus, and every 60s.
+const { refreshNow, lastUpdated, refreshing } = useLiveRefresh(() =>
+  Promise.all([loadStats({ quiet: true }), loadSubscription({ quiet: true })]),
+);
 
 const subProgress = computed(() => {
   if (subscription.value?.valid === true) return 100;
@@ -117,6 +128,11 @@ watch(
       <h1 class="page-hero__title">Dashboard</h1>
       <p class="page-hero__lead">Insights, subscription status, and quick access to your provider tools.</p>
     </header>
+
+    <div class="dash-live">
+      <LiveStatus :updated-at="lastUpdated" :refreshing="refreshing || loading" @refresh="refreshNow" />
+      <router-link to="/provider/history" class="btn btn-ghost btn-xs">Order &amp; payment history</router-link>
+    </div>
 
     <p v-if="error" class="err-toast">{{ error }}</p>
 
@@ -222,6 +238,15 @@ watch(
 </template>
 
 <style scoped>
+.dash-live {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
 
 .dash-top {
   width: 100%;

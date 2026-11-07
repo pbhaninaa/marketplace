@@ -1,11 +1,12 @@
 <script setup>
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { publicClientOtpApi } from '../services/marketplaceApi';
 import FormField from '../components/ui/FormField.vue';
 import { emailOrPhoneError } from '../utils/validation';
 import { apiErrorMessage } from '../utils/apiError';
 
+const route = useRoute();
 const router = useRouter();
 const target = ref('');
 const error = ref('');
@@ -20,7 +21,10 @@ async function submit() {
   try {
     await publicClientOtpApi.request({ target: target.value.trim() });
     done.value = true;
-    router.push({ path: '/client/verify', query: { target: target.value.trim() } });
+    router.push({
+      path: '/client/verify',
+      query: { target: target.value.trim(), ...(route.query.redirect ? { redirect: route.query.redirect } : {}) },
+    });
   } catch (e) {
     error.value = apiErrorMessage(e, 'Something went wrong. Please try again.');
   }

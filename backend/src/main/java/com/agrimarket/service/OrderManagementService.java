@@ -21,6 +21,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.agrimarket.service.live.LiveEvent;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -227,6 +228,7 @@ public class OrderManagementService {
         // Delete related payment records first to avoid foreign key constraint violations
         paymentRecordRepository.deleteByOrder_Id(orderId);
         OrderRepository.delete(order);
+        appNotificationService.live(LiveEvent.ORDER_DELETED, user.getProviderId());
     }
 
     @Transactional
@@ -250,6 +252,9 @@ public class OrderManagementService {
         }
 
         OrderRepository.deleteAll(ordersToDelete);
+        if (!ordersToDelete.isEmpty()) {
+            appNotificationService.live(LiveEvent.ORDER_DELETED, providerId);
+        }
         return ordersToDelete.size();
     }
 
@@ -289,6 +294,9 @@ public class OrderManagementService {
             deletedCount++;
         }
 
+        if (deletedCount > 0) {
+            appNotificationService.live(LiveEvent.ORDER_DELETED, providerId);
+        }
         return deletedCount;
     }
 
@@ -303,6 +311,9 @@ public class OrderManagementService {
             paymentRecordRepository.deleteByRentalBooking_Id(b.getId());
         }
         rentalBookingRepository.deleteAll(bookingsToDelete);
+        if (!bookingsToDelete.isEmpty()) {
+            appNotificationService.live(LiveEvent.ORDER_DELETED, providerId);
+        }
         return bookingsToDelete.size();
     }
 
@@ -326,6 +337,7 @@ public class OrderManagementService {
 
         paymentRecordRepository.deleteByRentalBooking_Id(rentalId);
         rentalBookingRepository.delete(rental);
+        appNotificationService.live(LiveEvent.ORDER_DELETED, user.getProviderId());
     }
 
     private void markPurchasePaymentCompleted(Order order) {

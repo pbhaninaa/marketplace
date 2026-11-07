@@ -8,6 +8,8 @@ import DataTableShell from '../components/ui/DataTableShell.vue';
 import FormField from '../components/ui/FormField.vue';
 import TextWithTooltip from '../components/ui/TextWithTooltip.vue';
 import { formatDateTime } from '../utils/display';
+import LiveStatus from '../components/LiveStatus.vue';
+import { useLiveRefresh } from '../composables/useLiveRefresh';
 const router = useRouter();
 const auth = useAuthStore();
 
@@ -78,9 +80,11 @@ onMounted(async () => {
 });
 
 /* ================= LOAD ================= */
-async function load() {
-  loading.value = true;
-  error.value = '';
+async function load({ quiet = false } = {}) {
+  if (!quiet) {
+    loading.value = true;
+    error.value = '';
+  }
 
   try {
     const [p, r] = await Promise.all([
@@ -90,12 +94,17 @@ async function load() {
 
     purchases.value = p.data;
     rentals.value = r.data;
+    error.value = '';
   } catch (e) {
+    if (quiet) throw e; // background refresh: keep the list on screen
     error.value = e.response?.data?.message || e.message;
   } finally {
-    loading.value = false;
+    if (!quiet) loading.value = false;
   }
 }
+
+// Live: new orders / payments / status changes appear without reloading the page.
+const { refreshNow, lastUpdated, refreshing } = useLiveRefresh(() => load({ quiet: true }));
 
 /* ================= ACTIONS ================= */
 async function openDetails(order) {
@@ -305,6 +314,11 @@ function displayText(value) {
         View guest purchases and rental bookings for your listings.
       </p>
     </header>
+
+    <div class="orders-live">
+      <LiveStatus :updated-at="lastUpdated" :refreshing="refreshing" @refresh="refreshNow" />
+      <router-link to="/provider/history" class="btn btn-ghost btn-xs">Full history &amp; reports</router-link>
+    </div>
 
     <p v-if="error" class="err-toast">{{ error }}</p>
     <p v-if="loading" class="muted loading-line">Loading…</p>
@@ -637,6 +651,15 @@ function displayText(value) {
 </template>
 
 <style scoped>
+.orders-live {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
 /* KEEP YOUR PILLS */
 .tabs {
   display: inline-flex;

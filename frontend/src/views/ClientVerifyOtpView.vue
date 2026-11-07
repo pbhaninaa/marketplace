@@ -39,7 +39,8 @@ async function submit() {
       providerId: null,
     });
     done.value = true;
-    router.push('/');
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '';
+    router.push(redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/');
   } catch (e) {
     error.value = apiErrorMessage(e, 'Something went wrong. Please try again.');
   }

@@ -11,6 +11,7 @@ import DialogModal from './components/ui/DialogModal.vue';
 import NotificationBell from './components/NotificationBell.vue';
 import DisplayStyleToggle from './components/ui/DisplayStyleToggle.vue';
 import { refreshProviderSubscription } from './utils/providerSubscriptionGate';
+import { createLiveStream } from './services/liveStream';
 
 const route = useRoute();
 const session = useSessionStore();
@@ -21,6 +22,20 @@ const theme = useThemeStore();
 const { dialogState } = useDialog();
 
 const menuOpen = ref(false);
+
+// One live-updates stream per tab for staff accounts; pages listen via utils/liveUpdates.
+const liveStream = createLiveStream({ getToken: () => auth.token });
+const wantsLiveUpdates = computed(
+  () => auth.isAuthenticated && (auth.isPlatformAdmin || auth.isSupport || auth.isProviderUser),
+);
+watch(
+  [wantsLiveUpdates, () => auth.token],
+  ([want]) => {
+    liveStream.stop();
+    if (want) liveStream.start();
+  },
+  { immediate: true },
+);
 
 const closeMenu = () => {
   menuOpen.value = false;
@@ -170,6 +185,7 @@ onMounted(async () => {
             Cart
             <span class="side-badge">{{ cart.totalQuantity }}</span>
           </router-link>
+          <router-link to="/my-orders">My orders</router-link>
           <router-link to="/order-invoice">Order invoice</router-link>
           <router-link to="/settings">Settings</router-link>
           <router-link v-if="setup.needsFirstAdmin === true" to="/setup">Setup</router-link>
@@ -182,6 +198,7 @@ onMounted(async () => {
             <router-link to="/provider">Dashboard</router-link>
             <router-link to="/provider/listings">Listings</router-link>
             <router-link to="/provider/orders">Orders</router-link>
+            <router-link to="/provider/history">Order &amp; payment history</router-link>
             <router-link
               v-if="auth.canManageStaff && auth.isPremiumPlan"
               to="/provider/team"
@@ -207,6 +224,7 @@ onMounted(async () => {
         <template v-else-if="auth.isClientUser">
           <p class="side-nav__section">Customer</p>
           <router-link to="/">Browse</router-link>
+          <router-link to="/my-orders">My orders &amp; payments</router-link>
           <router-link v-if="cart.totalQuantity > 0" to="/checkout">
             Cart
             <span class="side-badge">{{ cart.totalQuantity }}</span>
@@ -230,6 +248,7 @@ onMounted(async () => {
         <template v-else-if="auth.isPlatformAdmin">
           <p class="side-nav__section">Admin</p>
           <router-link to="/admin">Dashboard</router-link>
+          <router-link to="/admin/history">Orders &amp; payments</router-link>
           <router-link to="/admin/providers">Providers</router-link>
           <router-link to="/admin/listings">Listings</router-link>
           <router-link to="/admin/users">Users</router-link>

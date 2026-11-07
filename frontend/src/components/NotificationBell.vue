@@ -5,6 +5,7 @@ import { notificationsApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import { resolveNotificationFallback } from '../utils/notificationNavigation';
 import { getNotificationPresentation, truncateNotificationText } from '../utils/notificationPresentation';
+import { onLiveUpdate } from '../utils/liveUpdates';
 
 const auth = useAuthStore();
 const router = useRouter();
@@ -14,6 +15,7 @@ const items = ref([]);
 const unread = ref(0);
 const selected = ref(null);
 let timer = null;
+let stopLive = null;
 
 function resolvedPath(notification) {
   return String(notification?.linkPath || '').trim() || resolveNotificationFallback(notification, auth);
@@ -113,11 +115,14 @@ function onDocClick(e) {
 onMounted(() => {
   refresh();
   timer = setInterval(refresh, 45000);
+  // A server push usually comes with a new notification: refresh the badge right away.
+  stopLive = onLiveUpdate(() => refresh());
   document.addEventListener('click', onDocClick);
 });
 
 onUnmounted(() => {
   if (timer) clearInterval(timer);
+  stopLive?.();
   document.removeEventListener('click', onDocClick);
 });
 

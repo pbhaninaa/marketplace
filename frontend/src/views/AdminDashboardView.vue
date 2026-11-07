@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router';
 import { adminDashboardApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import { formatCount, formatDateRange, formatMoney } from '../utils/display';
+import { useLiveRefresh } from '../composables/useLiveRefresh';
+import LiveStatus from '../components/LiveStatus.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -27,23 +29,30 @@ onMounted(() => {
   load();
 });
 
-async function load() {
-  loading.value = true;
-  error.value = '';
+async function load({ quiet = false } = {}) {
+  if (!quiet) {
+    loading.value = true;
+    error.value = '';
+  }
   try {
     const { data } = await adminDashboardApi.stats();
     stats.value = data;
   } catch (e) {
+    // Background refresh: keep the numbers on screen.
+    if (quiet) throw e;
     stats.value = null;
     error.value = e.response?.data?.message || 'Could not load platform stats. Try Refresh.';
   } finally {
-    loading.value = false;
+    if (!quiet) loading.value = false;
   }
 }
 
 const rangeLabel = computed(() =>
   stats.value ? formatDateRange(stats.value.from, stats.value.to) : 'Last 30 days',
 );
+
+// Live: reload on server pushes (orders, payments, subscriptions), tab re-focus, and every 60s.
+const { refreshNow, lastUpdated, refreshing } = useLiveRefresh(() => load({ quiet: true }));
 
 const activityScore = computed(() => {
   // Field names match AdminDashboardStatsResponse (note the capital "O" in OrdersCount).
@@ -65,9 +74,7 @@ const activityScore = computed(() => {
     <section class="surface-panel admin-panel admin-panel--wide">
       <div class="panel-head">
         <h2>Platform progress</h2>
-        <button type="button" class="btn btn-ghost" :disabled="loading" @click="load">
-          {{ loading ? 'Refreshing…' : 'Refresh' }}
-        </button>
+        <LiveStatus :updated-at="lastUpdated" :refreshing="refreshing || loading" @refresh="refreshNow" />
       </div>
 
       <p class="muted small range-note">{{ rangeLabel }}</p>
@@ -110,6 +117,10 @@ const activityScore = computed(() => {
     <section class="surface-panel admin-panel admin-panel--wide">
       <h2>Admin tools</h2>
       <div class="tools-grid">
+        <router-link to="/admin/history" class="tool-card">
+          <strong>Orders &amp; payments</strong>
+          <span class="muted small">Filter every order and payment, export CSV / Excel</span>
+        </router-link>
         <router-link to="/admin/settings" class="tool-card">
           <strong>Settings</strong>
           <span class="muted small">Name, pricing, and usage fees</span>
