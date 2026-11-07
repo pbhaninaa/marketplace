@@ -1,0 +1,56 @@
+# MarketPlace Vue SPA -> Azure Static Web Apps on push to Azure.
+# Secret: AZURE_STATIC_WEB_APPS_API_TOKEN. Repo variable: VITE_API_BASE (API origin only, no /api).
+# Routing fallback + security headers: frontend/public/staticwebapp.config.json.
+name: Azure Web — Static Web Apps
+
+on:
+  push:
+    branches: [Azure]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/azure-web-staticwebapp.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: azure-web-staticwebapp
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build_and_deploy:
+    name: Test, build and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install, test and build
+        working-directory: frontend
+        env:
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+          VITE_APP_ENV: PROD
+        run: |
+          if [ -z "$VITE_API_BASE" ]; then
+            echo "::error::Set repository variable VITE_API_BASE to the API origin (e.g. https://marketplace-api.azurewebsites.net)."
+            exit 1
+          fi
+          npm ci
+          npm run test:run
+          npm run build:prod
+
+      - name: Deploy to Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: frontend/dist
+          skip_app_build: true
+          skip_api_build: true

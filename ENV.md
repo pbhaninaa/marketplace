@@ -115,6 +115,18 @@ Same as UAT except:
 | CORS | `UAT_CORS_ORIGINS` | `PROD_CORS_ORIGINS` |
 | Payments label | `UAT_PAYMENT_PROVIDER` | `PROD_PAYMENT_PROVIDER` |
 
+### Cloud profiles — AWS / Azure
+
+| Profile | Where | Notes |
+|---------|-------|-------|
+| `aws` | App Runner / Elastic Beanstalk / ECS | Group activates **prod** — same variables as PROD. See `docs/aws/DEPLOY.md` |
+| `azure` | App Service / Container Apps | Group activates **prod** — same variables as PROD. See `docs/azure/DEPLOY.md` |
+
+Set `SPRING_PROFILES_ACTIVE=aws` (or `azure`). `DeployedProfileValidator` treats both like PROD, so
+`APP_JWT_SECRET`, `PROD_CORS_ORIGINS`, `PUBLIC_APP_BASE_URL` and SendGrid must be set. Point
+`SPRING_DATASOURCE_URL` at RDS / Azure Database for MySQL (`jdbc:mysql://...?useSSL=true`).
+Health check path: `/actuator/health` (liveness only: `/actuator/health/liveness`).
+
 ---
 
 ## Frontend — UAT / PROD

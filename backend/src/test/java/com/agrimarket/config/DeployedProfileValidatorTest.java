@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.assertThatNoException;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.env.MockEnvironment;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -49,6 +51,37 @@ class DeployedProfileValidatorTest {
         assertThatIllegalStateException()
                 .isThrownBy(() -> validator(email, peach).validate())
                 .withMessageContaining("PEACH_ENABLED=true requires");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"aws", "azure"})
+    void cloudProfilesAreValidatedLikeProd(String profile) {
+        EmailProperties email = enabledEmail();
+        email.setDomain("mail.example.com");
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("app.jwt.secret", "too-short")
+                .withProperty("PROD_CORS_ORIGINS", "https://app.example.com")
+                .withProperty("PUBLIC_APP_BASE_URL", "https://app.example.com");
+        environment.setActiveProfiles(profile);
+        DeployedProfileValidator validator =
+                new DeployedProfileValidator(environment, email, new PeachProperties());
+
+        assertThatIllegalStateException()
+                .isThrownBy(validator::validate)
+                .withMessageContaining("APP_JWT_SECRET");
+
+        environment.setProperty("app.jwt.secret", "a-secure-test-secret-that-is-over-32-characters");
+        assertThatNoException().isThrownBy(validator::validate);
+    }
+
+    @Test
+    void localProfileIsNotValidated() {
+        MockEnvironment environment = new MockEnvironment();
+        environment.setActiveProfiles("local");
+        assertThatNoException()
+                .isThrownBy(() -> new DeployedProfileValidator(
+                                environment, enabledEmail(), new PeachProperties())
+                        .validate());
     }
 
     private static EmailProperties enabledEmail() {

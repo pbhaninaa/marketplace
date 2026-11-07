@@ -120,6 +120,16 @@ TLS: put Caddy, nginx, or a cloud load balancer in front of port 80.
 
 ---
 
+## Option C — AWS or Azure
+
+Push to branch **`AWS`** or **`Azure`** (or run the workflows manually). Each workflow runs the
+backend/frontend tests before deploying.
+
+- **AWS** — Amplify (web, `amplify.yml`), App Runner via ECR or Elastic Beanstalk (API). See [`docs/aws/DEPLOY.md`](docs/aws/DEPLOY.md).
+- **Azure** — Static Web Apps (web), App Service JAR or Container Apps (API). See [`docs/azure/DEPLOY.md`](docs/azure/DEPLOY.md).
+
+---
+
 ## Tests before promote
 
 ```bash
