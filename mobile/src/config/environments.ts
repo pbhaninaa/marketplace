@@ -13,8 +13,8 @@ export type EnvironmentEndpoints = {
  * Set these to your deployed Vercel frontend + Railway backend.
  * UAT/PROD APKs load the hosted web app (same UX as mobile browser).
  */
-const HOSTED_WEB_APP_URL = 'https://YOUR-MARKETPLACE-FRONTEND.vercel.app';
-const HOSTED_API_BASE_URL = 'https://YOUR-MARKETPLACE-BACKEND.up.railway.app';
+const HOSTED_WEB_APP_URL = 'https://marketplace.sphilagroup.com';
+const HOSTED_API_BASE_URL = 'https://marketplace-production-129b.up.railway.app';
 
 const UAT_WEB_APP_URL = HOSTED_WEB_APP_URL;
 const UAT_API_BASE_URL = HOSTED_API_BASE_URL;

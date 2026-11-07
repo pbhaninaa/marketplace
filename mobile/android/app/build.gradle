@@ -138,7 +138,7 @@ android.applicationVariants.configureEach { variant ->
         def flavor = variant.flavorName ?: "prod"
         def buildType = variant.buildType.name
         def buildTime = new java.text.SimpleDateFormat("yyyyMMdd-HHmm").format(new Date())
-        def label = flavor == "prod" ? "ServiceHub" : "ServiceHub-${flavor.toUpperCase()}"
+        def label = flavor == "prod" ? "agrimarketplace" : "agrimarketplace-${flavor.toUpperCase()}"
         output.outputFileName = "${label}-${buildTime}-${buildType}.apk"
     }
 }
