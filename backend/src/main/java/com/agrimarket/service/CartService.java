@@ -19,9 +19,13 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import com.agrimarket.domain.Provider;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -60,14 +64,7 @@ public class CartService {
                     "This item is no longer available. Please choose another listing.");
         }
 
-        Long listingProviderId = listing.getProvider().getId();
-        if (cart.getProvider() != null && !cart.getProvider().getId().equals(listingProviderId)) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "PROVIDER_LOCK",
-                    "Cart is locked to another provider. Complete or clear the cart first.");
-        }
-
+        // A cart can hold items from several sellers; each seller is checked out separately.
         if (listing.getListingType() == ListingType.RENT) {
             if (req.rentalStart() == null || req.rentalEnd() == null) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "RENTAL_DATES_REQUIRED", "Rental start and end required");
@@ -90,10 +87,6 @@ public class CartService {
             if (avail != Integer.MAX_VALUE && avail < req.quantity()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "INSUFFICIENT_STOCK", "Not enough stock");
             }
-        }
-
-        if (cart.getProvider() == null) {
-            cart.setProvider(listing.getProvider());
         }
 
         // Check if item already exists in cart
@@ -180,7 +173,8 @@ public class CartService {
                         null,
                         null,
                         List.of(),
-                        BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP)));
+                        BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP),
+                        List.of()));
     }
 
     @Transactional
@@ -289,8 +283,17 @@ public class CartService {
     private CartResponse buildResponse(CartSession cart) {
         BigDecimal total = BigDecimal.ZERO;
         List<CartResponse.CartLineResponse> rows = new ArrayList<>();
-        for (CartLine line : cart.getLines()) {
+        // Seller groups in the order their first item was added (stable as the cart changes).
+        Map<Long, Provider> sellers = new LinkedHashMap<>();
+        Map<Long, List<Long>> lineIdsBySeller = new LinkedHashMap<>();
+        Map<Long, Integer> itemsBySeller = new LinkedHashMap<>();
+        Map<Long, BigDecimal> subtotalBySeller = new LinkedHashMap<>();
+
+        List<CartLine> ordered = new ArrayList<>(cart.getLines());
+        ordered.sort(Comparator.comparing(CartLine::getId, Comparator.nullsLast(Comparator.naturalOrder())));
+        for (CartLine line : ordered) {
             Listing l = line.getListing();
+            Provider p = l.getProvider();
             BigDecimal lineTotal;
             if (l.getListingType() == ListingType.SALE) {
                 lineTotal = l.getUnitPrice().multiply(BigDecimal.valueOf(line.getQuantity()));
@@ -309,43 +312,63 @@ public class CartService {
                     line.getRentalEnd() != null ? line.getRentalEnd().toString() : null,
                     (l.getListingType() == ListingType.SALE)
                             ? (l.getStockQuantity() != null ? ListingStock.availableForSale(l) : null)
-                            : l.getStockQuantity()));
+                            : l.getStockQuantity(),
+                    p.getId(),
+                    p.getName()));
+            sellers.putIfAbsent(p.getId(), p);
+            lineIdsBySeller.computeIfAbsent(p.getId(), k -> new ArrayList<>()).add(line.getId());
+            itemsBySeller.merge(p.getId(), l.getListingType() == ListingType.SALE ? line.getQuantity() : 1, Integer::sum);
+            subtotalBySeller.merge(p.getId(), lineTotal, BigDecimal::add);
         }
-        Long pid = cart.getProvider() != null ? cart.getProvider().getId() : null;
-        String pname = cart.getProvider() != null ? cart.getProvider().getName() : null;
-        String plocation = cart.getProvider() != null ? cart.getProvider().getLocation() : null;
-        String bankName = cart.getProvider() != null ? cart.getProvider().getBankName() : null;
-        String bankAccName = cart.getProvider() != null ? cart.getProvider().getBankAccountName() : null;
-        String bankAccNo = cart.getProvider() != null ? cart.getProvider().getBankAccountNumber() : null;
-        String bankBranch = cart.getProvider() != null ? cart.getProvider().getBankBranchCode() : null;
-        String bankRef = cart.getProvider() != null ? cart.getProvider().getBankReference() : null;
-        Set<PaymentMethod> accepted = PaymentMethod.defaultAccepted();
-        if (cart.getProvider() != null) {
-            accepted = PaymentMethod.normalizeAccepted(cart.getProvider().getAcceptedPaymentMethods());
-            // Do not advertise Peach at checkout when the platform merchant account is offline.
-            if (!peachPaymentService.isConfigured()) {
-                EnumSet<PaymentMethod> withoutPeach = EnumSet.copyOf(accepted);
-                withoutPeach.remove(PaymentMethod.PEACH);
-                accepted = withoutPeach;
-            }
+
+        List<CartResponse.SellerGroup> groups = new ArrayList<>();
+        for (Provider p : sellers.values()) {
+            groups.add(new CartResponse.SellerGroup(
+                    p.getId(),
+                    p.getName(),
+                    p.getLocation(),
+                    p.getBankName(),
+                    p.getBankAccountName(),
+                    p.getBankAccountNumber(),
+                    p.getBankBranchCode(),
+                    p.getBankReference(),
+                    acceptedAtCheckout(p),
+                    p.isDeliveryAvailable(),
+                    p.getDeliveryPricePerKm(),
+                    lineIdsBySeller.get(p.getId()),
+                    itemsBySeller.get(p.getId()),
+                    subtotalBySeller.get(p.getId()).setScale(2, RoundingMode.HALF_UP)));
         }
-        Boolean deliveryAvailable = cart.getProvider() != null ? cart.getProvider().isDeliveryAvailable() : null;
-        BigDecimal deliveryPricePerKm = cart.getProvider() != null ? cart.getProvider().getDeliveryPricePerKm() : null;
+
+        // Older clients: describe the seller only when there is exactly one.
+        CartResponse.SellerGroup only = groups.size() == 1 ? groups.get(0) : null;
         return new CartResponse(
                 cart.getSessionKey(),
-                pid,
-                pname,
-                plocation,
-                bankName,
-                bankAccName,
-                bankAccNo,
-                bankBranch,
-                bankRef,
-                accepted,
-                deliveryAvailable,
-                deliveryPricePerKm,
+                only != null ? only.providerId() : null,
+                only != null ? only.providerName() : null,
+                only != null ? only.providerLocation() : null,
+                only != null ? only.bankName() : null,
+                only != null ? only.bankAccountName() : null,
+                only != null ? only.bankAccountNumber() : null,
+                only != null ? only.bankBranchCode() : null,
+                only != null ? only.bankReference() : null,
+                only != null ? only.acceptedPaymentMethods() : PaymentMethod.defaultAccepted(),
+                only != null ? only.deliveryAvailable() : null,
+                only != null ? only.deliveryPricePerKm() : null,
                 rows,
-                total.setScale(2, RoundingMode.HALF_UP));
+                total.setScale(2, RoundingMode.HALF_UP),
+                groups);
+    }
+
+    /** The seller's accepted methods, minus Peach when the platform merchant account is offline. */
+    private Set<PaymentMethod> acceptedAtCheckout(Provider p) {
+        Set<PaymentMethod> accepted = PaymentMethod.normalizeAccepted(p.getAcceptedPaymentMethods());
+        if (!peachPaymentService.isConfigured() && accepted.contains(PaymentMethod.PEACH)) {
+            EnumSet<PaymentMethod> withoutPeach = EnumSet.copyOf(accepted);
+            withoutPeach.remove(PaymentMethod.PEACH);
+            return withoutPeach;
+        }
+        return accepted;
     }
 
     /**

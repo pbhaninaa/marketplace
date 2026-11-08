@@ -39,7 +39,6 @@ const listingPageSize = computed(() =>
 const filters = ref(emptyMarketplaceFilters());
 
 const rentDefaults = ref({});
-const clearingCart = ref(false);
 
 function toDateInput(d) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -161,15 +160,6 @@ function prevPage() {
   }
 }
 
-async function cancelLockedCart() {
-  clearingCart.value = true;
-  cart.lastError = null;
-  try {
-    await cart.clearCart();
-  } finally {
-    clearingCart.value = false;
-  }
-}
 
 async function addToCart(listing, qty = 1) {
   cart.lastError = null;
@@ -205,19 +195,6 @@ onMounted(async () => {
 
 <template>
   <div class="market-layout">
-    <div v-if="cart.isLocked" class="banner-lock">
-      <div class="banner-lock__inner">
-        <p class="banner-lock__text">
-          You are currently purchasing from <strong>{{ cart.lockedProviderName }}</strong>. Complete or cancel this
-          transaction before selecting items from another provider.
-        </p>
-        <button type="button" class="btn btn-ghost banner-lock__cancel" :disabled="clearingCart"
-          @click="cancelLockedCart">
-          {{ clearingCart ? 'Clearing…' : 'Cancel & clear cart' }}
-        </button>
-      </div>
-    </div>
-
     <div class="market-body" :class="{ 'market-body--no-sidebar': !hasSidebar }">
       <div
         v-if="showMobileFilters"
@@ -249,8 +226,8 @@ onMounted(async () => {
           <p class="feed-hero__eyebrow">Livestock · vehicles · equipment</p>
           <h1 class="feed-hero__title">Marketplace</h1>
           <p class="feed-hero__lead">
-            Buy and rent from verified providers. Your cart stays with one supplier per checkout, simple for guests,
-            clear for business.
+            Buy and rent from verified providers. Add items from as many sellers as you like; your cart keeps each
+            seller's items together so you can pay each one separately.
           </p>
           <div v-if="entryListingType" class="mode-toggle">
             <button type="button" class="mode-btn" :class="{ active: entryListingType === 'SALE' }"

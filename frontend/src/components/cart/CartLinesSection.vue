@@ -7,6 +7,10 @@ import CartLineCard from './CartLineCard.vue';
 defineProps({
   lines: { type: Array, default: () => [] },
   estimatedTotal: { type: [String, Number], default: '0.00' },
+  /** Per-seller use: "Subtotal", "Checkout Green Acres", and no clear button (the page has one). */
+  totalLabel: { type: String, default: 'Estimated total' },
+  checkoutLabel: { type: String, default: 'Proceed to Checkout' },
+  showClear: { type: Boolean, default: true },
   emptyMessage: { type: String, default: 'Cart is empty.' },
 });
 
@@ -47,11 +51,12 @@ defineEmits(['clear', 'update-quantity', 'remove-line', 'show-limit-warning', 't
       </ResponsiveRecordShell>
 
       <div class="cart-total">
-        Estimated total: <strong>R {{ estimatedTotal }}</strong>
+        {{ totalLabel }}: <strong>R {{ estimatedTotal }}</strong>
       </div>
 
       <div class="cart-actions">
         <button
+          v-if="showClear"
           type="button"
           class="btn btn-ghost clear-btn"
           @click="$emit('clear')"
@@ -60,12 +65,12 @@ defineEmits(['clear', 'update-quantity', 'remove-line', 'show-limit-warning', 't
           Clear cart
         </button>
         <button
-  type="button"
-  class="btn btn-primary checkout-btn"
-  @click="$emit('toggle-checkout', true)"
->
-  Proceed to Checkout
-</button>
+          type="button"
+          class="btn btn-primary checkout-btn"
+          @click="$emit('toggle-checkout', true)"
+        >
+          {{ checkoutLabel }}
+        </button>
       </div>
       
     </template>

@@ -15,6 +15,7 @@ import com.agrimarket.domain.PaymentStatus;
 import com.agrimarket.domain.Order;
 import com.agrimarket.domain.PaymentMethod;
 import com.agrimarket.domain.PeachPaymentMethod;
+import com.agrimarket.domain.Provider;
 import com.agrimarket.domain.RentalBooking;
 import com.agrimarket.repo.CartSessionRepository;
 import com.agrimarket.repo.ListingRepository;
@@ -59,9 +60,34 @@ public class CheckoutService {
         String guestEmail = req.guestEmail() == null ? null : req.guestEmail().trim();
         String guestPhone = InputValidator.normalizePhoneOrKeep(req.guestPhone());
         CartSession cart = cartService.requireCartWithLines(sessionKey);
-        Long providerId = cart.getProvider().getId();
 
-        if (cart.getProvider().getStatus() != ProviderStatus.ACTIVE) {
+        // A cart may hold several sellers; each is checked out on its own (payment methods, delivery and
+        // bank details are per seller). The other sellers' items stay in the cart.
+        Map<Long, Provider> sellersInCart = new LinkedHashMap<>();
+        for (CartLine line : cart.getLines()) {
+            Provider p = line.getListing().getProvider();
+            sellersInCart.putIfAbsent(p.getId(), p);
+        }
+        Long providerId = req.providerId();
+        if (providerId == null) {
+            if (sellersInCart.size() > 1) {
+                throw new ApiException(
+                        HttpStatus.BAD_REQUEST,
+                        "CHOOSE_SELLER",
+                        "Your cart has items from more than one seller. Choose which seller to check out first.");
+            }
+            providerId = sellersInCart.keySet().iterator().next();
+        }
+        Provider seller = sellersInCart.get(providerId);
+        if (seller == null) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "SELLER_NOT_IN_CART",
+                    "There are no items from that seller in your cart.");
+        }
+        final Long sellerId = providerId;
+
+        if (seller.getStatus() != ProviderStatus.ACTIVE) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "PROVIDER_INACTIVE", "Provider is not active");
         }
         if (!subscriptionService.hasActiveSubscription(providerId)) {
@@ -72,7 +98,7 @@ public class CheckoutService {
         }
 
         Set<PaymentMethod> accepted =
-                PaymentMethod.normalizeAccepted(cart.getProvider().getAcceptedPaymentMethods());
+                PaymentMethod.normalizeAccepted(seller.getAcceptedPaymentMethods());
         PaymentMethod chosen = req.paymentMethod();
         if (chosen == null || !chosen.isCheckoutSelectable() || !accepted.contains(chosen)) {
             throw new ApiException(
@@ -90,7 +116,7 @@ public class CheckoutService {
                     "peachPaymentMethod is only valid when paymentMethod is PEACH.");
         }
         if (chosen == PaymentMethod.EFT) {
-            String acc = cart.getProvider().getBankAccountNumber();
+            String acc = seller.getBankAccountNumber();
             if (acc == null || acc.isBlank()) {
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
@@ -112,7 +138,10 @@ public class CheckoutService {
                     "Online payments are not available right now. Choose Cash or Manual EFT.");
         }
 
-        List<CartLine> lines = new ArrayList<>(cart.getLines());
+        // Only this seller's lines; the rest of the cart is left untouched.
+        List<CartLine> lines = cart.getLines().stream()
+                .filter(line -> line.getListing().getProvider().getId().equals(sellerId))
+                .toList();
         List<Listing> lockedListings = new ArrayList<>();
 
         // Lock listings in consistent order (by ID) to prevent deadlocks
@@ -128,9 +157,6 @@ public class CheckoutService {
                     .orElseThrow(
                             () -> new ApiException(HttpStatus.BAD_REQUEST, "LISTING_MISSING", "Listing not found"));
 
-            if (!listing.getProvider().getId().equals(providerId)) {
-                throw new ApiException(HttpStatus.CONFLICT, "PROVIDER_MIX", "Mixed-provider cart rejected");
-            }
             if (!listing.isActive()) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "LISTING_INACTIVE",
                         "Listing '" + listing.getTitle() + "' is no longer available");
@@ -202,14 +228,14 @@ public class CheckoutService {
         boolean distanceProvided = req.deliveryDistanceKm() != null
                 && req.deliveryDistanceKm().compareTo(BigDecimal.ZERO) > 0;
         if (distanceProvided) {
-            if (!cart.getProvider().isDeliveryAvailable()) {
+            if (!seller.isDeliveryAvailable()) {
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
                         "DELIVERY_UNAVAILABLE",
                         "This provider does not offer delivery.");
             }
-            if (cart.getProvider().getDeliveryPricePerKm() == null
-                    || cart.getProvider().getDeliveryPricePerKm().compareTo(BigDecimal.ZERO) <= 0) {
+            if (seller.getDeliveryPricePerKm() == null
+                    || seller.getDeliveryPricePerKm().compareTo(BigDecimal.ZERO) <= 0) {
                 throw new ApiException(
                         HttpStatus.BAD_REQUEST,
                         "DELIVERY_MISCONFIGURED",
@@ -220,7 +246,7 @@ public class CheckoutService {
         // Calculate delivery fee if applicable (server is source of truth)
         BigDecimal deliveryFee = BigDecimal.ZERO;
         if (distanceProvided) {
-            deliveryFee = cart.getProvider()
+            deliveryFee = seller
                     .getDeliveryPricePerKm()
                     .multiply(req.deliveryDistanceKm())
                     .setScale(2, RoundingMode.HALF_UP);
@@ -232,7 +258,7 @@ public class CheckoutService {
 
         if (!saleLines.isEmpty()) {
             Order order = new Order();
-            order.setProvider(cart.getProvider());
+            order.setProvider(seller);
             order.setGuestName(guestName);
             order.setGuestEmail(guestEmail);
             order.setGuestPhone(guestPhone);
@@ -261,7 +287,7 @@ public class CheckoutService {
             createdOrders.add(order);
 
             PaymentRecord pay = new PaymentRecord();
-            pay.setProvider(cart.getProvider());
+            pay.setProvider(seller);
             pay.setOrder(order);
             pay.setMethod(req.paymentMethod());
             pay.setAmount(order.getTotalAmount());
@@ -274,7 +300,7 @@ public class CheckoutService {
             Listing l = line.getListing();
             BigDecimal rentTotal = rentalPricingService.priceRental(l, line.getRentalStart(), line.getRentalEnd());
             RentalBooking b = new RentalBooking();
-            b.setProvider(cart.getProvider());
+            b.setProvider(seller);
             b.setListing(l);
             b.setGuestName(guestName);
             b.setGuestEmail(guestEmail);
@@ -294,7 +320,7 @@ public class CheckoutService {
             createdRentals.add(b);
 
             PaymentRecord pay = new PaymentRecord();
-            pay.setProvider(cart.getProvider());
+            pay.setProvider(seller);
             pay.setRentalBooking(b);
             pay.setMethod(req.paymentMethod());
             pay.setAmount(b.getTotalAmount());
@@ -303,10 +329,15 @@ public class CheckoutService {
             createdPayments.add(pay);
         }
 
-        cart.getLines().clear();
+        // Remove only this seller's items; other sellers stay in the cart for their own checkout.
+        cart.getLines().removeIf(line -> line.getListing().getProvider().getId().equals(sellerId));
         cart.setProvider(null);
         cart.setUpdatedAt(java.time.Instant.now());
         cartSessionRepository.save(cart);
+        int sellersLeft = (int) cart.getLines().stream()
+                .map(line -> line.getListing().getProvider().getId())
+                .distinct()
+                .count();
 
         // Online checkout: create the Peach Hosted Checkout session covering all payment records
         // from this cart before returning — the whole checkout rolls back if this fails.
@@ -341,7 +372,10 @@ public class CheckoutService {
         response.put("rentalBookingIds", bookingIds);
         response.put("bookingIds", bookingIds);
         response.put("providerId", providerId);
+        response.put("providerName", seller.getName());
         response.put("verificationCodes", verificationCodes);
+        // Other sellers still waiting in the cart (the page moves on to the next one).
+        response.put("sellersRemaining", sellersLeft);
         if (peachRedirectUrl != null) {
             response.put("redirectUrl", peachRedirectUrl);
             response.put("peachCheckoutId", peachCheckoutId);

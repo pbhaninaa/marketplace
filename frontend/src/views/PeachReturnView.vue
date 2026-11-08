@@ -65,6 +65,8 @@ function goHome() {
 }
 
 onMounted(() => {
+  // Know straight away whether other sellers are still waiting in the cart.
+  cart.refresh().catch(() => {});
   ref_.value = String(route.query.ref || '');
   if (ref_.value) {
     startPolling();
@@ -110,14 +112,38 @@ onBeforeUnmount(() => {
         </ul>
       </div>
 
-      <div class="mt-5">
-        <button class="btn btn-primary" @click="goHome">Back to marketplace</button>
+      <!-- Multi-seller cart: other sellers are still waiting for their own checkout. -->
+      <p v-if="cart.sellerCount > 0" class="toast next-seller" role="status">
+        You still have items from
+        <strong>{{ cart.sellers.map((s) => s.providerName).join(', ') }}</strong>
+        in your cart.
+      </p>
+
+      <div class="mt-5 return-actions">
+        <router-link v-if="cart.sellerCount > 0" to="/checkout" class="btn btn-primary">
+          Continue to next seller
+        </router-link>
+        <button class="btn" :class="cart.sellerCount > 0 ? 'btn-ghost' : 'btn-primary'" @click="goHome">
+          Back to marketplace
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.next-seller {
+  margin-top: 1rem;
+  background: var(--color-sage-soft);
+  color: var(--color-text);
+}
+
+.return-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 .peach-return-page {
   display: flex;
   justify-content: center;

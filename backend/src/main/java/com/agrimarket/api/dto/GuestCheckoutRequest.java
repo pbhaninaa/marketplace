@@ -23,5 +23,10 @@ public record GuestCheckoutRequest(
         @DecimalMin(value = "0.0", inclusive = false) @DecimalMax("1000.0") BigDecimal deliveryDistanceKm,
         @Size(max = 255) String deliveryAddress,
         @Pattern(regexp = "^$|^-?\\d{1,3}(\\.\\d{1,20})?$", message = "must be a decimal coordinate") String latitude,
-        @Pattern(regexp = "^$|^-?\\d{1,3}(\\.\\d{1,20})?$", message = "must be a decimal coordinate") String longitude
+        @Pattern(regexp = "^$|^-?\\d{1,3}(\\.\\d{1,20})?$", message = "must be a decimal coordinate") String longitude,
+        /**
+         * Which seller's items to check out. Optional when the cart holds one seller; required when it
+         * holds several (each seller is checked out separately, the rest stay in the cart).
+         */
+        Long providerId
 ) {}
