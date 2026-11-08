@@ -58,6 +58,10 @@ async function load() {
       <p class="page-hero__lead">
         Quick steps and tips based on your current plan and activity.
       </p>
+      <router-link to="/manuals/providers" class="manual-callout">
+        <span class="material-icons" aria-hidden="true">menu_book</span>
+        Read the full provider guide
+      </router-link>
     </header>
 
     <p v-if="error" class="err-toast">{{ error }}</p>

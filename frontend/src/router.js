@@ -53,6 +53,9 @@ const router = createRouter({
     { path: '/settings', name: 'settings', component: ClientSettingsView, meta: { title: 'Settings' } },
     { path: '/profile', name: 'profile', component: ProfileView, meta: { title: 'Profile', requiresAuth: true } },
     { path: '/help/client', name: 'help-client', component: ClientHelpView, meta: { title: 'Help' } },
+    // User manuals: public route; admin/support manuals check the role inside the page.
+    { path: '/manuals', name: 'manuals', component: () => import('./views/ManualsIndexView.vue'), meta: { title: 'User manuals' } },
+    { path: '/manuals/:slug', name: 'manual', component: () => import('./views/ManualView.vue'), meta: { title: 'User manual' } },
     { path: '/my-orders', name: 'client-history', component: ClientHistoryView, meta: { title: 'My orders & payments' } },
     { path: '/order-invoice', name: 'order-invoice', component: OrderInvoiceLookupView, meta: { title: 'Order invoice' } },
     { path: '/checkout', name: 'checkout', component: CheckoutView },
