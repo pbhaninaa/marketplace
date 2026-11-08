@@ -14,13 +14,26 @@ const target = ref('');
 const code = ref('');
 const error = ref('');
 const done = ref(false);
+/** True when SIT/local handed back a test code (no email/SMS is sent there). */
+const testCodeFilled = ref(false);
 
 function syncTarget() {
   const q = route.query.target;
   target.value = typeof q === 'string' ? q : '';
 }
 
-onMounted(syncTarget);
+function fillTestCode() {
+  const testCode = typeof window !== 'undefined' ? window.history.state?.testCode : null;
+  if (testCode && !code.value) {
+    code.value = String(testCode);
+    testCodeFilled.value = true;
+  }
+}
+
+onMounted(() => {
+  syncTarget();
+  fillTestCode();
+});
 watch(() => route.query.target, syncTarget);
 
 async function submit() {
@@ -59,6 +72,9 @@ async function submit() {
       <FormField label="Code">
         <input v-model="code" type="text" inputmode="numeric" required minlength="4" maxlength="12" />
       </FormField>
+      <p v-if="testCodeFilled" class="muted small" role="status">
+        Test environment: no email or SMS is sent. The code has been filled in for you.
+      </p>
       <p v-if="error" class="err-toast">{{ error }}</p>
       <p v-if="done" class="ok-msg">Signed in. Redirecting…</p>
       <button type="submit" class="btn btn-primary" :disabled="done">Verify</button>

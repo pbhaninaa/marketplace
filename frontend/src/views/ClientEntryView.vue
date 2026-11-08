@@ -19,11 +19,14 @@ async function submit() {
   targetError.value = emailOrPhoneError(target.value);
   if (targetError.value) return;
   try {
-    await publicClientOtpApi.request({ target: target.value.trim() });
+    const res = await publicClientOtpApi.request({ target: target.value.trim() });
     done.value = true;
     router.push({
       path: '/client/verify',
       query: { target: target.value.trim(), ...(route.query.redirect ? { redirect: route.query.redirect } : {}) },
+      // SIT/local only: the server returns a test code (nothing is sent); pass it in navigation
+      // state, not the URL, so the verify page can fill it in.
+      state: res?.data?.testCode ? { testCode: String(res.data.testCode) } : {},
     });
   } catch (e) {
     error.value = apiErrorMessage(e, 'Something went wrong. Please try again.');

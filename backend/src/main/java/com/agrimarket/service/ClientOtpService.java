@@ -60,10 +60,16 @@ public class ClientOtpService {
         LOCKED
     }
 
-    /** Guest client sign-in code. Always returns normally to avoid target enumeration. */
+    /**
+     * Guest client sign-in code. Always returns normally to avoid target enumeration.
+     *
+     * @return the code only in test environments (see {@link #exposesTestCodes()}), so the verify page
+     *     can fill it in on SIT/local; empty on UAT/PROD, where it is only sent by email/SMS.
+     */
     @Transactional
-    public void requestOtp(String targetRaw) {
-        issue(targetRaw, PURPOSE_CLIENT_LOGIN, true);
+    public Optional<String> requestOtp(String targetRaw) {
+        String code = issue(targetRaw, PURPOSE_CLIENT_LOGIN, true);
+        return code != null && exposesTestCodes() ? Optional.of(code) : Optional.empty();
     }
 
     /** Support staff re-sending a client code on the user's behalf (not subject to the per-email cap). */

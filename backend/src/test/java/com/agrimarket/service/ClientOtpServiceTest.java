@@ -206,4 +206,24 @@ class ClientOtpServiceTest {
     void codeIsNotReturnedWithoutTheFlag() {
         assertThat(service.requestSignupCode("plain@farm.test")).isEmpty();
     }
+
+    @Test
+    void sitReturnsTheGuestSignInCodeToFillIn() {
+        MockEnvironment env = new MockEnvironment().withProperty("app.signup.expose-test-code", "true");
+        env.setActiveProfiles("sit");
+        ClientOtpService sit = serviceWith(env);
+
+        Optional<String> code = sit.requestOtp("guest@farm.test");
+
+        assertThat(code).isPresent();
+        verify(email, times(0)).send(any(EmailPurpose.class), anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void prodNeverReturnsTheGuestSignInCode() {
+        MockEnvironment env = new MockEnvironment().withProperty("app.signup.expose-test-code", "true");
+        env.setActiveProfiles("prod");
+        assertThat(serviceWith(env).requestOtp("buyer@farm.test")).isEmpty();
+        verify(email).send(any(EmailPurpose.class), eq("buyer@farm.test"), anyString(), anyString(), anyString());
+    }
 }
