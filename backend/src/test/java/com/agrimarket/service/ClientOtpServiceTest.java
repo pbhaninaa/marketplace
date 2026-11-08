@@ -163,4 +163,47 @@ class ClientOtpServiceTest {
         service.requestSignupCode("  ");
         assertThat(rows).isEmpty();
     }
+
+    private ClientOtpService serviceWith(MockEnvironment env) {
+        AppProperties app = new AppProperties(
+                "TEST", null, null, null, new AppProperties.Otp(10, 5), null, false);
+        return new ClientOtpService(
+                app,
+                repo,
+                new BCryptPasswordEncoder(4),
+                mock(JwtService.class),
+                email,
+                env,
+                new RateLimiter(Clock.systemUTC(), true),
+                new AuthSecurityProperties());
+    }
+
+    @Test
+    void sitReturnsTheSignupCodeToFillInAndSendsNoEmail() {
+        MockEnvironment env = new MockEnvironment().withProperty("app.signup.expose-test-code", "true");
+        env.setActiveProfiles("sit");
+        ClientOtpService sit = serviceWith(env);
+
+        Optional<String> code = sit.requestSignupCode("new@farm.test");
+
+        assertThat(code).isPresent();
+        assertThat(code.get()).matches("[0-9]{6}");
+        assertThat(sit.verifySignupCode("new@farm.test", code.get())).isTrue();
+        verify(email, times(0)).send(any(EmailPurpose.class), anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void uatAndProdNeverReturnTheCodeEvenIfTheFlagIsSet() {
+        for (String profile : List.of("uat", "prod")) {
+            MockEnvironment env = new MockEnvironment().withProperty("app.signup.expose-test-code", "true");
+            env.setActiveProfiles(profile);
+            assertThat(serviceWith(env).requestSignupCode(profile + "@farm.test")).isEmpty();
+            verify(email).send(any(EmailPurpose.class), eq(profile + "@farm.test"), anyString(), anyString(), anyString());
+        }
+    }
+
+    @Test
+    void codeIsNotReturnedWithoutTheFlag() {
+        assertThat(service.requestSignupCode("plain@farm.test")).isEmpty();
+    }
 }

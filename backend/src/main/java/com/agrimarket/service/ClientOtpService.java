@@ -72,15 +72,29 @@ public class ClientOtpService {
         issue(targetRaw, PURPOSE_CLIENT_LOGIN, false);
     }
 
-    /** Code proving ownership of the owner email at provider sign-up. Always returns normally. */
+    /**
+     * Code proving ownership of the owner email at provider sign-up. Always returns normally.
+     *
+     * @return the code itself only in test environments (SIT/local, with
+     *     {@code app.signup.expose-test-code=true}) so the sign-up form can fill it in without a real
+     *     email; empty everywhere else, where the code is only ever delivered by email.
+     */
     @Transactional
-    public void requestSignupCode(String emailRaw) {
-        issue(emailRaw, PURPOSE_PROVIDER_SIGNUP, true);
+    public Optional<String> requestSignupCode(String emailRaw) {
+        String code = issue(emailRaw, PURPOSE_PROVIDER_SIGNUP, true);
+        return code != null && exposesTestCodes() ? Optional.of(code) : Optional.empty();
     }
 
-    private void issue(String targetRaw, String purpose, boolean enforceSendCap) {
+    /** True only on dev/test profiles with the flag on; never on UAT/PROD even if the flag is set. */
+    public boolean exposesTestCodes() {
+        return isDevDeliveryProfile()
+                && Boolean.TRUE.equals(environment.getProperty("app.signup.expose-test-code", Boolean.class, false));
+    }
+
+    /** @return the issued code, or null when nothing was issued (bad target or send cap reached). */
+    private String issue(String targetRaw, String purpose, boolean enforceSendCap) {
         String target = normalizeTarget(targetRaw);
-        if (target.isEmpty()) return;
+        if (target.isEmpty()) return null;
 
         if (enforceSendCap
                 && !rateLimiter
@@ -91,7 +105,7 @@ public class ClientOtpService {
                         .allowed()) {
             // Caller still sees success (no enumeration, no inbox flooding).
             log.warn("OTP send cap reached for purpose {}; not sending another code", purpose);
-            return;
+            return null;
         }
 
         // One active challenge per target + purpose
@@ -124,6 +138,7 @@ public class ClientOtpService {
                             : "Your verification code is:") + " <strong>" + code + "</strong>.</p>"
                             + "<p>It expires in " + appProperties.otp().ttlMinutes() + " minutes.</p>");
         }
+        return code;
     }
 
     /**

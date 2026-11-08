@@ -109,6 +109,10 @@ public class DeployedProfileValidator {
                     "SIGNUP_REQUIRE_EMAIL_VERIFICATION=true needs email sending (APP_EMAIL_ENABLED=true) "
                             + "so sign-up codes can be delivered");
         }
+        if (Boolean.TRUE.equals(environment.getProperty("app.signup.expose-test-code", Boolean.class, false))) {
+            throw new IllegalStateException(
+                    "SIGNUP_EXPOSE_TEST_CODE must be false on UAT/PROD: sign-up codes must only be sent by email");
+        }
         Integer hops = environment.getProperty("app.security.trusted-proxy-hops", Integer.class, 1);
         if (hops == null || hops < 0 || hops > 5) {
             throw new IllegalStateException("TRUSTED_PROXY_HOPS must be between 0 and 5");

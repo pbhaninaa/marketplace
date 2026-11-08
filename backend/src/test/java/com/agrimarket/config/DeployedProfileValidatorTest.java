@@ -95,6 +95,18 @@ class DeployedProfileValidatorTest {
     }
 
     @Test
+    void rejectsExposedSignupTestCodesOnDeployedProfiles() {
+        EmailProperties email = enabledEmail();
+        email.setDomain("mail.example.com");
+        DeployedProfileValidator v = validator(email);
+        ((MockEnvironment) ReflectionTestUtils.getField(v, "environment"))
+                .setProperty("app.signup.expose-test-code", "true");
+        assertThatIllegalStateException()
+                .isThrownBy(v::validate)
+                .withMessageContaining("SIGNUP_EXPOSE_TEST_CODE");
+    }
+
+    @Test
     void rejectsDisabledRateLimitsAndBadProxyHops() {
         EmailProperties email = enabledEmail();
         email.setDomain("mail.example.com");
