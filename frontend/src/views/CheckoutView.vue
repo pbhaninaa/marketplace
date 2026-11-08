@@ -4,7 +4,8 @@
 
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { publicCartApi, publicPeachApi } from '../services/marketplaceApi';
+import { publicCartApi, publicPaymentsApi } from '../services/marketplaceApi';
+import { goToOnlinePayment } from '../utils/payFastCheckout';
 import { useSessionStore } from '../stores/session';
 import { useCartStore } from '../stores/cart';
 import { useDialog } from '../composables/useDialog';
@@ -20,7 +21,12 @@ import {
 import { getCurrentLocation } from "../utils/getCurrentLocation";
 import FormField from '../components/ui/FormField.vue';
 import CartLinesSection from '../components/cart/CartLinesSection.vue';
-import { PEACH_PAYMENT_METHODS, peachPaymentPayload } from '../utils/paymentModel';
+import {
+  ONLINE_PAYMENT_LABEL,
+  PEACH_PAYMENT_METHODS,
+  gatewayPageName,
+  peachPaymentPayload,
+} from '../utils/paymentModel';
 
 const router = useRouter();
 const session = useSessionStore();
@@ -68,18 +74,22 @@ function roundMoney(n) {
 const PAYMENT_LABELS = {
   CASH: 'Cash on collection / delivery',
   EFT: 'EFT (bank transfer)',
-  PEACH: 'Pay online (card / instant EFT)',
+  PEACH: ONLINE_PAYMENT_LABEL,
 };
 
+// The online option (method PEACH) goes through whichever gateway the platform uses (PayFast or Peach).
 const peachAvailable = ref(false);
-publicPeachApi
-  .configured()
+const onlineGateway = ref('');
+publicPaymentsApi
+  .onlineStatus()
   .then((res) => {
-    peachAvailable.value = !!res?.data?.configured;
+    peachAvailable.value = !!res?.data?.available;
+    onlineGateway.value = res?.data?.gateway || '';
   })
   .catch(() => {
     peachAvailable.value = false;
   });
+const onlinePageName = computed(() => gatewayPageName(onlineGateway.value));
 
 /* ================= SELLER BEING CHECKED OUT =================
  * The cart can hold several sellers. Each one is checked out separately with its own payment
@@ -247,7 +257,7 @@ async function submitCheckout() {
   if (!isEmailValid.value) return warning(emailError(guestEmail.value), 'Invalid Input');
   if (!isPhoneValid.value) return warning(phoneError(guestPhone.value), 'Invalid Input');
   if (paymentMethod.value === 'PEACH' && !peachPaymentMethod.value) {
-    return warning('Choose Card or Instant EFT for your Peach payment.', 'Missing payment option');
+    return warning('Choose Card or Instant EFT for your online payment.', 'Missing payment option');
   }
   if (!deliveryAvailable.value) {
     /* pickup-only */
@@ -291,10 +301,11 @@ async function submitCheckout() {
       longitude: deliveryMode.value === 'DELIVERY' ? coords.value.longitude : null,
     });
 
-    // Peach checkout: redirect immediately — the order is pending until the webhook confirms payment.
-    if (response.data.redirectUrl) {
+    // Online checkout: leave for the secure payment page straight away (Peach redirect or PayFast
+    // form post). The order stays pending until the gateway confirms payment.
+    if (response.data.redirectUrl || response.data.payfast) {
       await cart.refresh();
-      window.location.href = response.data.redirectUrl;
+      goToOnlinePayment(response.data);
       return;
     }
 
@@ -544,7 +555,7 @@ async function handleLimitWarning({ message, type }) {
             Transfer to the provider’s bank account below, then show your verification code when they confirm payment.
           </p>
           <p v-else-if="paymentMethod === 'PEACH'" class="muted small" style="margin-top: -0.5rem;">
-            Choose how you want to pay within Peach:
+            Choose how you want to pay online:
           </p>
           <div v-if="paymentMethod === 'PEACH'" class="radio-group" style="margin-bottom: 1rem;">
             <label v-for="method in PEACH_PAYMENT_METHODS" :key="method.value" class="radio-card">
@@ -552,7 +563,7 @@ async function handleLimitWarning({ message, type }) {
               <span>{{ method.label }}</span>
             </label>
             <p class="muted small" style="margin: 0;">
-              Only your chosen method will appear on the secure Peach Payments page.
+              You will finish paying on the secure {{ onlinePageName }} page.
             </p>
           </div>
 

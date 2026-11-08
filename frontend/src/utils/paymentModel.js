@@ -17,6 +17,16 @@ export function normalizeAcceptedPaymentMethods(methods) {
   return [...out];
 }
 
+/** The single online option buyers and providers see (method PEACH, served by PayFast or Peach). */
+export const ONLINE_PAYMENT_LABEL = 'Card / Instant EFT';
+
+/** Name of the secure payment page for the active gateway. */
+export function gatewayPageName(gateway) {
+  if (gateway === 'PAYFAST') return 'PayFast';
+  if (gateway === 'PEACH') return 'Peach Payments';
+  return 'payment';
+}
+
 export function peachPaymentPayload(paymentMethod, peachPaymentMethod) {
   return paymentMethod === 'PEACH' ? { peachPaymentMethod } : {};
 }

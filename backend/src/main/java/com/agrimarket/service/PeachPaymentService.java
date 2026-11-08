@@ -5,21 +5,13 @@ import com.agrimarket.api.dto.PeachStatusResponse;
 import com.agrimarket.api.error.ApiException;
 import com.agrimarket.config.PasswordResetProperties;
 import com.agrimarket.config.PeachProperties;
-import com.agrimarket.domain.Order;
-import com.agrimarket.domain.OrderStatus;
+import com.agrimarket.domain.PaymentGateway;
 import com.agrimarket.domain.PaymentRecord;
 import com.agrimarket.domain.PaymentRecordStatus;
-import com.agrimarket.domain.PaymentStatus;
 import com.agrimarket.domain.PeachPaymentMethod;
-import com.agrimarket.domain.Provider;
-import com.agrimarket.domain.RentalBooking;
-import com.agrimarket.domain.BookingStatus;
-import com.agrimarket.domain.Subscription;
 import com.agrimarket.domain.SubscriptionActivationIntent;
-import com.agrimarket.domain.SubscriptionStatus;
 import com.agrimarket.repo.PaymentRecordRepository;
 import com.agrimarket.repo.SubscriptionActivationIntentRepository;
-import com.agrimarket.repo.SubscriptionRepository;
 import com.agrimarket.util.PeachSignatureUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -62,15 +54,9 @@ public class PeachPaymentService {
 
     private final PaymentRecordRepository paymentRecordRepository;
     private final SubscriptionActivationIntentRepository intentRepository;
-    private final SubscriptionRepository subscriptionRepository;
-    private final SubscriptionService subscriptionService;
-    private final PurchaseInventoryService purchaseInventoryService;
-    private final AppNotificationService appNotificationService;
     private final PeachProperties peachProperties;
     private final PasswordResetProperties passwordResetProperties;
-    private final ReferralService referralService;
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(PeachPaymentService.class);
+    private final OnlinePaymentService onlinePaymentService;
 
     private final HttpClient httpClient = HttpClient.newBuilder().connectTimeout(HTTP_TIMEOUT).build();
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -109,6 +95,7 @@ public class PeachPaymentService {
         for (PaymentRecord pr : payments) {
             pr.setGatewayMerchantRef(merchantRef);
             pr.setGatewayCheckoutId(checkoutId);
+            pr.setGateway(PaymentGateway.PEACH);
             paymentRecordRepository.save(pr);
         }
 
@@ -138,6 +125,7 @@ public class PeachPaymentService {
 
         intent.setGatewayMerchantRef(merchantRef);
         intent.setGatewayCheckoutId(checkoutId);
+        intent.setGateway(PaymentGateway.PEACH);
         intentRepository.save(intent);
 
         return new PeachCheckoutResponse(redirectUrl, checkoutId, merchantRef);
@@ -186,50 +174,10 @@ public class PeachPaymentService {
         throw new ApiException(HttpStatus.NOT_FOUND, "PEACH", "Payment not found for this reference");
     }
 
-    /** Guest-facing status lookup for the Peach return page (keyed by the unguessable merchantTransactionId). */
+    /** Guest-facing status lookup for the return page (keyed by the unguessable merchant reference). */
     @Transactional(readOnly = true)
     public PeachStatusResponse getStatusByRef(String ref) {
-        String cleaned = trimOrNull(ref);
-        if (cleaned == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "PEACH", "Missing reference");
-        }
-
-        List<PaymentRecord> payments = paymentRecordRepository.findAllByGatewayMerchantRef(cleaned);
-        if (!payments.isEmpty()) {
-            boolean allPaid = payments.stream().allMatch(p -> p.getStatus() == PaymentRecordStatus.PAID);
-            boolean cancelled = payments.stream()
-                    .map(PaymentRecord::getGatewayResultCode)
-                    .anyMatch(PeachPaymentService::isCancelledResultCode);
-            List<Long> orderIds = new ArrayList<>();
-            List<Long> rentalIds = new ArrayList<>();
-            List<String> codes = new ArrayList<>();
-            for (PaymentRecord pr : payments) {
-                if (pr.getOrder() != null) {
-                    orderIds.add(pr.getOrder().getId());
-                    codes.add(pr.getOrder().getVerificationCode());
-                }
-                if (pr.getRentalBooking() != null) {
-                    rentalIds.add(pr.getRentalBooking().getId());
-                    codes.add(pr.getRentalBooking().getVerificationCode());
-                }
-            }
-            return new PeachStatusResponse(
-                    allPaid ? "PAID" : (cancelled ? "CANCELLED" : "PENDING_PAYMENT"),
-                    orderIds,
-                    rentalIds,
-                    codes);
-        }
-
-        Optional<SubscriptionActivationIntent> intentOpt = intentRepository.findByGatewayMerchantRef(cleaned);
-        if (intentOpt.isPresent()) {
-            SubscriptionActivationIntent intent = intentOpt.get();
-            String status = intent.isUsed()
-                    ? "PAID"
-                    : (isCancelledResultCode(intent.getGatewayResultCode()) ? "CANCELLED" : "PENDING_PAYMENT");
-            return new PeachStatusResponse(status, List.of(), List.of(), List.of());
-        }
-
-        throw new ApiException(HttpStatus.NOT_FOUND, "PEACH", "Payment reference not found");
+        return onlinePaymentService.getStatusByRef(ref);
     }
 
     /** Builds the browser destination after Peach POSTs its signed result to the backend. */
@@ -241,7 +189,7 @@ public class PeachPaymentService {
         }
         if (!paymentRecordRepository.findAllByGatewayMerchantRef(cleaned).isEmpty()) {
             return UriComponentsBuilder.fromUriString(frontendBaseUrl())
-                    .path("/peach/return")
+                    .path("/payment/return")
                     .queryParam("ref", cleaned)
                     .build()
                     .encode()
@@ -271,9 +219,7 @@ public class PeachPaymentService {
         if (isCancelledResultCode(resultCode)) {
             // The buyer cancelled on the Peach page: release the rental slots this checkout was holding,
             // so other buyers can book those times. (Cash/EFT bookings are untouched.)
-            for (PaymentRecord payment : payments) {
-                releaseUnpaidRental(payment.getRentalBooking());
-            }
+            onlinePaymentService.releaseUnpaidRentals(payments);
             return;
         }
         if (!isSuccessfulNotification(params)) {
@@ -286,21 +232,7 @@ public class PeachPaymentService {
         validateAmount(params.get("amount"), total, "order total");
         validateCheckoutId(params.get("checkoutId"), payments.get(0).getGatewayCheckoutId());
 
-        String checkoutId = trimOrNull(params.get("checkoutId"));
-        for (PaymentRecord pr : payments) {
-            pr.setStatus(PaymentRecordStatus.PAID);
-            if (checkoutId != null) {
-                pr.setGatewayCheckoutId(checkoutId);
-            }
-            paymentRecordRepository.save(pr);
-
-            if (pr.getOrder() != null) {
-                markOrderPaid(pr.getOrder());
-            }
-            if (pr.getRentalBooking() != null) {
-                markRentalPaid(pr.getRentalBooking());
-            }
-        }
+        onlinePaymentService.confirmCheckoutPaid(payments, trimOrNull(params.get("checkoutId")));
     }
 
     private void handleSubscriptionWebhook(SubscriptionActivationIntent intent, Map<String, String> params) {
@@ -315,91 +247,7 @@ public class PeachPaymentService {
         validateAmount(params.get("amount"), intent.getAmountDue(), "subscription quote");
         validateCheckoutId(params.get("checkoutId"), intent.getGatewayCheckoutId());
 
-        Provider provider = intent.getProvider();
-        subscriptionRepository
-                .findActiveForProviderOrderByExpiresAtDesc(provider.getId(), SubscriptionStatus.ACTIVE, Instant.now())
-                .forEach(existing -> existing.setStatus(SubscriptionStatus.CANCELLED));
-
-        Subscription sub = new Subscription();
-        sub.setProvider(provider);
-        sub.setPlan(intent.getPlan());
-        sub.setBillingCycle(intent.getBillingCycle());
-        sub.setStatus(SubscriptionStatus.PENDING_VERIFICATION);
-        Instant now = Instant.now();
-        sub.setExpiresAt(now.plus(30, ChronoUnit.DAYS));
-        sub.setCreatedAt(now);
-        sub.setAmountDue(intent.getAmountDue());
-        sub.setPaymentReference(intent.getPaymentReference());
-        sub = subscriptionRepository.save(sub);
-
-        String checkoutId = trimOrNull(params.get("checkoutId"));
-        if (checkoutId != null) {
-            intent.setGatewayCheckoutId(checkoutId);
-        }
-        intent.setUsed(true);
-        intentRepository.save(intent);
-
-        subscriptionService.activateFromVerifiedPeachCallback(sub);
-        try {
-            // Referral commission on the referred provider's first paid subscription (idempotent).
-            referralService.recordQualifyingPayment(
-                    provider.getId(), sub.getId(), intent.getAmountDue(), intent.getGatewayMerchantRef());
-        } catch (Exception e) {
-            log.warn("Referral commission not recorded for provider {}: {}", provider.getId(), e.getMessage());
-        }
-        try {
-            appNotificationService.notifySubscriptionDecision(provider, true, "Paid via Peach online checkout");
-        } catch (Exception ignored) {
-            // Never fail activation due to notifications.
-        }
-    }
-
-    private void markOrderPaid(Order order) {
-        if (order.getStatus() == OrderStatus.CANCELLED) {
-            // Paid after it was released or cancelled: money was taken for an order that won't go ahead.
-            log.warn("PAID_AFTER_CANCEL: card payment confirmed for cancelled order {}; refund the buyer", order.getId());
-            return;
-        }
-        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
-            return; // already paid/collected, or cancelled — nothing to do (idempotent)
-        }
-        purchaseInventoryService.finalizePaidPurchase(order);
-        order.setStatus(OrderStatus.PAID);
-        order.setPaymentStatus(PaymentStatus.PAID);
-        try {
-            appNotificationService.notifyOrderStatus(order);
-        } catch (Exception ignored) {
-            // Never fail payment confirmation due to notifications.
-        }
-    }
-
-    /** Cancel a rental that was never paid, freeing its time slot. No-op for paid/collected/cancelled. */
-    private void releaseUnpaidRental(RentalBooking rental) {
-        if (rental == null || rental.getStatus() != BookingStatus.PENDING_PAYMENT) {
-            return;
-        }
-        rental.setStatus(BookingStatus.CANCELLED);
-        try {
-            appNotificationService.notifyRentalStatus(rental);
-        } catch (Exception ignored) {
-            // Never fail webhook handling due to notifications.
-        }
-    }
-
-    private void markRentalPaid(RentalBooking rental) {
-        if (rental.getStatus() == BookingStatus.CANCELLED) {
-            log.warn("PAID_AFTER_CANCEL: card payment confirmed for cancelled rental booking {}; refund the buyer", rental.getId());
-            return;
-        }
-        if (rental.getStatus() != BookingStatus.PENDING_PAYMENT) {
-            return; // already paid/collected, or cancelled — nothing to do (idempotent)
-        }
-        rental.setStatus(BookingStatus.PAID);
-        try {
-            appNotificationService.notifyRentalStatus(rental);
-        } catch (Exception ignored) {
-            // Never fail payment confirmation due to notifications.
-        }
+        onlinePaymentService.activateSubscription(intent, trimOrNull(params.get("checkoutId")), "Peach");
     }
 
     private void validateAmount(String rawAmount, BigDecimal expected, String label) {
@@ -465,6 +313,16 @@ public class PeachPaymentService {
 
     private static boolean isCancelledResultCode(String code) {
         return code != null && code.startsWith("100.396.101");
+    }
+
+    /** Frontend base URL (public app base URL), without a trailing slash. Shared with PayFast. */
+    static String frontendBaseUrl(PasswordResetProperties props) {
+        String base = props.getPublicAppBaseUrl();
+        if (base == null || base.isBlank()) {
+            return "http://localhost:5173";
+        }
+        base = base.trim();
+        return base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
     }
 
     private Map<String, String> buildCheckoutFields(

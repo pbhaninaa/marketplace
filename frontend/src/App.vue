@@ -265,6 +265,7 @@ onMounted(async () => {
           <p class="side-nav__section">Admin</p>
           <router-link to="/admin">Dashboard</router-link>
           <router-link to="/admin/history">Orders &amp; payments</router-link>
+          <router-link to="/admin/payouts">Seller payouts</router-link>
           <router-link to="/admin/providers">Providers</router-link>
           <router-link to="/admin/listings">Listings</router-link>
           <router-link to="/admin/users">Users</router-link>

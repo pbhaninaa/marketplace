@@ -456,7 +456,11 @@ public class OrderManagementService {
         // Keep payment record consistent for the rental.
         paymentRecordRepository.findByRentalBooking_Id(rental.getId())
                 .ifPresent(p -> {
-                    if (newStatus == BookingStatus.PAID) {
+                    if (newStatus == BookingStatus.CANCELLED
+                            && p.getSettlementStatus() == com.agrimarket.domain.SettlementStatus.HELD) {
+                        // Paid online and held by the platform: the buyer must be refunded, not the seller paid.
+                        p.setSettlementStatus(com.agrimarket.domain.SettlementStatus.REFUND_DUE);
+                    } else if (newStatus == BookingStatus.PAID) {
                         p.setStatus(com.agrimarket.domain.PaymentRecordStatus.PAID);
                     } else if (newStatus == BookingStatus.CANCELLED) {
                         p.setStatus(com.agrimarket.domain.PaymentRecordStatus.PENDING_PAYMENT);

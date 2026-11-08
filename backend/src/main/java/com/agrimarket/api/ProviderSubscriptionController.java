@@ -6,6 +6,10 @@ import com.agrimarket.api.dto.ProviderSubscriptionStatusResponse;
 import com.agrimarket.api.dto.SubscriptionQuoteResponse;
 import com.agrimarket.api.error.ApiException;
 import com.agrimarket.security.MarketUserPrincipal;
+import com.agrimarket.api.dto.OnlineCheckoutResponse;
+import com.agrimarket.domain.PaymentGateway;
+import com.agrimarket.service.OnlinePaymentGatewayResolver;
+import com.agrimarket.service.PayFastPaymentService;
 import com.agrimarket.service.PeachPaymentService;
 import com.agrimarket.service.SubscriptionQuoteService;
 import com.agrimarket.service.SubscriptionService;
@@ -30,6 +34,8 @@ public class ProviderSubscriptionController {
     private final SubscriptionService subscriptionService;
     private final SubscriptionQuoteService quoteService;
     private final PeachPaymentService peachPaymentService;
+    private final PayFastPaymentService payFastPaymentService;
+    private final OnlinePaymentGatewayResolver gatewayResolver;
 
     @GetMapping("/status")
     public ProviderSubscriptionStatusResponse status(@AuthenticationPrincipal MarketUserPrincipal user) {
@@ -87,7 +93,25 @@ public class ProviderSubscriptionController {
 
     @GetMapping("/peach-configured")
     public Map<String, Boolean> peachConfigured() {
-        return Map.of("configured", peachPaymentService.isConfigured());
+        // "Is the online option available" (whichever gateway serves it); kept for older clients.
+        return Map.of("configured", gatewayResolver.isOnlineAvailable());
+    }
+
+    /** Starts an online plan payment through the active gateway (Peach redirect or PayFast form). */
+    @PostMapping("/online-checkout")
+    public OnlineCheckoutResponse onlineCheckout(
+            @AuthenticationPrincipal MarketUserPrincipal user,
+            @jakarta.validation.Valid @RequestBody PeachSubscriptionCheckoutRequest req) {
+        TenantAccess.requireProviderUser(user);
+        PaymentGateway gateway = gatewayResolver.requireActiveGateway();
+        if (gateway == PaymentGateway.PAYFAST) {
+            var payfast = payFastPaymentService.initiateSubscriptionCheckout(
+                    user.getProviderId(), req.intentId(), req.peachPaymentMethod(), user.getUsername());
+            return new OnlineCheckoutResponse(gateway.name(), payfast.paymentRef(), null, payfast);
+        }
+        var peach = peachPaymentService.initiateSubscriptionCheckout(
+                user.getProviderId(), req.intentId(), req.peachPaymentMethod());
+        return new OnlineCheckoutResponse(gateway.name(), peach.merchantTransactionId(), peach.redirectUrl(), null);
     }
 
     @PostMapping("/peach-checkout")

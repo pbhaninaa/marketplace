@@ -84,6 +84,107 @@ class DeployedProfileValidatorTest {
                         .validate());
     }
 
+    private static PeachProperties configuredPeach(boolean sandbox) {
+        PeachProperties peach = new PeachProperties();
+        ReflectionTestUtils.setField(peach, "enabled", true);
+        ReflectionTestUtils.setField(peach, "sandbox", sandbox);
+        ReflectionTestUtils.setField(peach, "clientId", "c");
+        ReflectionTestUtils.setField(peach, "clientSecret", "s");
+        ReflectionTestUtils.setField(peach, "merchantId", "m");
+        ReflectionTestUtils.setField(peach, "entityId", "e");
+        ReflectionTestUtils.setField(peach, "secretToken", "t");
+        return peach;
+    }
+
+    private static PayFastProperties configuredPayFast(boolean sandbox) {
+        PayFastProperties payFast = new PayFastProperties();
+        payFast.setEnabled(true);
+        payFast.setSandbox(sandbox);
+        payFast.setMerchantId("12345678");
+        payFast.setMerchantKey("realmerchantkey");
+        payFast.setPassphrase("a-long-passphrase");
+        payFast.setPublicBaseUrl("https://api.example.com");
+        return payFast;
+    }
+
+    private static DeployedProfileValidator validatorFor(
+            String profile, PeachProperties peach, PayFastProperties payFast) {
+        EmailProperties email = enabledEmail();
+        email.setDomain("mail.example.com");
+        MockEnvironment environment = new MockEnvironment()
+                .withProperty("app.jwt.secret", "a-secure-test-secret-that-is-over-32-characters")
+                .withProperty("PROD_CORS_ORIGINS", "https://app.example.com")
+                .withProperty("PUBLIC_APP_BASE_URL", "https://app.example.com");
+        environment.setActiveProfiles(profile);
+        return new DeployedProfileValidator(environment, email, peach, payFast);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"uat", "prod", "aws", "azure"})
+    void deployedProfilesRefuseSandboxGateways(String profile) {
+        assertThatIllegalStateException()
+                .isThrownBy(() -> validatorFor(profile, new PeachProperties(), configuredPayFast(true)).validate())
+                .withMessageContaining("PAYFAST_SANDBOX");
+        assertThatIllegalStateException()
+                .isThrownBy(() -> validatorFor(profile, configuredPeach(true), new PayFastProperties()).validate())
+                .withMessageContaining("PEACH_SANDBOX");
+        assertThatNoException()
+                .isThrownBy(() -> validatorFor(profile, configuredPeach(false), configuredPayFast(false)).validate());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"uat", "prod"})
+    void deployedProfilesRefuseThePublicSandboxMerchant(String profile) {
+        PayFastProperties demo = configuredPayFast(false);
+        demo.setMerchantId("10000100");
+        assertThatIllegalStateException()
+                .isThrownBy(() -> validatorFor(profile, new PeachProperties(), demo).validate())
+                .withMessageContaining("PAYFAST_MERCHANT_ID")
+                .withMessageContaining("10000100");
+    }
+
+    @Test
+    void sandboxIsNotCheckedOutsideDeployedProfiles() {
+        MockEnvironment environment = new MockEnvironment();
+        environment.setActiveProfiles("sit");
+        PayFastProperties demo = configuredPayFast(true);
+        demo.setMerchantId("10000100");
+        assertThatNoException()
+                .isThrownBy(() -> new DeployedProfileValidator(environment, enabledEmail(), configuredPeach(true), demo)
+                        .validate());
+    }
+
+    @Test
+    void enabledPayFastNeedsCredentialsPassphraseAndHttpsNotifyBase() {
+        PayFastProperties noPassphrase = configuredPayFast(false);
+        noPassphrase.setPassphrase("");
+        assertThatIllegalStateException()
+                .isThrownBy(() -> validatorFor("prod", new PeachProperties(), noPassphrase).validate())
+                .withMessageContaining("PAYFAST_PASSPHRASE");
+
+        PayFastProperties noKey = configuredPayFast(true);
+        noKey.setMerchantKey(" ");
+        assertThatIllegalStateException()
+                .isThrownBy(() -> validatorFor("uat", new PeachProperties(), noKey).validate())
+                .withMessageContaining("PAYFAST_MERCHANT_KEY");
+
+        PayFastProperties http = configuredPayFast(false);
+        http.setPublicBaseUrl("http://api.example.com");
+        assertThatIllegalStateException()
+                .isThrownBy(() -> validatorFor("prod", new PeachProperties(), http).validate())
+                .withMessageContaining("PAYFAST_PUBLIC_BASE_URL");
+
+        PayFastProperties missingBase = configuredPayFast(true);
+        missingBase.setPublicBaseUrl("");
+        assertThatIllegalStateException()
+                .isThrownBy(() -> validatorFor("uat", new PeachProperties(), missingBase).validate())
+                .withMessageContaining("PAYFAST_PUBLIC_BASE_URL");
+
+        // Disabled PayFast with nothing set is fine.
+        assertThatNoException()
+                .isThrownBy(() -> validatorFor("prod", new PeachProperties(), new PayFastProperties()).validate());
+    }
+
     @Test
     void rejectsSignupEmailVerificationWithoutEmailSending() {
         EmailProperties disabled = new EmailProperties();

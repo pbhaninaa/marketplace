@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { providerSettingsApi, publicPeachApi } from '../services/marketplaceApi';
+import { providerSettingsApi, publicPaymentsApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import FormField from '../components/ui/FormField.vue';
 import {
@@ -27,10 +27,10 @@ const error = ref('');
 const message = ref('');
 const peachAvailable = ref(false);
 
-publicPeachApi
-  .configured()
+publicPaymentsApi
+  .onlineStatus()
   .then((res) => {
-    peachAvailable.value = !!res?.data?.configured;
+    peachAvailable.value = !!res?.data?.available;
   })
   .catch(() => {
     peachAvailable.value = false;
@@ -234,13 +234,15 @@ async function save() {
 
               <label v-if="peachAvailable" class="check-card">
                 <input type="checkbox" :disabled="!canEdit" value="PEACH" v-model="form.acceptedPaymentMethods" />
-                <span>Pay online (card / instant EFT via Peach)</span>
+                <span>Card / Instant EFT (pay online)</span>
               </label>
 
             </div>
             <p class="muted small" style="margin-top: 0.5rem;">
-              Clients choose Cash, Manual EFT, and/or Peach at checkout. Manual EFT requires your bank details below.
-              Peach covers card and instant EFT online. Platform subscriptions are paid online from the Subscription page.
+              Clients choose Cash, Manual EFT, and/or Card / Instant EFT at checkout. Manual EFT requires your bank
+              details below. Online payments are collected by the platform and paid out to your bank account, less the
+              platform fee; see the payout status under Order &amp; payment history. Platform subscriptions are paid
+              online from the Subscription page.
             </p>
           </FormField>
         </section>

@@ -41,7 +41,7 @@ public class CartService {
     private final RentalBookingRepository rentalBookingRepository;
     private final RentalPricingService rentalPricingService;
     private final AppProperties appProperties;
-    private final PeachPaymentService peachPaymentService;
+    private final OnlinePaymentGatewayResolver gatewayResolver;
     private final SubscriptionService subscriptionService;
     private final RentalAvailability rentalAvailability;
 
@@ -357,10 +357,10 @@ public class CartService {
                 groups);
     }
 
-    /** The seller's accepted methods, minus Peach when the platform merchant account is offline. */
+    /** The seller's accepted methods, minus the online option when no online gateway is configured. */
     private Set<PaymentMethod> acceptedAtCheckout(Provider p) {
         Set<PaymentMethod> accepted = PaymentMethod.normalizeAccepted(p.getAcceptedPaymentMethods());
-        if (!peachPaymentService.isConfigured() && accepted.contains(PaymentMethod.PEACH)) {
+        if (!gatewayResolver.isOnlineAvailable() && accepted.contains(PaymentMethod.PEACH)) {
             EnumSet<PaymentMethod> withoutPeach = EnumSet.copyOf(accepted);
             withoutPeach.remove(PaymentMethod.PEACH);
             return withoutPeach;

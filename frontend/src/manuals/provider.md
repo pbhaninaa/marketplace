@@ -31,7 +31,7 @@ Before the trial ends, open **Subscription** and choose a plan:
 | **Basic** | R199 per month | Dashboard, listings, orders, subscription and billing, business settings |
 | **Premium** | R499 per month | Everything in Basic, plus team management, payroll, staff payments and priority support |
 
-Pay online with **Card** or **Instant EFT** on the secure Peach Payments page. A monthly plan runs for **30 days** from payment. Renew before it ends to keep your listings visible.
+Pay online with **Card** or **Instant EFT** on the secure payment page (PayFast or Peach Payments). A monthly plan runs for **30 days** from payment. Renew before it ends to keep your listings visible.
 
 > If your trial or plan ends, your listings are hidden from the marketplace until you choose a plan. Any of your items already in buyers' carts are removed from their carts.
 
@@ -83,7 +83,7 @@ Open **Orders** from the menu to see purchase orders and rental bookings.
 
 1. Ask the buyer for their **verification code**.
 2. Open the order and enter the code. If it matches, the order is confirmed.
-3. Mark the order **Paid** and then **Collected** as appropriate. For card and Instant EFT payments, the order is marked paid automatically once Peach confirms the payment.
+3. Mark the order **Paid** and then **Collected** as appropriate. For card and Instant EFT payments, the order is marked paid automatically once the payment provider confirms the payment.
 
 If the code does not match, do not hand over the order. Check the order number with the buyer.
 
@@ -101,7 +101,7 @@ An unpaid rental is also cancelled once its rental dates have passed. Mark order
 
 **Rental bookings never overlap**
 
-Each rental item can only be booked once for any day. A booking holds its dates while it is **awaiting payment**, **paid** or **collected** (out on hire). Only **cancelling** a booking frees its dates, so cancel bookings that won't go ahead. If a buyer cancels a card or Instant EFT payment on the Peach page, their booking is cancelled automatically and the dates become free again.
+Each rental item can only be booked once for any day. A booking holds its dates while it is **awaiting payment**, **paid** or **collected** (out on hire). Only **cancelling** a booking frees its dates, so cancel bookings that won't go ahead. If a buyer cancels a card or Instant EFT payment on the payment page, their booking is cancelled automatically and the dates become free again.
 
 Buyers see the already-booked dates on your listing and cannot book over them, even if two buyers try at the same moment.
 
@@ -112,6 +112,19 @@ When a buyer pays by EFT, they pay into your bank account using the details in y
 ## Order and payment history
 
 Open **Order & payment history** to see every order and payment, with filters for status, payment status, payment method, type and dates. Use **Export** to download the filtered list as **CSV** or **Excel**.
+
+### Online payments and payouts
+
+Card / Instant EFT payments are collected by the platform, not paid into your account straight away. The platform pays your share into the bank account in your settings, less the platform fee. The **Online payments and payouts** section at the top of the history page shows, for each online payment, what the buyer paid, the platform fee, what you get and the payout status:
+
+| Payout status | Meaning |
+|---|---|
+| **Awaiting payout** | The platform holds your share and will pay it out. |
+| **Paid out** | Paid to your bank account. The date and bank transfer reference are shown. |
+| **Refund due to buyer** | The order or booking was cancelled after the buyer paid, so the buyer is refunded instead. |
+| **Refunded to buyer** | The buyer was refunded. |
+
+Cash and manual EFT are paid to you directly and carry no platform fee.
 
 ## Your team (Premium)
 

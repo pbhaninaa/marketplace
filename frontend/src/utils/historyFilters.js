@@ -18,7 +18,7 @@ export const PAYMENT_STATUS_OPTIONS = [
 export const PAYMENT_METHOD_OPTIONS = [
   { value: 'CASH', label: 'Cash' },
   { value: 'EFT', label: 'EFT (bank transfer)' },
-  { value: 'PEACH', label: 'Online (Peach)' },
+  { value: 'PEACH', label: 'Online (Card / Instant EFT)' },
 ];
 
 export const PAYMENT_KIND_OPTIONS = [

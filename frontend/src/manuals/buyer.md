@@ -74,7 +74,7 @@ Press **Checkout** on the seller you want to pay first. The checkout page shows 
    |---|---|
    | **Cash on collection / delivery** | Pay the seller in person when you collect or receive the order. |
    | **EFT (bank transfer)** | The seller's bank details are shown. Pay the seller directly, using the reference shown. |
-   | **Card / Instant EFT** | You are sent to the secure Peach Payments page to pay. You come back to the marketplace afterwards. |
+   | **Card / Instant EFT** | You are sent to a secure payment page (PayFast or Peach Payments) to pay. You come back to the marketplace afterwards and the page confirms your payment, usually within a few seconds. |
 
 4. Check the **Subtotal**, **Delivery** and **Total**, then press **Place order**.
 

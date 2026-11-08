@@ -2,7 +2,8 @@
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
-import { providerSubscriptionApi, publicPeachApi } from '../services/marketplaceApi';
+import { providerSubscriptionApi, publicPaymentsApi } from '../services/marketplaceApi';
+import { goToOnlinePayment } from '../utils/payFastCheckout';
 import { PEACH_PAYMENT_METHODS } from '../utils/paymentModel';
 import { formatDate, formatDateTime, formatEnum, formatMoney as formatRand } from '../utils/display';
 
@@ -103,11 +104,16 @@ onMounted(async () => {
   }
   await load();
 
-  // Returned from Peach Hosted Checkout — poll status until the webhook activates the subscription.
-  if (route.query.peachRef) {
+  // Back from the online payment page (PayFast: ?payRef=, Peach: ?peachRef=): poll until the gateway
+  // notification activates the subscription.
+  if (returnRef()) {
     startPeachPolling();
   }
 });
+
+function returnRef() {
+  return String(route.query.payRef || route.query.peachRef || '');
+}
 
 onBeforeUnmount(() => {
   stopPeachPolling();
@@ -122,21 +128,22 @@ function stopPeachPolling() {
 
 function startPeachPolling() {
   stopPeachPolling();
-  message.value = 'Confirming your Peach payment…';
+  message.value = 'Confirming your online payment…';
   let attempts = 0;
   peachPollTimer = setInterval(async () => {
     attempts += 1;
     await load();
     let peachStatus = '';
     try {
-      const { data } = await publicPeachApi.status(String(route.query.peachRef || ''));
+      const { data } = await publicPaymentsApi.status(returnRef());
       peachStatus = data?.status || '';
     } catch {
       // The authenticated subscription status remains the source of truth.
     }
-    if (peachStatus === 'CANCELLED') {
+    const leftWithoutPaying = String(route.query.cancelled || '') === '1' && peachStatus !== 'PAID';
+    if (peachStatus === 'CANCELLED' || leftWithoutPaying) {
       stopPeachPolling();
-      error.value = 'The Peach payment was cancelled. Choose a payment method and try again.';
+      error.value = 'The online payment was cancelled. Choose a payment method and try again.';
       return;
     }
     if (status.value?.valid || attempts >= 15) {
@@ -153,12 +160,11 @@ async function payWithPeach() {
   error.value = '';
   peachRedirecting.value = true;
   try {
-    const { data } = await providerSubscriptionApi.peachCheckout(
+    const { data } = await providerSubscriptionApi.onlineCheckout(
       quoteIntentId.value,
       peachPaymentMethod.value,
     );
-    if (!data?.redirectUrl) throw new Error('Could not start Peach checkout');
-    window.location.href = data.redirectUrl;
+    if (!goToOnlinePayment(data)) throw new Error('Could not start the online payment');
   } catch (e) {
     error.value = e.response?.data?.message || e.message;
     peachRedirecting.value = false;
@@ -234,7 +240,7 @@ function initPaymentFields() {
       <h1 class="page-hero__title">Subscription</h1>
       <p class="page-hero__lead">
         New providers get a free 14 day trial, once, with no plan payment. After the trial, activate a plan with
-        Peach (card or instant EFT). Monthly paid access runs for 30 days from payment, then lapses until you renew.
+        an online payment (Card / Instant EFT). Monthly paid access runs for 30 days from payment, then lapses until you renew.
       </p>
     </header>
 
@@ -264,10 +270,10 @@ function initPaymentFields() {
         </div>
         <p v-if="isOnTrial" class="trial-banner">
           Free Trial: {{ trialDaysLeft }} day{{ trialDaysLeft === 1 ? '' : 's' }} remaining.
-          You can use your merchant workspace now; choose a plan and pay with Peach before the trial ends to stay online.
+          You can use your merchant workspace now; choose a plan and pay online before the trial ends to stay online.
         </p>
         <p v-else-if="!isValid" class="trial-banner trial-banner--expired">
-          Your free trial has ended. Activate Basic or Premium with Peach (Card or Instant EFT) to continue.
+          Your free trial has ended. Activate Basic or Premium with an online payment (Card / Instant EFT) to continue.
           Cash and manual EFT are not available for subscriptions.
         </p>
         <div class="sub-actions">
@@ -280,7 +286,7 @@ function initPaymentFields() {
       <section class="surface-panel sub-panel">
         <h2>{{ isOnTrial ? 'Upgrade to a paid plan' : 'Choose your plan' }}</h2>
         <p v-if="isOnTrial" class="muted small">
-          Optional during your trial. After expiry, Peach payment is required.
+          Optional during your trial. After expiry, an online payment is required.
         </p>
         <div class="sub-grid">
           <label class="plan-card" :class="{ 'plan-card--selected': selectForm.plan === 'BASIC' }">
@@ -331,7 +337,7 @@ function initPaymentFields() {
             aria-label="Close">✕</button>
           <h2 class="activate-dialog__title">Activate subscription</h2>
           <p class="muted small">
-            Pay online with Peach (card or instant EFT). Your subscription activates automatically once payment
+            Pay online (Card / Instant EFT). Your subscription activates automatically once payment
             succeeds. No proof upload needed.
           </p>
 
@@ -360,7 +366,7 @@ function initPaymentFields() {
           <div v-if="peachAvailable" class="proof-upload proof-upload--dialog">
             <h3 class="proof-upload__title">Pay online</h3>
             <p class="muted small">
-              Choose a Peach payment method. Your subscription activates automatically once payment succeeds.
+              Choose Card or Instant EFT. Your subscription activates automatically once payment succeeds.
             </p>
             <div class="peach-methods">
               <label v-for="method in PEACH_PAYMENT_METHODS" :key="method.value" class="peach-method">
@@ -370,11 +376,11 @@ function initPaymentFields() {
             </div>
             <button type="button" class="btn btn-primary"
               :disabled="!quoteIntentId || !peachPaymentMethod || peachRedirecting || activating" @click="payWithPeach">
-              {{ peachRedirecting ? 'Redirecting…' : 'Pay online with Peach' }}
+              {{ peachRedirecting ? 'Redirecting…' : 'Pay online' }}
             </button>
           </div>
           <p v-else class="err-toast" style="margin-top: 1rem;">
-            Online payments are not configured yet. Contact platform support to enable Peach before activating a plan.
+            Online payments are not configured yet. Contact platform support to enable online payments before activating a plan.
           </p>
         </div>
       </dialog>

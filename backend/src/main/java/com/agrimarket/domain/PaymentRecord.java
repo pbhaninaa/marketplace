@@ -16,6 +16,8 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.Instant;
 import lombok.Getter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
@@ -65,7 +67,52 @@ public class PaymentRecord {
     @Column(name = "gateway_result_code", length = 32)
     private String gatewayResultCode;
 
+    /** Gateway that handled an online payment (null for cash / manual EFT and for older rows). */
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "gateway", length = 16)
+    private PaymentGateway gateway;
+
+    // Seller settlement (online payments only). Recorded when the gateway confirms payment.
+
+    /** When the gateway confirmed an online payment. */
+    @Column(name = "paid_at")
+    private Instant paidAt;
+
+    /** Platform fee percent in force when the payment was confirmed. */
+    @Column(name = "platform_fee_percent", precision = 5, scale = 2)
+    private BigDecimal platformFeePercent;
+
+    @Column(name = "platform_fee", precision = 14, scale = 2)
+    private BigDecimal platformFee;
+
+    /** Amount owed to the seller: amount minus platform fee. */
+    @Column(name = "seller_payout_amount", precision = 14, scale = 2)
+    private BigDecimal sellerPayoutAmount;
+
+    /** Null on rows created before settlement existed; read through {@link #getSettlementStatus()} as NONE. */
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "settlement_status", length = 16)
+    private SettlementStatus settlementStatus = SettlementStatus.NONE;
+
+    /** When the seller was paid out (or, for REFUNDED, when the buyer was refunded). */
+    @Column(name = "paid_out_at")
+    private Instant paidOutAt;
+
+    /** Admin who recorded the payout / refund. */
+    @Column(name = "paid_out_by", length = 254)
+    private String paidOutBy;
+
+    /** Bank transfer reference of the payout / refund. */
+    @Column(name = "payout_reference", length = 120)
+    private String payoutReference;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
+
+    public SettlementStatus getSettlementStatus() {
+        return settlementStatus == null ? SettlementStatus.NONE : settlementStatus;
+    }
 }
 

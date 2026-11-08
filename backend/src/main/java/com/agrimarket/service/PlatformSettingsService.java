@@ -57,6 +57,12 @@ public class PlatformSettingsService {
         s.setInvoiceAddress(trimToNull(req.invoiceAddress()));
         s.setInvoiceVatNumber(trimToNull(req.invoiceVatNumber()));
         s.setInvoiceFooterNote(trimToNull(req.invoiceFooterNote()));
+        if (req.onlinePaymentGateway() != null) {
+            s.setOnlinePaymentGateway(req.onlinePaymentGateway());
+        }
+        if (req.onlineOrderFeePercent() != null) {
+            s.setOnlineOrderFeePercent(req.onlineOrderFeePercent().setScale(2, java.math.RoundingMode.HALF_UP));
+        }
         s.setUpdatedAt(Instant.now());
         return repository.save(s);
     }

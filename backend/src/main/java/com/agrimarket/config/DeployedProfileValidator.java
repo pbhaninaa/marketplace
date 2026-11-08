@@ -16,12 +16,24 @@ public class DeployedProfileValidator {
     private final Environment environment;
     private final EmailProperties emailProperties;
     private final PeachProperties peachProperties;
+    private final PayFastProperties payFastProperties;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public DeployedProfileValidator(
-            Environment environment, EmailProperties emailProperties, PeachProperties peachProperties) {
+            Environment environment,
+            EmailProperties emailProperties,
+            PeachProperties peachProperties,
+            PayFastProperties payFastProperties) {
         this.environment = environment;
         this.emailProperties = emailProperties;
         this.peachProperties = peachProperties;
+        this.payFastProperties = payFastProperties;
+    }
+
+    /** Without PayFast (it stays disabled): used by tests that only exercise the other checks. */
+    public DeployedProfileValidator(
+            Environment environment, EmailProperties emailProperties, PeachProperties peachProperties) {
+        this(environment, emailProperties, peachProperties, new PayFastProperties());
     }
 
     @EventListener(ApplicationReadyEvent.class)
@@ -89,16 +101,34 @@ public class DeployedProfileValidator {
                             + "PEACH_MERCHANT_ID, PEACH_ENTITY_ID, and PEACH_SECRET_TOKEN");
         }
 
-        if (peachProperties.isEnabled() && !peachProperties.isConfigured()) {
-            throw new IllegalStateException(
-                    "PEACH_ENABLED=true requires PEACH_CLIENT_ID, PEACH_CLIENT_SECRET, "
-                            + "PEACH_MERCHANT_ID, PEACH_ENTITY_ID, and PEACH_SECRET_TOKEN");
+        if (payFastProperties.isEnabled()) {
+            if (payFastProperties.getMerchantId().isEmpty()
+                    || payFastProperties.getMerchantKey().isEmpty()
+                    || payFastProperties.getPassphrase().isEmpty()) {
+                throw new IllegalStateException(
+                        "PAYFAST_ENABLED=true requires PAYFAST_MERCHANT_ID, PAYFAST_MERCHANT_KEY and PAYFAST_PASSPHRASE");
+            }
+            String base = payFastProperties.getPublicBaseUrl().toLowerCase(Locale.ROOT);
+            if (!base.startsWith("https://") || base.contains("localhost") || base.contains("127.0.0.1")) {
+                throw new IllegalStateException(
+                        "PAYFAST_ENABLED=true requires PAYFAST_PUBLIC_BASE_URL to be this backend's public https URL");
+            }
         }
 
-        if (peachProperties.isEnabled() && !peachProperties.isConfigured()) {
+        // UAT and production take real money through the real merchant accounts: a sandbox gateway (or
+        // PayFast's public sandbox merchant) would accept fake payments. Local and SIT use the sandbox.
+        if (peachProperties.isEnabled() && peachProperties.isSandbox()) {
             throw new IllegalStateException(
-                    "PEACH_ENABLED=true requires PEACH_CLIENT_ID, PEACH_CLIENT_SECRET, "
-                            + "PEACH_MERCHANT_ID, PEACH_ENTITY_ID, and PEACH_SECRET_TOKEN");
+                    "PEACH_SANDBOX must be false on UAT/PROD while PEACH_ENABLED=true (sandbox payments are not real)");
+        }
+        if (payFastProperties.isEnabled() && payFastProperties.isSandbox()) {
+            throw new IllegalStateException(
+                    "PAYFAST_SANDBOX must be false on UAT/PROD while PAYFAST_ENABLED=true (sandbox payments are not real)");
+        }
+        if (payFastProperties.isEnabled() && PAYFAST_PUBLIC_SANDBOX_MERCHANT_ID.equals(payFastProperties.getMerchantId())) {
+            throw new IllegalStateException(
+                    "PAYFAST_MERCHANT_ID must be your real PayFast merchant on UAT/PROD, not the public sandbox merchant "
+                            + PAYFAST_PUBLIC_SANDBOX_MERCHANT_ID);
         }
 
         // Login / sign-up abuse protection.
@@ -136,6 +166,9 @@ public class DeployedProfileValidator {
 
     /** Deployed profiles: uat, prod, and the cloud profiles (aws, azure) that run with prod settings. */
     static final Set<String> DEPLOYED_PROFILES = Set.of("uat", "prod", "aws", "azure");
+
+    /** PayFast's published public sandbox merchant id (used on local / SIT only). */
+    static final String PAYFAST_PUBLIC_SANDBOX_MERCHANT_ID = "10000100";
 
     private boolean isDeployedProfile() {
         for (String profile : environment.getActiveProfiles()) {

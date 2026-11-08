@@ -79,6 +79,19 @@ export const publicCatalogApi = {
   },
 };
 
+/** Online "Card / Instant EFT" payments, whichever gateway (PayFast or Peach) serves them. */
+export const publicPaymentsApi = {
+  /** `{ available, gateway }`: whether the online option can be offered right now. */
+  onlineStatus() {
+    return api.get('/api/public/payments/online-status');
+  },
+  /** Return-page status by payment reference (any gateway). */
+  status(ref) {
+    return api.get('/api/public/payments/status', { params: { ref } });
+  },
+};
+
+/** @deprecated Peach-only endpoints; use publicPaymentsApi. */
 export const publicPeachApi = {
   configured() {
     return api.get('/api/public/peach/configured');
@@ -279,6 +292,35 @@ export const providerSubscriptionApi = {
       intentId,
       peachPaymentMethod,
     });
+  },
+  /** Plan payment through the active gateway: `{ gateway, paymentRef, redirectUrl? , payfast? }`. */
+  onlineCheckout(intentId, peachPaymentMethod) {
+    return api.post('/api/provider/me/subscription/online-checkout', {
+      intentId,
+      peachPaymentMethod,
+    });
+  },
+};
+
+export const providerPayoutsApi = {
+  get() {
+    return api.get('/api/provider/me/payouts');
+  },
+};
+
+export const adminPayoutsApi = {
+  summary() {
+    return api.get('/api/admin/payouts/summary');
+  },
+  /** params: { status (HELD default, PAID_OUT, REFUND_DUE, REFUNDED), providerId, from, to } */
+  payments(params) {
+    return api.get('/api/admin/payouts/payments', { params });
+  },
+  markPaid(body) {
+    return api.post('/api/admin/payouts/mark-paid', body);
+  },
+  markRefunded(body) {
+    return api.post('/api/admin/payouts/mark-refunded', body);
   },
 };
 
