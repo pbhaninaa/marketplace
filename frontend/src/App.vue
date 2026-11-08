@@ -21,6 +21,9 @@ const cart = useCartStore();
 const theme = useThemeStore();
 const { dialogState } = useDialog();
 
+/** Shoppers (guests and signed-in customers) always see the cart in the top bar. */
+const showCart = computed(() => !auth.isAuthenticated || auth.isClientUser);
+
 const menuOpen = ref(false);
 
 // One live-updates stream per tab for staff accounts; pages listen via utils/liveUpdates.
@@ -129,12 +132,6 @@ onMounted(async () => {
         <span class="hamburger__line"></span>
         <span class="hamburger__line"></span>
         <span class="hamburger__line"></span>
-        <!-- Cart moved into the side nav; keep a hint on the menu button so it isn't missed. -->
-        <span
-          v-if="!menuOpen && cart.totalQuantity > 0"
-          class="hamburger__badge"
-          aria-hidden="true"
-        >{{ cart.totalQuantity > 99 ? '99+' : cart.totalQuantity }}</span>
       </button>
 
       <router-link :to="brandHome" class="brand" @click="closeMenu">
@@ -153,6 +150,20 @@ onMounted(async () => {
 
       <div class="top-bar__actions">
         <NotificationBell />
+        <!-- Cart lives in the top bar (always visible to shoppers), not hidden in the side menu. -->
+        <router-link
+          v-if="showCart"
+          to="/checkout"
+          class="cart-btn"
+          :aria-label="cart.totalQuantity > 0 ? `Cart, ${cart.totalQuantity} item${cart.totalQuantity === 1 ? '' : 's'}` : 'Cart, empty'"
+          :title="cart.totalQuantity > 0 ? 'View cart' : 'Your cart is empty'"
+          @click="closeMenu"
+        >
+          <span class="material-icons" aria-hidden="true">shopping_cart</span>
+          <span v-if="cart.totalQuantity > 0" class="cart-btn__badge" aria-hidden="true">
+            {{ cart.totalQuantity > 99 ? '99+' : cart.totalQuantity }}
+          </span>
+        </router-link>
       </div>
     </header>
 
@@ -181,10 +192,6 @@ onMounted(async () => {
       <nav class="side-nav__links" @click="closeMenu">
         <template v-if="!auth.isAuthenticated">
           <router-link to="/">Browse</router-link>
-          <router-link v-if="cart.totalQuantity > 0" to="/checkout">
-            Cart
-            <span class="side-badge">{{ cart.totalQuantity }}</span>
-          </router-link>
           <router-link to="/my-orders">My orders</router-link>
           <router-link to="/order-invoice">Order invoice</router-link>
           <router-link to="/settings">Settings</router-link>
@@ -225,10 +232,6 @@ onMounted(async () => {
           <p class="side-nav__section">Customer</p>
           <router-link to="/">Browse</router-link>
           <router-link to="/my-orders">My orders &amp; payments</router-link>
-          <router-link v-if="cart.totalQuantity > 0" to="/checkout">
-            Cart
-            <span class="side-badge">{{ cart.totalQuantity }}</span>
-          </router-link>
           <router-link to="/order-invoice">Order invoice</router-link>
           <router-link to="/profile">Profile</router-link>
           <router-link to="/settings">Settings</router-link>
@@ -360,7 +363,42 @@ onMounted(async () => {
   margin-left: auto;
 }
 
-.hamburger__badge {
+.cart-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface-elevated);
+  color: var(--color-canopy);
+  text-decoration: none;
+}
+
+.cart-btn:hover {
+  text-decoration: none;
+  border-color: var(--color-canopy);
+}
+
+.cart-btn:focus-visible {
+  outline: 2px solid var(--color-canopy);
+  outline-offset: 2px;
+}
+
+.cart-btn .material-icons {
+  font-size: 1.2rem;
+}
+
+@media (max-width: 640px) {
+  .cart-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+.cart-btn__badge {
   position: absolute;
   top: -0.35rem;
   right: -0.35rem;
@@ -526,19 +564,6 @@ onMounted(async () => {
   margin-top: auto;
 }
 
-.side-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1.2rem;
-  height: 1.2rem;
-  padding: 0 0.35rem;
-  border-radius: var(--radius-pill);
-  font-size: 0.68rem;
-  font-weight: 800;
-  background: var(--color-earth);
-  color: #fff;
-}
 
 .side-nav__footer {
   padding: 0.85rem 1rem 1.1rem;
