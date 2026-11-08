@@ -10,7 +10,10 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -74,6 +77,22 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
                 .body(Map.of("code", "METHOD_NOT_ALLOWED", "errorCode", "METHOD_NOT_ALLOWED", "message", ex.getMessage()));
+    }
+
+    /** Malformed requests (missing/mistyped parameters, unreadable JSON) are the caller's fault: 400, not 500. */
+    @ExceptionHandler({
+        MissingServletRequestParameterException.class,
+        MethodArgumentTypeMismatchException.class,
+        HttpMessageNotReadableException.class
+    })
+    public ResponseEntity<Map<String, Object>> handleBadRequest(Exception ex) {
+        String msg = ex instanceof MissingServletRequestParameterException m
+                ? "Missing required parameter: " + m.getParameterName()
+                : ex instanceof MethodArgumentTypeMismatchException t
+                        ? "Invalid value for parameter: " + t.getName()
+                        : "Request body is missing or malformed";
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("code", "BAD_REQUEST", "errorCode", "BAD_REQUEST", "message", msg));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
