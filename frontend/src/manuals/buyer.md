@@ -67,7 +67,7 @@ Press **Checkout** on the seller you want to pay first. The checkout page shows 
 1. Enter your **name**, **email** and **phone number**. South African numbers can be written as `082 123 4567` or `+27 82 123 4567`.
 2. Choose how to **receive** your order:
    - **Pickup**: collect it from the seller.
-   - **Delivery** (if the seller offers it): enter the distance in kilometres. The fee is the distance × the seller's rate per km, and is shown before you pay.
+   - **Delivery** (if the seller offers it): a map opens at your current location. Drag the pin to your exact gate or door, and add directions for the driver if you like. The delivery fee is worked out from the seller's pickup point to your pin (estimated road distance × the seller's rate per km) and is shown before you place the order.
 3. Choose how to **pay**. Each seller decides which methods they accept:
 
    | Method | What happens |

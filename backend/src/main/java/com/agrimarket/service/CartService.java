@@ -330,7 +330,8 @@ public class CartService {
                     p.getBankBranchCode(),
                     p.getBankReference(),
                     acceptedAtCheckout(p),
-                    p.isDeliveryAvailable(),
+                    // Delivery is only offered when it can be priced: on, a rate per km, and a pickup pin.
+                    DeliveryPricing.offersDelivery(p),
                     p.getDeliveryPricePerKm(),
                     lineIdsBySeller.get(p.getId()),
                     itemsBySeller.get(p.getId()),

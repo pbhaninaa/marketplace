@@ -65,6 +65,16 @@ public class Order {
     @Column(name = "delivery_fee", precision = 10, scale = 2)
     private BigDecimal deliveryFee;
 
+    /** Delivery destination chosen by the buyer at checkout (address text and map pin). */
+    @Column(name = "delivery_address", length = 255)
+    private String deliveryAddress;
+
+    @Column(name = "delivery_latitude")
+    private Double deliveryLatitude;
+
+    @Column(name = "delivery_longitude")
+    private Double deliveryLongitude;
+
     @Column(name = "session_key")
     private String sessionKey;
 

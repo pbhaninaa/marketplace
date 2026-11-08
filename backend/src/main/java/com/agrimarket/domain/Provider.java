@@ -76,6 +76,13 @@ public class Provider {
     @Column(name = "delivery_price_per_km", precision = 10, scale = 2)
     private BigDecimal deliveryPricePerKm;
 
+    /** Where deliveries start from (set on a map by the seller). Used to price delivery; never shown to buyers. */
+    @Column(name = "pickup_latitude")
+    private Double pickupLatitude;
+
+    @Column(name = "pickup_longitude")
+    private Double pickupLongitude;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 

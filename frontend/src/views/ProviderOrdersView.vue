@@ -290,6 +290,14 @@ function isDeliveryOrder(o) {
   return fulfilmentLabel(o) === 'Delivery';
 }
 
+/** Directions to the buyer's delivery pin (orders use deliveryLatitude/Longitude; rentals latitude/longitude). */
+function deliveryMapUrl(o) {
+  const lat = Number(o?.deliveryLatitude ?? o?.latitude);
+  const lng = Number(o?.deliveryLongitude ?? o?.longitude);
+  if (!isDeliveryOrder(o) || !Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return '';
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+}
+
 function deliveryAddressLabel(o) {
   const address = String(o?.deliveryAddress || '').trim();
   if (address) return address;
@@ -442,6 +450,10 @@ function displayText(value) {
                     <TextWithTooltip :text="deliveryAddressLabel(o)" />
                   </span>
                 </div>
+                <div v-if="deliveryMapUrl(o)" class="info-row">
+                  <span class="label">Location:</span>
+                  <a class="value" :href="deliveryMapUrl(o)" target="_blank" rel="noopener">Get directions</a>
+                </div>
                 <div class="info-row">
                   <span class="label">Total:</span>
                   <span class="value amount">{{ formatMoney(orderTotal(o)) }}</span>
@@ -486,6 +498,10 @@ function displayText(value) {
             <p><strong>Fulfilment:</strong> {{ fulfilmentLabel(selectedOrder) }}</p>
             <p v-if="deliveryAddressLabel(selectedOrder)">
               <strong>Address:</strong> {{ deliveryAddressLabel(selectedOrder) }}
+            </p>
+            <p v-if="deliveryMapUrl(selectedOrder)">
+              <strong>Location:</strong>
+              <a :href="deliveryMapUrl(selectedOrder)" target="_blank" rel="noopener">Get directions to the buyer's pin</a>
             </p>
             <p><strong>Total:</strong> {{ formatMoney(orderTotal(selectedOrder)) }}</p>
 

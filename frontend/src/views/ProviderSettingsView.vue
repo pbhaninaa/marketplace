@@ -3,6 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { providerSettingsApi, publicPeachApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
+import MapPinPicker from '../components/ui/MapPinPicker.vue';
 import FormField from '../components/ui/FormField.vue';
 import {
   isNonEmptyString,
@@ -81,6 +82,8 @@ const form = ref({
   deliveryAvailable: false,
   deliveryPricePerKm: '',
 });
+/** Where deliveries start from; buyers' delivery fees are worked out from this point. */
+const pickup = ref(null);
 
 /** Inline field messages (same rules as the API); "required" only shows after a save attempt. */
 const triedSave = ref(false);
@@ -132,6 +135,10 @@ async function load() {
       deliveryAvailable: data.deliveryAvailable || false,
       deliveryPricePerKm: data.deliveryPricePerKm || '',
     };
+    pickup.value =
+      data.pickupLatitude != null && data.pickupLongitude != null
+        ? { lat: Number(data.pickupLatitude), lng: Number(data.pickupLongitude) }
+        : null;
   } catch (e) {
     error.value = e.message;
   } finally {
@@ -167,6 +174,10 @@ async function save() {
     error.value = 'Enter valid delivery price.';
     return;
   }
+  if (form.value.deliveryAvailable && !pickup.value) {
+    error.value = 'Set your pickup location on the map so delivery fees can be worked out.';
+    return;
+  }
 
   try {
     await providerSettingsApi.patch({
@@ -177,6 +188,8 @@ async function save() {
       deliveryPricePerKm: form.value.deliveryAvailable
         ? parseFloat(form.value.deliveryPricePerKm)
         : null,
+      pickupLatitude: pickup.value ? pickup.value.lat : null,
+      pickupLongitude: pickup.value ? pickup.value.lng : null,
     });
     message.value = 'Settings saved.';
   } catch (e) {
@@ -258,6 +271,14 @@ async function save() {
             <FormField label="Price per KM" :error="fieldErrors.deliveryPricePerKm">
               <input v-model="form.deliveryPricePerKm" type="number" min="0" step="0.01" :max="LIMITS.maxPricePerKm" :disabled="!canEdit" />
             </FormField>
+            <div class="pickup-field">
+              <span class="ctl-label">Pickup location</span>
+              <p class="muted small pickup-help">
+                Where your deliveries start. Buyers' delivery fees are worked out from here to their pin
+                (straight line × 1.3 for roads). Buyers never see this point.
+              </p>
+              <MapPinPicker v-model="pickup" :disabled="!canEdit" hint="Tap the map or drag the pin to your gate or yard." />
+            </div>
           </div>
         </section>
 
@@ -380,6 +401,16 @@ async function save() {
   padding: 0.6rem;
   border: 1px dashed var(--color-info-text);
   border-radius: 10px;
+}
+
+.pickup-field {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.pickup-help {
+  margin: 0;
 }
 
 /* ACTIONS */
