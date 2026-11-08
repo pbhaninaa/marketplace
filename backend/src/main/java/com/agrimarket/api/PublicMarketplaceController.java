@@ -10,7 +10,10 @@ import com.agrimarket.repo.ListingRepository;
 import com.agrimarket.repo.ProviderRepository;
 import com.agrimarket.service.ListingMapper;
 import com.agrimarket.service.ListingSpecifications;
+import com.agrimarket.service.SubscriptionService;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -28,6 +31,8 @@ public class PublicMarketplaceController {
     private final ListingRepository listingRepository;
     private final CategoryRepository categoryRepository;
     private final ProviderRepository providerRepository;
+    private final SubscriptionService subscriptionService;
+    private final Clock clock;
 
     @GetMapping("/categories")
     public java.util.List<CategoryOptionResponse> categories() {
@@ -46,8 +51,9 @@ public class PublicMarketplaceController {
 
     @GetMapping("/provider-options")
     public java.util.List<ProviderOptionResponse> providerOptions(@RequestParam(required = false) ListingType listingType) {
-        // simple: return all providers (front-end can filter)
+        // Only providers whose listings appear in the feed (i.e. that can take orders right now).
         return providerRepository.findAll(Sort.by("name").ascending()).stream()
+                .filter(subscriptionService::canAcceptOrders)
                 .map(p -> new ProviderOptionResponse(p.getId(), p.getName()))
                 .toList();
     }
@@ -76,7 +82,9 @@ public class PublicMarketplaceController {
                 Math.max(0, page),
                 Math.min(Math.max(1, size), 100),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
-        return listingRepository.findAll(ListingSpecifications.publicFeed(f), pageable).map(ListingMapper::toResponse);
+        return listingRepository
+                .findAll(ListingSpecifications.publicFeed(f, Instant.now(clock)), pageable)
+                .map(ListingMapper::toResponse);
     }
 
     private static Long positiveId(Long id) {

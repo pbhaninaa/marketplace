@@ -49,6 +49,22 @@ class CartMvcIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
+    void addToCart_fromProviderThatCannotTakeOrders_isRejected() throws Exception {
+        String u = UUID.randomUUID().toString().substring(0, 8);
+        Category cat = fixtures.saveCategory("Feed", "feed-" + u);
+        Provider lapsed = fixtures.saveActiveProviderWithTrialEndingAt(
+                "Lapsed Farm", "lapsed-" + u, java.time.Instant.now().minus(1, java.time.temporal.ChronoUnit.DAYS));
+        Listing stale = fixtures.saveSaleListing(lapsed, cat, "Old Hay", new BigDecimal("50"), 5);
+
+        mockMvc.perform(post("/api/public/cart/add")
+                        .header("X-Session-Id", sessionId)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("listingId", stale.getId(), "quantity", 1))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("PROVIDER_UNAVAILABLE"));
+    }
+
+    @Test
     void addToCart_thenSecondProvider_returnsConflict() throws Exception {
         mockMvc.perform(post("/api/public/cart/add")
                         .header("X-Session-Id", sessionId)

@@ -4,7 +4,12 @@ import com.agrimarket.api.dto.ListingFilterParams;
 import com.agrimarket.domain.Listing;
 import com.agrimarket.domain.ListingType;
 import com.agrimarket.domain.ProviderStatus;
+import com.agrimarket.domain.Subscription;
+import com.agrimarket.domain.SubscriptionStatus;
 import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Subquery;
+import java.time.Instant;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
@@ -18,7 +23,30 @@ public final class ListingSpecifications {
 
     private ListingSpecifications() {}
 
+    /**
+     * A provider can take orders when it is ACTIVE and either still on its free trial or has a paid
+     * ACTIVE subscription that has not expired. Mirrors {@code CheckoutService}'s gate, so the public
+     * feed never shows listings that would fail at checkout.
+     */
+    public static Predicate providerAcceptingOrders(
+            Join<?, ?> provider, CriteriaQuery<?> query, CriteriaBuilder cb, Instant now) {
+        Subquery<Long> paid = query.subquery(Long.class);
+        Root<Subscription> s = paid.from(Subscription.class);
+        paid.select(s.get("id"))
+                .where(
+                        cb.equal(s.get("provider"), provider),
+                        cb.equal(s.get("status"), SubscriptionStatus.ACTIVE),
+                        cb.greaterThan(s.<Instant>get("expiresAt"), now));
+        return cb.and(
+                cb.equal(provider.get("status"), ProviderStatus.ACTIVE),
+                cb.or(cb.greaterThan(provider.<Instant>get("trialEndsAt"), now), cb.exists(paid)));
+    }
+
     public static Specification<Listing> publicFeed(ListingFilterParams f) {
+        return publicFeed(f, Instant.now());
+    }
+
+    public static Specification<Listing> publicFeed(ListingFilterParams f, Instant now) {
         return (root, query, cb) -> {
             // Ensure provider/category are initialized for DTO mapping (avoid LazyInitializationException)
             if (query.getResultType() == Listing.class) {
@@ -28,7 +56,8 @@ public final class ListingSpecifications {
             List<Predicate> p = new ArrayList<>();
             p.add(cb.isTrue(root.get("active")));
             Join<Object, Object> provider = root.join("provider", JoinType.INNER);
-            p.add(cb.notEqual(provider.get("status"), ProviderStatus.SUSPENDED));
+            // Only providers that can actually take the order (active + trial or paid subscription).
+            p.add(providerAcceptingOrders(provider, query, cb, now));
             Join<Object, Object> category = root.join("category", JoinType.INNER);
 
             if (f.categoryId() != null) {

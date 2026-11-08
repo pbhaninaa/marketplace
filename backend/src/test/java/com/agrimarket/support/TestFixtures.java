@@ -38,6 +38,15 @@ public class TestFixtures {
         return providerRepository.save(p);
     }
 
+    /** ACTIVE provider whose free trial ends at {@code trialEndsAt} (in the past = expired, no subscription). */
+    public Provider saveActiveProviderWithTrialEndingAt(String name, String slug, Instant trialEndsAt) {
+        Provider p = new Provider(name, slug, "Test provider", "Testville");
+        p.setStatus(ProviderStatus.ACTIVE);
+        p.setTrialStartedAt(trialEndsAt.minus(14, ChronoUnit.DAYS));
+        p.setTrialEndsAt(trialEndsAt);
+        return providerRepository.save(p);
+    }
+
     public Provider savePendingProvider(String name, String slug) {
         Provider p = new Provider(name, slug, "Test provider", "Testville");
         p.setStatus(ProviderStatus.PENDING);

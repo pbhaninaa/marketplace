@@ -38,6 +38,7 @@ public class CartService {
     private final RentalPricingService rentalPricingService;
     private final AppProperties appProperties;
     private final PeachPaymentService peachPaymentService;
+    private final SubscriptionService subscriptionService;
 
     @Transactional
     public CartResponse addItem(String sessionKey, CartAddRequest req) {
@@ -51,8 +52,12 @@ public class CartService {
         if (!listing.isActive()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "LISTING_INACTIVE", "Listing is not available");
         }
-        if (listing.getProvider().getStatus() != ProviderStatus.ACTIVE) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "PROVIDER_UNAVAILABLE", "Provider is not accepting orders");
+        // Same rule as the public feed and checkout: hidden listings can't be added from a stale page.
+        if (!subscriptionService.canAcceptOrders(listing.getProvider())) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "PROVIDER_UNAVAILABLE",
+                    "This item is no longer available. Please choose another listing.");
         }
 
         Long listingProviderId = listing.getProvider().getId();

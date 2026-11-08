@@ -287,11 +287,25 @@ async function submitCheckout() {
 
     router.push('/');
   } catch (e) {
+    const code = e.response?.data?.code || e.response?.data?.errorCode;
+    if (PROVIDER_UNAVAILABLE_CODES.has(code)) {
+      // The provider stopped taking orders after these items were added (e.g. trial ended).
+      // Their listings are already hidden from the marketplace, so clear the cart and go back.
+      await cart.clearCart().catch(() => {});
+      await warning(
+        'This seller is no longer taking orders, so their items have been removed from your cart. Please choose items from another seller.',
+        'Items no longer available'
+      );
+      router.push('/');
+      return;
+    }
     await showError(e.response?.data?.message || e.message, 'Checkout Failed');
   } finally {
     submitting.value = false;
   }
 }
+
+const PROVIDER_UNAVAILABLE_CODES = new Set(['SUBSCRIPTION_INACTIVE', 'PROVIDER_INACTIVE', 'PROVIDER_UNAVAILABLE']);
 
 /* ================= CART ================= */
 async function clearCart() {
