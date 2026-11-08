@@ -669,10 +669,6 @@ async function deleteListing(id) {
   width: 100%;
   max-width: 20rem;
   min-height: 6.5rem;
-  padding: 0.35rem 0.5rem;
-  border-radius: 10px;
-  border: 1px solid rgba(26, 60, 52, 0.18);
-  background: var(--color-surface, #fff);
 }
 .rent-grid {
   display: grid;

@@ -260,22 +260,13 @@
 }
 
 /* ================= Inputs: recessed wells below the raised cards ================= */
-:root[data-display='glass'] .base-input,
-:root[data-display='glass'] .base-select,
-:root[data-display='glass'] .base-textarea,
-:root[data-display='glass'] .form-field__control input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']),
-:root[data-display='glass'] .form-field__control select,
-:root[data-display='glass'] .form-field__control textarea {
+/* Every form control (same set as src/styles/forms.css), not just the Base* components. */
+:root[data-display='glass'] :is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='hidden']), select, textarea) {
   background-color: var(--g-fill-soft) !important;
   box-shadow: var(--g-sunken);
   transition: box-shadow var(--g-ease), background-color var(--g-ease), border-color var(--g-ease);
 }
-:root[data-display='glass'] .base-input:focus,
-:root[data-display='glass'] .base-select:focus,
-:root[data-display='glass'] .base-textarea:focus,
-:root[data-display='glass'] .form-field__control input:focus,
-:root[data-display='glass'] .form-field__control select:focus,
-:root[data-display='glass'] .form-field__control textarea:focus {
+:root[data-display='glass'] :is(input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='hidden']), select, textarea):focus {
   background-color: var(--g-fill-strong) !important;
   box-shadow: 0 0 0 4px rgba(var(--g-accent-rgb), 0.18), var(--g-sunken);
 }
