@@ -61,7 +61,6 @@ function resetTouched() {
 const paymentMethod = ref('CASH');
 const peachPaymentMethod = ref('');
 const deliveryMode = ref(''); 
-const deliveryDistanceKm = ref('');
 const showCheckout = ref(false);
 const submitting = ref(false);
 const toggleCheckout = () => {
