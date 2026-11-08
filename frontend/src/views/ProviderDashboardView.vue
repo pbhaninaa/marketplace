@@ -7,6 +7,18 @@ import DateRangeFilter from '../components/ui/DateRangeFilter.vue';
 import { formatCount, formatDateRange, formatEnum, formatMoney } from '../utils/display';
 import LiveStatus from '../components/LiveStatus.vue';
 import { useLiveRefresh } from '../composables/useLiveRefresh';
+import TimeChart from '../components/charts/TimeChart.vue';
+import RankedBars from '../components/charts/RankedBars.vue';
+import SegmentedBar from '../components/charts/SegmentedBar.vue';
+import {
+  labelsOf,
+  orderStatusParts,
+  paymentMethodItems,
+  perBucket,
+  revenueSeries,
+  topItems,
+  volumeSeries,
+} from '../components/charts/dashboardSeries';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -70,8 +82,13 @@ async function loadStats({ quiet = false } = {}) {
   try {
     const q = computeQuery();
     const params = q ? { params: q } : undefined;
-    const { data } = await providerDashboardApi.stats(params);
-    stats.value = data;
+    const [statsRes, trendsRes] = await Promise.all([
+      providerDashboardApi.stats(params),
+      // Charts are a bonus: if they fail, keep the KPI numbers.
+      providerDashboardApi.trends(params).catch(() => null),
+    ]);
+    stats.value = statsRes.data;
+    if (trendsRes) trends.value = trendsRes.data;
     error.value = '';
   } catch (e) {
     if (quiet) throw e; // background refresh: keep the numbers on screen
@@ -92,6 +109,11 @@ async function loadSubscription({ quiet = false } = {}) {
     if (!quiet) subLoading.value = false;
   }
 }
+
+/** Chart data for the same date range as the KPI tiles. */
+const trends = ref(null);
+const chartLabels = computed(() => labelsOf(trends.value));
+const per = computed(() => perBucket(trends.value));
 
 /** KPI text: real value once loaded, otherwise what is happening (never a dash). */
 const kpi = (formatted) => {
@@ -156,6 +178,54 @@ watch(
           <span class="kpi__hint">{{ loading ? 'Loading…' : 'Updated' }}</span>
         </div>
       </div>
+    </section>
+
+    <section v-if="trends" class="dash-charts" aria-label="Sales charts">
+      <TimeChart
+        class="dash-charts__wide"
+        title="Revenue"
+        :subtitle="`Sales orders and rentals ${per}, cancelled excluded`"
+        :labels="chartLabels"
+        :granularity="trends.granularity"
+        :series="revenueSeries(trends)"
+        money
+        :busy="loading"
+        empty-text="No revenue in this period yet."
+      />
+      <TimeChart
+        title="Orders and bookings"
+        :subtitle="`Number placed ${per}`"
+        kind="columns"
+        :labels="chartLabels"
+        :granularity="trends.granularity"
+        :series="volumeSeries(trends)"
+        :busy="loading"
+        empty-text="No orders or bookings in this period yet."
+      />
+      <SegmentedBar
+        title="Order status"
+        subtitle="Where this period's orders and bookings are now"
+        :parts="orderStatusParts(trends)"
+        unit="orders"
+        :busy="loading"
+        empty-text="No orders or bookings in this period yet."
+      />
+      <RankedBars
+        title="Top listings"
+        subtitle="Units sold plus rental bookings, top 5"
+        :items="topItems(trends)"
+        unit="ordered"
+        :busy="loading"
+        empty-text="No listings ordered in this period yet."
+      />
+      <RankedBars
+        title="Payment methods"
+        subtitle="Amount by how buyers paid"
+        :items="paymentMethodItems(trends)"
+        money
+        :busy="loading"
+        empty-text="No payments in this period yet."
+      />
     </section>
 
     <section class="surface-panel dash-panel dash-panel--status">
@@ -247,6 +317,23 @@ watch(
   margin-bottom: 0.85rem;
 }
 
+
+.dash-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.dash-charts__wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 820px) {
+  .dash-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 
 .dash-top {
   width: 100%;

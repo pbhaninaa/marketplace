@@ -245,6 +245,10 @@ export const providerDashboardApi = {
   stats(params) {
     return api.get('/api/provider/me/dashboard/stats', params);
   },
+  /** Chart data (time series + breakdowns); same {params} shape as stats. */
+  trends(params) {
+    return api.get('/api/provider/me/dashboard/trends', params);
+  },
 };
 
 export const providerSubscriptionApi = {
@@ -277,6 +281,10 @@ export const providerSubscriptionApi = {
 export const adminDashboardApi = {
   stats(params) {
     return api.get('/api/admin/dashboard/stats', { params });
+  },
+  /** Chart data (time series + breakdowns) for the platform. */
+  trends(params) {
+    return api.get('/api/admin/dashboard/trends', { params });
   },
 };
 

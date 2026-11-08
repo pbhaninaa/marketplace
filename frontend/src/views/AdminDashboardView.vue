@@ -1,18 +1,39 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { adminDashboardApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import { formatCount, formatDateRange, formatMoney } from '../utils/display';
 import { useLiveRefresh } from '../composables/useLiveRefresh';
 import LiveStatus from '../components/LiveStatus.vue';
+import DateRangeFilter from '../components/ui/DateRangeFilter.vue';
+import TimeChart from '../components/charts/TimeChart.vue';
+import RankedBars from '../components/charts/RankedBars.vue';
+import SegmentedBar from '../components/charts/SegmentedBar.vue';
+import { dateRangeQuery } from '../utils/dateRangeQuery';
+import {
+  labelsOf,
+  orderStatusParts,
+  paymentMethodItems,
+  perBucket,
+  providerStateParts,
+  revenueSeries,
+  signupSeries,
+  topItems,
+  volumeSeries,
+} from '../components/charts/dashboardSeries';
 
 const router = useRouter();
 const auth = useAuthStore();
 
 const loading = ref(false);
 const stats = ref(null);
+const trends = ref(null);
 const error = ref('');
+/** One filter row scopes every number and chart below it. */
+const range = ref({ preset: 'LAST_30', from: '', to: '' });
+const chartLabels = computed(() => labelsOf(trends.value));
+const per = computed(() => perBucket(trends.value));
 
 /** KPI text: real number once loaded, otherwise say what is happening instead of a dash. */
 const kpi = (value) => {
@@ -35,8 +56,14 @@ async function load({ quiet = false } = {}) {
     error.value = '';
   }
   try {
-    const { data } = await adminDashboardApi.stats();
-    stats.value = data;
+    const q = dateRangeQuery(range.value) || undefined;
+    const [statsRes, trendsRes] = await Promise.all([
+      adminDashboardApi.stats(q),
+      // Charts are a bonus: if they fail, keep the KPI numbers.
+      adminDashboardApi.trends(q).catch(() => null),
+    ]);
+    stats.value = statsRes.data;
+    if (trendsRes) trends.value = trendsRes.data;
   } catch (e) {
     // Background refresh: keep the numbers on screen.
     if (quiet) throw e;
@@ -49,6 +76,15 @@ async function load({ quiet = false } = {}) {
 
 const rangeLabel = computed(() =>
   stats.value ? formatDateRange(stats.value.from, stats.value.to) : 'Last 30 days',
+);
+
+watch(
+  () => ({ ...range.value }),
+  () => {
+    if (!auth.isPlatformAdmin) return;
+    if (range.value.preset === 'CUSTOM' && (!range.value.from || !range.value.to)) return;
+    load();
+  },
 );
 
 // Live: reload on server pushes (orders, payments, subscriptions), tab re-focus, and every 60s.
@@ -77,7 +113,10 @@ const activityScore = computed(() => {
         <LiveStatus :updated-at="lastUpdated" :refreshing="refreshing || loading" @refresh="refreshNow" />
       </div>
 
-      <p class="muted small range-note">{{ rangeLabel }}</p>
+      <div class="range-row">
+        <DateRangeFilter v-model="range" />
+        <p class="muted small range-note">{{ rangeLabel }}</p>
+      </div>
       <p v-if="error" class="err-toast" role="alert">{{ error }}</p>
 
       <div class="kpi-grid">
@@ -111,6 +150,71 @@ const activityScore = computed(() => {
           <strong class="kpi__value">{{ stats ? `${activityScore}%` : kpi() }}</strong>
           <span class="kpi__hint">Signal from order volume</span>
         </div>
+      </div>
+
+      <div v-if="trends" class="dash-charts" aria-label="Platform charts">
+        <TimeChart
+          class="dash-charts__wide"
+          title="Revenue"
+          :subtitle="`All providers, sales orders and rentals ${per}, cancelled excluded`"
+          :labels="chartLabels"
+          :granularity="trends.granularity"
+          :series="revenueSeries(trends)"
+          money
+          :busy="loading"
+          empty-text="No revenue in this period yet."
+        />
+        <TimeChart
+          title="Orders and bookings"
+          :subtitle="`Number placed ${per}`"
+          kind="columns"
+          :labels="chartLabels"
+          :granularity="trends.granularity"
+          :series="volumeSeries(trends)"
+          :busy="loading"
+          empty-text="No orders or bookings in this period yet."
+        />
+        <TimeChart
+          title="Sign-ups"
+          subtitle="Running total of new users and providers this period"
+          :labels="chartLabels"
+          :granularity="trends.granularity"
+          :series="signupSeries(trends)"
+          :busy="loading"
+          empty-text="No sign-ups in this period yet."
+        />
+        <SegmentedBar
+          title="Providers who can take orders"
+          subtitle="Every provider right now, by subscription state"
+          :parts="providerStateParts(trends)"
+          unit="providers"
+          :busy="loading"
+          empty-text="No providers yet."
+        />
+        <SegmentedBar
+          title="Order status"
+          subtitle="Where this period's orders and bookings are now"
+          :parts="orderStatusParts(trends)"
+          unit="orders"
+          :busy="loading"
+          empty-text="No orders or bookings in this period yet."
+        />
+        <RankedBars
+          title="Top providers"
+          subtitle="Revenue in this period, top 5"
+          :items="topItems(trends, { money: true })"
+          money
+          :busy="loading"
+          empty-text="No provider revenue in this period yet."
+        />
+        <RankedBars
+          title="Payment methods"
+          subtitle="Amount by how buyers paid"
+          :items="paymentMethodItems(trends)"
+          money
+          :busy="loading"
+          empty-text="No payments in this period yet."
+        />
       </div>
     </section>
 
@@ -180,6 +284,35 @@ const activityScore = computed(() => {
 
 .admin-panel h2 {
   font-family: var(--font-display);
+}
+
+.range-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.range-row .range-note {
+  margin: 0;
+}
+
+.dash-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.dash-charts__wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 820px) {
+  .dash-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .kpi-grid {

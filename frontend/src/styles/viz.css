@@ -1,0 +1,204 @@
+/*
+ * Chart tokens. Charts are written against these roles, never raw hex.
+ * Categorical slots follow a fixed, validated order (CVD-safe on adjacent pairs, light + dark):
+ * blue, orange, aqua, yellow, magenta. Colour follows the entity, never its rank.
+ * Light is validated on #ffffff, dark on #121c1a (the app's card surfaces).
+ */
+:root {
+  --viz-surface: var(--color-surface-elevated, #ffffff);
+  --viz-text: var(--color-text, #1c2418);
+  --viz-text-secondary: var(--color-text-secondary, #4a5545);
+  --viz-muted: #898781;
+  --viz-grid: #e1e0d9;
+  --viz-axis: #c3c2b7;
+  --viz-series-1: #2a78d6;
+  --viz-series-2: #eb6834;
+  --viz-series-3: #1baf7a;
+  --viz-series-4: #eda100;
+  --viz-series-5: #e87ba4;
+  --viz-gray: #b9b7ae;
+  --viz-tooltip-bg: #ffffff;
+  --viz-tooltip-border: rgba(11, 11, 11, 0.12);
+}
+
+:root[data-theme='dark'] {
+  --viz-muted: #898781;
+  --viz-grid: #2c2c2a;
+  --viz-axis: #383835;
+  --viz-series-1: #3987e5;
+  --viz-series-2: #d95926;
+  --viz-series-3: #199e70;
+  --viz-series-4: #c98500;
+  --viz-series-5: #d55181;
+  --viz-gray: #5c5b56;
+  --viz-tooltip-bg: #1d2826;
+  --viz-tooltip-border: rgba(255, 255, 255, 0.14);
+}
+
+.viz-card {
+  background: var(--viz-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg, 14px);
+  padding: 1rem 1.1rem 0.9rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.viz-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 0.75rem;
+}
+
+.viz-card__title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--viz-text);
+}
+
+.viz-card__sub {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--viz-text-secondary);
+}
+
+.viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.8rem;
+  color: var(--viz-text-secondary);
+}
+
+.viz-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.viz-key-rect {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: none;
+}
+
+.viz-key-line {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  flex: none;
+}
+
+.viz-plot {
+  position: relative;
+  width: 100%;
+  transition: opacity 0.2s ease;
+}
+
+.viz-plot--busy {
+  opacity: 0.55;
+}
+
+.viz-plot svg {
+  display: block;
+  overflow: visible;
+}
+
+.viz-tick {
+  font-size: 11px;
+  fill: var(--viz-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.viz-tooltip {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  min-width: 9rem;
+  max-width: 16rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  background: var(--viz-tooltip-bg);
+  border: 1px solid var(--viz-tooltip-border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  font-size: 0.78rem;
+  color: var(--viz-text-secondary);
+}
+
+.viz-tooltip__title {
+  margin: 0 0 0.3rem;
+  font-weight: 600;
+  color: var(--viz-text-secondary);
+}
+
+.viz-tooltip__row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  line-height: 1.5;
+}
+
+.viz-tooltip__row strong {
+  color: var(--viz-text);
+  font-weight: 700;
+}
+
+.viz-empty {
+  margin: 0;
+  padding: 1.5rem 0;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--viz-text-secondary);
+}
+
+.viz-table-toggle {
+  font-size: 0.78rem;
+  color: var(--viz-text-secondary);
+}
+
+.viz-table-toggle summary {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.viz-table {
+  width: 100%;
+  margin-top: 0.4rem;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.viz-table th,
+.viz-table td {
+  padding: 0.3rem 0.4rem;
+  border-bottom: 1px solid var(--viz-grid);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--viz-text);
+}
+
+.viz-table th:first-child,
+.viz-table td:first-child {
+  text-align: left;
+}
+
+.viz-table th {
+  color: var(--viz-text-secondary);
+  font-weight: 600;
+}
+
+@media (forced-colors: active) {
+  .viz-key-rect,
+  .viz-key-line {
+    forced-color-adjust: none;
+  }
+}
