@@ -68,6 +68,14 @@ public class Order {
     @Column(name = "session_key")
     private String sessionKey;
 
+    /**
+     * Same value for every order and rental booking created by one checkout (one seller, one payment).
+     * Used to keep a purchase and its rentals in step. Unlike sessionKey (the browser cart, reused across
+     * checkouts and sellers) it never links another seller's or another checkout's items. Null on old rows.
+     */
+    @Column(name = "checkout_ref", length = 40)
+    private String checkoutRef;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 

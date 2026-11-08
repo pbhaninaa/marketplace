@@ -30,6 +30,18 @@ public interface RentalBookingRepository extends JpaRepository<RentalBooking, Lo
 
     java.util.List<RentalBooking> findAllBySessionKey(String sessionKey);
 
+    /** Unpaid bookings created before a cutoff (candidates for automatic release). */
+    java.util.List<RentalBooking> findAllByStatusAndCreatedAtBefore(BookingStatus status, Instant before);
+
+    /** Unpaid bookings whose rental period has already ended. */
+    java.util.List<RentalBooking> findAllByStatusAndEndAtBefore(BookingStatus status, Instant before);
+
+    /** Rental bookings from one checkout (one seller, one payment). */
+    java.util.List<RentalBooking> findAllByCheckoutRef(String checkoutRef);
+
+    /** Fallback for rows created before checkoutRef existed: same cart session and same seller only. */
+    java.util.List<RentalBooking> findAllBySessionKeyAndProvider_Id(String sessionKey, Long providerId);
+
     java.util.List<RentalBooking> findAllByListing_Id(Long listingId);
 
     @Query(

@@ -246,6 +246,8 @@ public class CheckoutService {
                     .setScale(2, RoundingMode.HALF_UP);
         }
 
+        // One reference for everything this checkout creates (this seller, this payment).
+        String checkoutRef = java.util.UUID.randomUUID().toString();
         List<Order> createdOrders = new ArrayList<>();
         List<RentalBooking> createdRentals = new ArrayList<>();
         List<PaymentRecord> createdPayments = new ArrayList<>();
@@ -261,6 +263,7 @@ public class CheckoutService {
             order.setDeliveryFee(deliveryFee);
             order.setTotalAmount(saleTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
             order.setSessionKey(sessionKey);
+            order.setCheckoutRef(checkoutRef);
             order.setStatus(OrderStatus.PENDING_PAYMENT);
             order.setVerificationCode(verificationCodeService.generateVerificationCode());
 
@@ -306,6 +309,7 @@ public class CheckoutService {
             b.setEndAt(line.getRentalEnd());
             b.setTotalAmount(rentTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
             b.setSessionKey(sessionKey);
+            b.setCheckoutRef(checkoutRef);
             b.setStatus(BookingStatus.PENDING_PAYMENT);
             b.setVerificationCode(verificationCodeService.generateVerificationCode());
             rentalBookingRepository.save(b);

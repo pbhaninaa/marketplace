@@ -134,14 +134,14 @@ public class OrderManagementService {
             order.setPaymentStatus(PaymentStatus.PAID);
 
             // Sync rentals from same checkout session (sessionKey)
-            syncRelatedRentalStatusBySessionKey(order.getSessionKey(), BookingStatus.PAID);
+            syncRelatedRentals(order, BookingStatus.PAID);
         } else if (current == OrderStatus.PENDING_PAYMENT && newStatus == OrderStatus.CANCELLED) {
             purchaseInventoryService.releasePendingReservation(order);
             markPurchasePaymentFailed(order);
             order.setPaymentStatus(PaymentStatus.PENDING);
 
             // Sync rentals from same checkout session (sessionKey)
-            syncRelatedRentalStatusBySessionKey(order.getSessionKey(), BookingStatus.CANCELLED);
+            syncRelatedRentals(order, BookingStatus.CANCELLED);
         } else if (current == OrderStatus.PAID && newStatus == OrderStatus.CANCELLED) {
             // Business rule (tests): do not allow cancelling PAID orders via this endpoint.
             throw new ApiException(HttpStatus.BAD_REQUEST, "CANNOT_CANCEL_PAID", "Cannot cancel paid orders");
@@ -372,9 +372,43 @@ public class OrderManagementService {
      * Syncs rental bookings from the same checkout session (sessionKey).
      * We cannot reuse verification codes across rentals due to DB uniqueness constraints.
      */
-    private void syncRelatedRentalStatusBySessionKey(String sessionKey, BookingStatus newStatus) {
-        if (sessionKey == null || sessionKey.isBlank()) return;
-        for (RentalBooking rental : rentalBookingRepository.findAllBySessionKey(sessionKey)) {
+    /**
+     * Rentals created by the same checkout as this order (same seller, same payment). Never another
+     * seller's bookings or another checkout's: the cart session is shared across sellers and checkouts.
+     */
+    List<RentalBooking> rentalsFromSameCheckout(Order order) {
+        if (order.getCheckoutRef() != null) {
+            return rentalBookingRepository.findAllByCheckoutRef(order.getCheckoutRef());
+        }
+        if (order.getSessionKey() == null || order.getSessionKey().isBlank() || order.getProvider() == null) {
+            return List.of();
+        }
+        // Rows from before checkoutRef existed: same session and same seller.
+        return rentalBookingRepository.findAllBySessionKeyAndProvider_Id(
+                order.getSessionKey(), order.getProvider().getId());
+    }
+
+    /** The purchase order created by the same checkout as this rental, if any. */
+    java.util.Optional<Order> orderFromSameCheckout(RentalBooking rental) {
+        List<Order> candidates;
+        if (rental.getCheckoutRef() != null) {
+            candidates = OrderRepository.findAllByCheckoutRef(rental.getCheckoutRef());
+        } else if (rental.getSessionKey() != null && rental.getProvider() != null) {
+            candidates = OrderRepository.findAllBySessionKeyAndProvider_Id(
+                    rental.getSessionKey(), rental.getProvider().getId());
+        } else {
+            candidates = List.of();
+        }
+        // Old rows may have several matches (repeat checkouts): link only when it is unambiguous.
+        return candidates.size() == 1 ? java.util.Optional.of(candidates.get(0)) : java.util.Optional.empty();
+    }
+
+    private void syncRelatedRentals(Order order, BookingStatus newStatus) {
+        for (RentalBooking rental : rentalsFromSameCheckout(order)) {
+            // A paid, collected or cancelled booking is never moved by its sibling order.
+            if (rental.getStatus() != BookingStatus.PENDING_PAYMENT) {
+                continue;
+            }
             rental.setStatus(newStatus);
             rentalBookingRepository.save(rental);
             // Keep rental payment record consistent when purchase + rentals share the same checkout/payment.
@@ -433,8 +467,11 @@ public class OrderManagementService {
         // If this rental shares a checkout/payment with a purchase (same sessionKey),
         // apply the purchase transition via the real purchase flow (inventory + payment updates).
         if (newStatus == BookingStatus.PAID || newStatus == BookingStatus.CANCELLED) {
-            OrderRepository.findBySessionKey(rental.getSessionKey())
+            // Only the purchase from this same checkout, and only while it is still awaiting payment
+            // (a paid or collected order is never changed by its sibling rental).
+            orderFromSameCheckout(rental)
                     .filter(o -> o.getProvider() != null && o.getProvider().getId().equals(providerId))
+                    .filter(o -> o.getStatus() == OrderStatus.PENDING_PAYMENT)
                     .ifPresent(o -> updateOrderStatus(
                             providerId,
                             o.getId(),

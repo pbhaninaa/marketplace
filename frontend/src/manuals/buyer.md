@@ -132,6 +132,9 @@ It may be out of stock, or (for rentals) already booked for those dates. The mes
 **I didn't receive my sign-in code.**
 Check your spam folder, wait a minute and request a new code. Codes expire after 10 minutes, and you can only request a few codes in a short time.
 
+**How long does an unpaid order stay open?**
+Unpaid orders are cancelled automatically so the items go back on sale: card or Instant EFT payments after **1 hour**, EFT bank transfers after **3 days**, and cash orders after **14 days**. An unpaid rental is also cancelled once its rental dates have passed.
+
 **I paid by EFT. What now?**
 Keep your proof of payment. The seller confirms the payment, and your order changes to **Paid**.
 
