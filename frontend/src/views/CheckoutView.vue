@@ -81,8 +81,35 @@ publicPeachApi
     peachAvailable.value = false;
   });
 
+/* ================= SELLER BEING CHECKED OUT =================
+ * The cart can hold several sellers. Each one is checked out separately with its own payment
+ * methods, delivery and bank details; the others stay in the cart. */
+const selectedSellerId = ref(null);
+const activeSeller = computed(
+  () => cart.sellers.find((s) => s.providerId === selectedSellerId.value) || cart.sellers[0] || null,
+);
+const activeSellerLines = computed(() => (activeSeller.value ? cart.linesForSeller(activeSeller.value.providerId) : []));
+const activeSellerPosition = computed(() =>
+  activeSeller.value ? cart.sellers.findIndex((s) => s.providerId === activeSeller.value.providerId) + 1 : 0,
+);
+watch(
+  () => cart.sellers.map((s) => s.providerId).join(','),
+  () => {
+    if (!cart.sellers.some((s) => s.providerId === selectedSellerId.value)) {
+      selectedSellerId.value = cart.sellers[0]?.providerId ?? null;
+    }
+  },
+  { immediate: true },
+);
+
+function startCheckout(providerId) {
+  selectedSellerId.value = providerId;
+  showCheckout.value = true;
+  window.scrollTo?.({ top: 0, behavior: 'smooth' });
+}
+
 const acceptedPaymentMethods = computed(() => {
-  const list = (cart.lockedProviderAcceptedPaymentMethods || []).filter(
+  const list = (activeSeller.value?.acceptedPaymentMethods || []).filter(
     (m) => m === 'CASH' || m === 'EFT' || (m === 'PEACH' && peachAvailable.value),
   );
   return list;
@@ -107,12 +134,13 @@ watch(paymentMethod, (method) => {
 });
 
 const showBankDetails = computed(() =>
-  paymentMethod.value === 'EFT' && !!cart.lockedProviderBank
+  paymentMethod.value === 'EFT' && !!activeSeller.value?.bank
 );
+const activeBank = computed(() => activeSeller.value?.bank || null);
 
 /* ================= DELIVERY SETTINGS ================= */
 const deliveryAvailable = computed(() =>
-  !!cart.lockedProviderDeliverySettings?.deliveryAvailable
+  !!activeSeller.value?.deliverySettings?.deliveryAvailable
 );
 /*=================== Get Current Location ================= */
 const locationName = ref('');
@@ -129,7 +157,7 @@ async function loadLocation() {
 }
 
 const deliveryRate = computed(() =>
-  Number(cart.lockedProviderDeliverySettings?.deliveryPricePerKm) || 0
+  Number(activeSeller.value?.deliverySettings?.deliveryPricePerKm) || 0
 );
 
 watch(
@@ -184,7 +212,7 @@ const isDeliveryChoiceComplete = computed(() => {
 });
 
 const canCheckout = computed(() =>
-  cart.lines.length > 0 &&
+  !!activeSeller.value &&
   acceptedPaymentMethods.value.includes(paymentMethod.value) &&
   isNameValid.value &&
   isEmailValid.value &&
@@ -193,9 +221,10 @@ const canCheckout = computed(() =>
   (paymentMethod.value !== 'PEACH' || !!peachPaymentMethod.value)
 );
 
-/* ================= TOTAL ================= */
+/* ================= TOTAL (this seller only) ================= */
+const activeSubtotal = computed(() => Number(activeSeller.value?.subtotal) || 0);
 const estimatedTotalWithDelivery = computed(() => {
-  const base = Number(cart.estimatedTotal) || 0;
+  const base = activeSubtotal.value;
   return roundMoney(base + calculatedDeliveryFee.value);
 });
 
@@ -241,9 +270,11 @@ async function submitCheckout() {
   }
 
   submitting.value = true;
+  const seller = activeSeller.value;
 
   try {
     const response = await publicCartApi.checkout(session.sessionId, {
+      providerId: seller?.providerId ?? null,
       guestName: guestName.value.trim(),
       guestEmail: guestEmail.value.trim(),
       guestPhone: guestPhone.value.trim(),
@@ -268,35 +299,59 @@ async function submitCheckout() {
     }
 
     const codes = response.data.verificationCodes || [];
+    const sellerName = response.data.providerName || seller?.providerName || 'the seller';
+    const remaining = Number(response.data.sellersRemaining) || 0;
+
+    // Delivery and payment are per seller; name, email and phone are kept for the next seller.
+    deliveryMode.value = '';
+    deliveryDistanceKm.value = '';
+    peachPaymentMethod.value = '';
+
+    await cart.refresh();
+
+    const codesText = codes.length
+      ? `\n\nKeep your verification code(s). When you collect or receive delivery, show this code to ${sellerName} after you pay so they can confirm it matches this order:\n\n${codes.map((c) => '• ' + c).join('\n')}`
+      : '';
+
+    if (remaining > 0 && cart.sellers.length) {
+      const next = cart.sellers[0];
+      await success(
+        `Order placed with ${sellerName}.${codesText}\n\nNext: ${next.providerName} (${remaining} more seller${remaining === 1 ? '' : 's'} in your cart). Your details are already filled in.`,
+        'Order Confirmed',
+      );
+      // Straight on to the next seller's checkout: no need to browse again.
+      selectedSellerId.value = next.providerId;
+      showCheckout.value = true;
+      window.scrollTo?.({ top: 0, behavior: 'smooth' });
+      return;
+    }
 
     guestName.value = '';
     guestEmail.value = '';
     guestPhone.value = '';
-    deliveryMode.value = '';
-    deliveryDistanceKm.value = '';
     resetTouched();
 
-    await cart.refresh();
-
-    await success(
-      codes.length
-        ? `Order placed!\n\nKeep your verification code(s). When you collect or receive delivery, show this code to the provider after you pay so they can confirm it matches this order:\n\n${codes.map((c) => '• ' + c).join('\n')}`
-        : 'Order placed successfully.',
-      'Order Confirmed'
-    );
+    await success(`Order placed with ${sellerName}.${codesText}`, 'Order Confirmed');
 
     router.push('/');
   } catch (e) {
     const code = e.response?.data?.code || e.response?.data?.errorCode;
     if (PROVIDER_UNAVAILABLE_CODES.has(code)) {
-      // The provider stopped taking orders after these items were added (e.g. trial ended).
-      // Their listings are already hidden from the marketplace, so clear the cart and go back.
-      await cart.clearCart().catch(() => {});
+      // This seller stopped taking orders after the items were added (e.g. trial ended). Remove only
+      // their items; other sellers in the cart are unaffected.
+      for (const line of seller ? cart.linesForSeller(seller.providerId) : []) {
+        await cart.removeLine(line.lineId).catch(() => {});
+      }
       await warning(
-        'This seller is no longer taking orders, so their items have been removed from your cart. Please choose items from another seller.',
-        'Items no longer available'
+        `${seller?.providerName || 'This seller'} is no longer taking orders, so their items have been removed from your cart.` +
+          (cart.sellers.length ? ' Your other items are still in your cart.' : ' Please choose items from another seller.'),
+        'Items no longer available',
       );
-      router.push('/');
+      if (cart.sellers.length) {
+        showCheckout.value = false;
+      } else {
+        router.push('/');
+      }
       return;
     }
     await showError(e.response?.data?.message || e.message, 'Checkout Failed');
@@ -365,16 +420,63 @@ async function handleLimitWarning({ message, type }) {
         <section class="surface-panel" v-if="!showCheckout">
           <h2>Your cart</h2>
 
-          <CartLinesSection :lines="cart.lines" :estimated-total="cart.estimatedTotal" @clear="clearCart"
-            @update-quantity="handleUpdateQuantity" @remove-line="handleRemoveLine"
-            @show-limit-warning="handleLimitWarning" @toggle-checkout="showCheckout = $event" />
+          <p v-if="!cart.lines.length" class="muted">Cart is empty.</p>
 
+          <template v-else>
+            <p v-if="cart.sellerCount > 1" class="seller-note">
+              <span class="material-icons" aria-hidden="true">storefront</span>
+              <span>
+                Items from <strong>{{ cart.sellerCount }} sellers</strong>. Each seller is paid and delivers
+                separately, so you check out one seller at a time. Your details are remembered between them.
+              </span>
+            </p>
+
+            <!-- One group per seller, each with its own subtotal and checkout button. -->
+            <article v-for="s in cart.sellers" :key="s.providerId" class="seller-group">
+              <header class="seller-group__head">
+                <div>
+                  <h3 class="seller-group__name">{{ s.providerName }}</h3>
+                  <p v-if="s.providerLocation" class="muted small seller-group__meta">
+                    <span class="material-icons" aria-hidden="true">place</span>{{ s.providerLocation }}
+                  </p>
+                </div>
+                <span class="seller-group__count">{{ s.itemCount }} item{{ s.itemCount === 1 ? '' : 's' }}</span>
+              </header>
+              <CartLinesSection
+                :lines="cart.linesForSeller(s.providerId)"
+                :estimated-total="s.subtotal"
+                total-label="Subtotal"
+                :checkout-label="cart.sellerCount > 1 ? `Checkout ${s.providerName}` : 'Proceed to Checkout'"
+                :show-clear="false"
+                @update-quantity="handleUpdateQuantity"
+                @remove-line="handleRemoveLine"
+                @show-limit-warning="handleLimitWarning"
+                @toggle-checkout="startCheckout(s.providerId)"
+              />
+            </article>
+
+            <footer class="cart-footer">
+              <p v-if="cart.sellerCount > 1" class="cart-footer__total">
+                Total for all {{ cart.sellerCount }} sellers: <strong>R {{ cart.estimatedTotal }}</strong>
+                <span class="muted small"> (delivery fees are per seller)</span>
+              </p>
+              <button type="button" class="btn btn-ghost clear-btn cart-footer__clear" @click="clearCart">
+                <span class="material-icons" aria-hidden="true">delete_sweep</span>
+                Clear cart
+              </button>
+            </footer>
+          </template>
         </section>
 
         <!-- CHECKOUT -->
         <section class="surface-panel" v-if="showCheckout">
 
-          <h2>Checkout</h2>
+          <h2>Checkout<template v-if="activeSeller">: {{ activeSeller.providerName }}</template></h2>
+          <p v-if="activeSeller" class="muted small checkout-seller">
+            <template v-if="cart.sellerCount > 1">Seller {{ activeSellerPosition }} of {{ cart.sellerCount }} · </template>
+            {{ activeSellerLines.length }} item{{ activeSellerLines.length === 1 ? '' : 's' }} ·
+            R {{ activeSubtotal.toFixed(2) }}<template v-if="cart.sellerCount > 1">. Your other sellers stay in your cart.</template>
+          </p>
 
           <FormField label="Name" :error="guestNameError">
             <input v-model="guestName" @blur="markFieldTouched('guestName')" placeholder="Your full name"
@@ -459,11 +561,11 @@ async function handleLimitWarning({ message, type }) {
             <h3>EFT payment details</h3>
             <p class="muted small">Pay the <strong>provider</strong> (not the platform). Use your name as reference if none is shown.</p>
 
-            <p><strong>Bank:</strong> {{ cart.lockedProviderBank?.bankName }}</p>
-            <p><strong>Account:</strong> {{ cart.lockedProviderBank?.accountName }}</p>
-            <p><strong>Number:</strong> {{ cart.lockedProviderBank?.accountNumber }}</p>
-            <p><strong>Branch:</strong> {{ cart.lockedProviderBank?.branchCode }}</p>
-            <p v-if="cart.lockedProviderBank?.reference"><strong>Reference:</strong> {{ cart.lockedProviderBank.reference }}</p>
+            <p><strong>Bank:</strong> {{ activeBank?.bankName }}</p>
+            <p><strong>Account:</strong> {{ activeBank?.accountName }}</p>
+            <p><strong>Number:</strong> {{ activeBank?.accountNumber }}</p>
+            <p><strong>Branch:</strong> {{ activeBank?.branchCode }}</p>
+            <p v-if="activeBank?.reference"><strong>Reference:</strong> {{ activeBank.reference }}</p>
           </div>
 
           <!-- TOTAL -->
@@ -471,7 +573,7 @@ async function handleLimitWarning({ message, type }) {
 
             <div class="row">
               <span>Subtotal</span>
-              <strong>R{{ Number(cart.estimatedTotal).toFixed(2) }}</strong>
+              <strong>R{{ activeSubtotal.toFixed(2) }}</strong>
             </div>
 
             <div class="row" v-if="deliveryAvailable && deliveryMode === 'DELIVERY' && calculatedDeliveryFee > 0">
@@ -487,7 +589,13 @@ async function handleLimitWarning({ message, type }) {
           </div>
           <div class="mt-5" style="flex-grow: 1;">
             <button class="btn btn-primary" :disabled="!canCheckout || submitting" @click="submitCheckout">
-              {{ submitting ? 'Processing...' : 'Place Order' }}
+              {{
+                submitting
+                  ? 'Processing...'
+                  : cart.sellerCount > 1 && activeSeller
+                    ? `Place order with ${activeSeller.providerName}`
+                    : 'Place Order'
+              }}
             </button>
             <button class="btn btn-ghost" @click="toggleCheckout()" style="margin-left: 0.75rem;">
               Back to Cart
@@ -512,6 +620,88 @@ async function handleLimitWarning({ message, type }) {
   min-height: 100vh;
   padding: 1rem;
   box-sizing: border-box;
+}
+
+/* MULTI-SELLER CART */
+.seller-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-md);
+  background: var(--color-sage-soft);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.seller-note .material-icons {
+  font-size: 1.2rem;
+  color: var(--color-sage);
+}
+
+.seller-group {
+  padding: 1rem 1rem 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-elevated);
+}
+
+.seller-group__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.seller-group__name {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.seller-group__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  margin: 0.15rem 0 0;
+}
+
+.seller-group__meta .material-icons {
+  font-size: 0.95rem;
+}
+
+.seller-group__count {
+  flex: none;
+  padding: 0.15rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-sage-soft);
+  color: var(--color-canopy);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.cart-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.cart-footer__total {
+  margin: 0;
+}
+
+.cart-footer__clear {
+  margin-left: auto;
+}
+
+.checkout-seller {
+  margin: -0.35rem 0 1rem;
 }
 
 /* MAIN LAYOUT */

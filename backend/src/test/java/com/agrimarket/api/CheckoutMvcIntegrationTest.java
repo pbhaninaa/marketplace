@@ -119,6 +119,75 @@ class CheckoutMvcIntegrationTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.code").value("PEACH_PAYMENT_METHOD"));
     }
 
+    @Test
+    void multiSellerCart_isCheckedOutOneSellerAtATime() throws Exception {
+        String u = UUID.randomUUID().toString().substring(0, 8);
+        Category cat = fixtures.saveCategory("Feed", "feed-" + u);
+        Provider second = fixtures.saveActiveProvider("Second Farm", "second-" + u);
+        fixtures.saveActiveSubscription(second);
+        Listing feed = fixtures.saveSaleListing(second, cat, "Lucerne", new BigDecimal("80"), 10);
+
+        addItemToCart();
+        mockMvc.perform(post("/api/public/cart/add")
+                        .header("X-Session-Id", sessionId)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("listingId", feed.getId(), "quantity", 1))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sellers.length()").value(2));
+
+        // Two sellers and no choice: the buyer must pick which seller to pay first.
+        mockMvc.perform(post("/api/public/cart/checkout")
+                        .header("X-Session-Id", sessionId)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(checkoutBody("CASH"))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("CHOOSE_SELLER"));
+
+        // Check out the second seller only.
+        Map<String, Object> body = checkoutBody("CASH");
+        body.put("providerId", second.getId());
+        mockMvc.perform(post("/api/public/cart/checkout")
+                        .header("X-Session-Id", sessionId)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providerId").value(second.getId().intValue()))
+                .andExpect(jsonPath("$.providerName").value("Second Farm"))
+                .andExpect(jsonPath("$.purchaseOrderIds.length()").value(1))
+                .andExpect(jsonPath("$.sellersRemaining").value(1));
+
+        // The first seller's items are still in the cart, ready for their own checkout.
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/public/cart")
+                        .header("X-Session-Id", sessionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.sellers.length()").value(1))
+                .andExpect(jsonPath("$.sellers[0].providerId").value(listing.getProvider().getId().intValue()))
+                .andExpect(jsonPath("$.lines.length()").value(1))
+                .andExpect(jsonPath("$.lines[0].title").value("Bale of hay"));
+
+        // With one seller left, providerId is optional again; the cart ends empty.
+        mockMvc.perform(post("/api/public/cart/checkout")
+                        .header("X-Session-Id", sessionId)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(checkoutBody("CASH"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.providerId").value(listing.getProvider().getId().intValue()))
+                .andExpect(jsonPath("$.sellersRemaining").value(0));
+    }
+
+    @Test
+    void checkout_rejectsASellerThatIsNotInTheCart() throws Exception {
+        addItemToCart();
+        Map<String, Object> body = checkoutBody("CASH");
+        body.put("providerId", 999999);
+        mockMvc.perform(post("/api/public/cart/checkout")
+                        .header("X-Session-Id", sessionId)
+                        .contentType(APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(body)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("SELLER_NOT_IN_CART"));
+    }
+
     private void addItemToCart() throws Exception {
         mockMvc.perform(post("/api/public/cart/add")
                         .header("X-Session-Id", sessionId)

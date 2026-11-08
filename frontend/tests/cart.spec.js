@@ -19,34 +19,41 @@ beforeEach(() => {
 });
 
 describe('useCartStore', () => {
-  it('isLocked is false when lockedProviderId is null', () => {
+  it('never locks the cart to one seller', () => {
     const cart = useCartStore();
-    cart.lockedProviderId = null;
+    cart.lockedProviderId = 5;
     expect(cart.isLocked).toBe(false);
   });
 
-  it('isLocked is true when lockedProviderId is set', () => {
-    const cart = useCartStore();
-    cart.lockedProviderId = 1;
-    expect(cart.isLocked).toBe(true);
-  });
-
-  it('isGreyed is false when cart is not locked', () => {
-    const cart = useCartStore();
-    cart.lockedProviderId = null;
-    expect(cart.isGreyed({ providerId: 99 })).toBe(false);
-  });
-
-  it('isGreyed is false for same provider when locked', () => {
+  it("never greys out another seller's listings", () => {
     const cart = useCartStore();
     cart.lockedProviderId = 5;
+    expect(cart.isGreyed({ providerId: 99 })).toBe(false);
     expect(cart.isGreyed({ providerId: 5 })).toBe(false);
   });
 
-  it('isGreyed is true for different provider when locked', () => {
+  it('groups cart lines per seller from the API response', async () => {
+    const { api } = await import('../src/api');
+    api.get.mockResolvedValueOnce({
+      data: {
+        lines: [
+          { lineId: 1, listingId: 10, title: 'Hay', listingType: 'SALE', quantity: 2, lineTotal: '100.00', providerId: 7, providerName: 'Alpha Farm' },
+          { lineId: 2, listingId: 20, title: 'Trailer', listingType: 'SALE', quantity: 1, lineTotal: '200.00', providerId: 8, providerName: 'Beta Hire' },
+        ],
+        sellers: [
+          { providerId: 7, providerName: 'Alpha Farm', acceptedPaymentMethods: ['CASH'], deliveryAvailable: false, lineIds: [1], itemCount: 2, subtotal: '100.00' },
+          { providerId: 8, providerName: 'Beta Hire', acceptedPaymentMethods: ['EFT'], bankName: 'Test Bank', bankAccountNumber: '123', deliveryAvailable: true, deliveryPricePerKm: 9, lineIds: [2], itemCount: 1, subtotal: '200.00' },
+        ],
+        estimatedTotal: '300.00',
+      },
+    });
     const cart = useCartStore();
-    cart.lockedProviderId = 5;
-    expect(cart.isGreyed({ providerId: 99 })).toBe(true);
+    await cart.refresh();
+    expect(cart.sellerCount).toBe(2);
+    expect(cart.linesForSeller(8).map((l) => l.title)).toEqual(['Trailer']);
+    expect(cart.sellers[1].bank.bankName).toBe('Test Bank');
+    expect(cart.sellers[1].deliverySettings).toEqual({ deliveryAvailable: true, deliveryPricePerKm: 9 });
+    expect(cart.sellers[0].bank).toBeNull();
   });
 
   it('updateLineQuantity rejects quantities < 1 without API call', async () => {

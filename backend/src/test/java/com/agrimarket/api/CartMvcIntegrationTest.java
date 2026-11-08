@@ -65,22 +65,32 @@ class CartMvcIntegrationTest extends AbstractIntegrationTest {
     }
 
     @Test
-    void addToCart_thenSecondProvider_returnsConflict() throws Exception {
+    void addToCart_fromTwoSellers_groupsItemsPerSeller() throws Exception {
         mockMvc.perform(post("/api/public/cart/add")
                         .header("X-Session-Id", sessionId)
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
-                                Map.of("listingId", listingA.getId(), "quantity", 1))))
+                                Map.of("listingId", listingA.getId(), "quantity", 2))))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.lockedProviderId").value(listingA.getProvider().getId().intValue()));
+                // One seller: older clients still get the seller in the lockedProvider* fields.
+                .andExpect(jsonPath("$.lockedProviderId").value(listingA.getProvider().getId().intValue()))
+                .andExpect(jsonPath("$.sellers.length()").value(1));
 
         mockMvc.perform(post("/api/public/cart/add")
                         .header("X-Session-Id", sessionId)
                         .contentType(APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 Map.of("listingId", listingB.getId(), "quantity", 1))))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("PROVIDER_LOCK"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.lockedProviderId").doesNotExist())
+                .andExpect(jsonPath("$.sellers.length()").value(2))
+                .andExpect(jsonPath("$.sellers[0].providerName").value("Alpha Farm"))
+                .andExpect(jsonPath("$.sellers[0].itemCount").value(2))
+                .andExpect(jsonPath("$.sellers[0].subtotal").value(200.0))
+                .andExpect(jsonPath("$.sellers[1].providerName").value("Beta Hire"))
+                .andExpect(jsonPath("$.sellers[1].subtotal").value(200.0))
+                .andExpect(jsonPath("$.lines[1].providerName").value("Beta Hire"))
+                .andExpect(jsonPath("$.estimatedTotal").value(400.0));
     }
 
     @Test

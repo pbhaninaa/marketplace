@@ -159,7 +159,7 @@ Headers: X-Session-Id: {your-session-id}
 **Effect:**
 - Item is removed from cart
 - Cart total is recalculated
-- If cart becomes empty, provider lock is released (allows adding items from different provider)
+- If that was the seller's last item, the seller's group disappears from the cart
 
 #### Clearing Entire Cart
 ```
@@ -168,8 +168,7 @@ Headers: X-Session-Id: {your-session-id}
 ```
 
 **Effect:**
-- All items removed
-- Provider lock released
+- All items from every seller removed
 - Cart total resets to 0
 
 ### Placing Orders
@@ -187,7 +186,11 @@ Headers: X-Session-Id: {your-session-id}
 #### Step 3: Review Cart
 - Verify quantities and dates
 - Check total amount
-- All items must be from the same provider
+- Items from different sellers can share one cart. The cart groups them per seller (`sellers` in the
+  cart response), each with its own subtotal, payment methods, delivery option and bank details
+- Each seller is checked out separately because each seller is paid and delivers separately; the
+  other sellers stay in the cart, and the checkout page moves straight on to the next one with your
+  name, email and phone already filled in
 
 #### Step 4: Checkout
 ```
@@ -198,9 +201,14 @@ POST /api/public/cart/checkout
   "guestPhone": "+1234567890",
   "deliveryOrPickup": "Delivery to 123 Farm Road",
   "paymentMethod": "PEACH",
-  "peachPaymentMethod": "CARD"
+  "peachPaymentMethod": "CARD",
+  "providerId": 12
 }
 ```
+
+`providerId` picks which seller to check out. It is optional when the cart holds one seller and required
+when it holds several (`400 CHOOSE_SELLER` otherwise). Only that seller's items are ordered and removed
+from the cart; the response includes `sellersRemaining` so the page can continue with the next seller.
 
 Customer carts expose `CASH`, `EFT` (manual bank transfer), or `PEACH`. For Peach, choose `CARD`
 or Instant EFT (`EFT`); Hosted Checkout maps Peach Instant EFT to Pay by Bank (`PAYBYBANK`).

@@ -14,8 +14,15 @@ export const useCartStore = defineStore('cart', () => {
   const lockedProviderDeliverySettings = ref(null);
   const estimatedTotal = ref('0.00');
   const lastError = ref(null);
+  /**
+   * The cart can hold items from several sellers. Each group has that seller's own payment methods,
+   * delivery and bank details and is checked out separately.
+   */
+  const sellers = ref([]);
 
-  const isLocked = computed(() => lockedProviderId.value != null);
+  /** Kept for older callers: the cart is never locked to one seller any more. */
+  const isLocked = computed(() => false);
+  const sellerCount = computed(() => sellers.value.length);
 
   /** Sum of line quantities (total units in cart). */
   const totalQuantity = computed(() =>
@@ -39,6 +46,31 @@ export const useCartStore = defineStore('cart', () => {
         rentalStart: line.rentalStart,
         rentalEnd: line.rentalEnd,
         availableStock: line.availableStock,
+        providerId: line.providerId ?? null,
+        providerName: line.providerName ?? '',
+      }));
+      sellers.value = (data.sellers || []).map((g) => ({
+        providerId: g.providerId,
+        providerName: g.providerName,
+        providerLocation: g.providerLocation ?? '',
+        bank:
+          g.bankName || g.bankAccountNumber
+            ? {
+                bankName: g.bankName ?? '',
+                accountName: g.bankAccountName ?? '',
+                accountNumber: g.bankAccountNumber ?? '',
+                branchCode: g.bankBranchCode ?? '',
+                reference: g.bankReference ?? '',
+              }
+            : null,
+        acceptedPaymentMethods: g.acceptedPaymentMethods || [],
+        deliverySettings: {
+          deliveryAvailable: !!g.deliveryAvailable,
+          deliveryPricePerKm: g.deliveryPricePerKm ?? null,
+        },
+        lineIds: g.lineIds || [],
+        itemCount: Number(g.itemCount) || 0,
+        subtotal: g.subtotal ?? '0.00',
       }));
       lockedProviderId.value = data.lockedProviderId ?? null;
       lockedProviderName.value = data.lockedProviderName ?? null;
@@ -131,8 +163,14 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
-  function isGreyed(listing) {
-    return isLocked.value && listing.providerId !== lockedProviderId.value;
+  /** Listings are never greyed out because of the cart: any seller can be added. */
+  function isGreyed() {
+    return false;
+  }
+
+  /** Lines that belong to one seller, in cart order. */
+  function linesForSeller(providerId) {
+    return lines.value.filter((l) => l.providerId === providerId);
   }
 
   return {
@@ -144,6 +182,9 @@ export const useCartStore = defineStore('cart', () => {
     lockedProviderAcceptedPaymentMethods,
     lockedProviderDeliverySettings,
     estimatedTotal,
+    sellers,
+    sellerCount,
+    linesForSeller,
     lastError,
     isLocked,
     totalQuantity,
