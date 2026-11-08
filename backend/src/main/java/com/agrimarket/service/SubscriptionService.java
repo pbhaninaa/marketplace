@@ -37,6 +37,14 @@ public class SubscriptionService {
         return providerRepository.findById(providerId).map(p -> ProviderTrialSupport.isOnTrial(p, now)).orElse(false);
     }
 
+    /** Same rule as the public feed: ACTIVE provider with a live trial or paid subscription. */
+    @Transactional(readOnly = true)
+    public boolean canAcceptOrders(Provider provider) {
+        return provider != null
+                && provider.getStatus() == ProviderStatus.ACTIVE
+                && hasActiveSubscription(provider.getId());
+    }
+
     @Transactional(readOnly = true)
     public Optional<Subscription> currentActive(Long providerId) {
         Instant now = Instant.now(clock);
