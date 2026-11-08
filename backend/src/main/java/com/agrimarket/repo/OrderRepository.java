@@ -1,6 +1,7 @@
 package com.agrimarket.repo;
 
 import com.agrimarket.domain.Order;
+import com.agrimarket.domain.OrderStatus;
 import com.agrimarket.domain.PaymentStatus;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -19,7 +20,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Optional<Order> findByVerificationCode(String verificationCode);
 
-    Optional<Order> findBySessionKey(String sessionKey);
+    /** Unpaid orders older than a cutoff (candidates for automatic release). */
+    java.util.List<Order> findAllByStatusAndCreatedAtBefore(OrderStatus status, java.time.Instant before);
+
+    /** Orders from one checkout (one seller, one payment). */
+    java.util.List<Order> findAllByCheckoutRef(String checkoutRef);
+
+    /** Fallback for rows created before checkoutRef existed: same cart session and same seller only. */
+    java.util.List<Order> findAllBySessionKeyAndProvider_Id(String sessionKey, Long providerId);
 
     @Query(
             """

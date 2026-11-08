@@ -87,6 +87,18 @@ Open **Orders** from the menu to see purchase orders and rental bookings.
 
 If the code does not match, do not hand over the order. Check the order number with the buyer.
 
+**Unpaid orders are released automatically**
+
+So stock and rental dates are never held forever, orders that stay **Awaiting payment** are cancelled automatically (reserved stock is returned and you and the buyer are notified):
+
+| Buyer chose | Cancelled if still unpaid after |
+|---|---|
+| Card / Instant EFT | 1 hour |
+| EFT (bank transfer) | 3 days |
+| Cash | 14 days |
+
+An unpaid rental is also cancelled once its rental dates have passed. Mark orders **Paid** as soon as you receive payment.
+
 **Rental bookings never overlap**
 
 Each rental item can only be booked once for any day. A booking holds its dates while it is **awaiting payment**, **paid** or **collected** (out on hire). Only **cancelling** a booking frees its dates, so cancel bookings that won't go ahead. If a buyer cancels a card or Instant EFT payment on the Peach page, their booking is cancelled automatically and the dates become free again.

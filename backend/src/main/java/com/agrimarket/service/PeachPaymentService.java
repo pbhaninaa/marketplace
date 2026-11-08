@@ -355,6 +355,11 @@ public class PeachPaymentService {
     }
 
     private void markOrderPaid(Order order) {
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            // Paid after it was released or cancelled: money was taken for an order that won't go ahead.
+            log.warn("PAID_AFTER_CANCEL: card payment confirmed for cancelled order {}; refund the buyer", order.getId());
+            return;
+        }
         if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {
             return; // already paid/collected, or cancelled — nothing to do (idempotent)
         }
@@ -382,6 +387,10 @@ public class PeachPaymentService {
     }
 
     private void markRentalPaid(RentalBooking rental) {
+        if (rental.getStatus() == BookingStatus.CANCELLED) {
+            log.warn("PAID_AFTER_CANCEL: card payment confirmed for cancelled rental booking {}; refund the buyer", rental.getId());
+            return;
+        }
         if (rental.getStatus() != BookingStatus.PENDING_PAYMENT) {
             return; // already paid/collected, or cancelled — nothing to do (idempotent)
         }
