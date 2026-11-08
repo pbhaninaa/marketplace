@@ -622,6 +622,13 @@ async function handleLimitWarning({ message, type }) {
   box-sizing: border-box;
 }
 
+/* The page's single column: never wider than the screen. */
+.checkout-page > div {
+  width: 100%;
+  max-width: 720px;
+  min-width: 0;
+}
+
 /* MULTI-SELLER CART */
 .seller-note {
   display: flex;
@@ -821,10 +828,16 @@ async function handleLimitWarning({ message, type }) {
     padding: 0.5rem;
   }
 
+  /* Fill the screen width instead of a fixed 80vw, so nothing is pushed off the right edge. */
   .surface-panel {
     height: fit-content;
-    width: 80vw;
+    width: 100%;
+    min-width: 0;
     padding: 0.75rem;
+  }
+
+  .seller-group {
+    padding: 0.75rem 0.65rem 0.4rem;
   }
 
   .page-hero h1 {

@@ -59,3 +59,23 @@ export function formatRentalInclusiveRange(startIso, endIso) {
   const opts = { year: 'numeric', month: 'short', day: 'numeric' };
   return `${start.toLocaleDateString(undefined, opts)} to ${endIncl.toLocaleDateString(undefined, opts)}`;
 }
+
+/** Today's date as YYYY-MM-DD (local), for the rental date pickers' minimum. */
+export function todayDateInput(now = new Date()) {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/**
+ * The first booked slot (from GET /listings/{id}/booked) that the chosen inclusive dates overlap, or null.
+ * Same rule as the server: windows overlap when they share any time; back-to-back is fine.
+ */
+export function findBookedOverlap(startDateStr, endDateStr, slots) {
+  const { rentalStart, rentalEnd } = inclusiveDatesToRentalInstants(startDateStr, endDateStr);
+  if (!rentalStart || !rentalEnd || !Array.isArray(slots)) return null;
+  const a0 = new Date(rentalStart).getTime();
+  const a1 = new Date(rentalEnd).getTime();
+  return slots.find((s) => new Date(s.start).getTime() < a1 && new Date(s.end).getTime() > a0) || null;
+}

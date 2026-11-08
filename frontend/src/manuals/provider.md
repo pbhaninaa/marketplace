@@ -87,6 +87,12 @@ Open **Orders** from the menu to see purchase orders and rental bookings.
 
 If the code does not match, do not hand over the order. Check the order number with the buyer.
 
+**Rental bookings never overlap**
+
+Each rental item can only be booked once for any day. A booking holds its dates while it is **awaiting payment**, **paid** or **collected** (out on hire). Only **cancelling** a booking frees its dates, so cancel bookings that won't go ahead. If a buyer cancels a card or Instant EFT payment on the Peach page, their booking is cancelled automatically and the dates become free again.
+
+Buyers see the already-booked dates on your listing and cannot book over them, even if two buyers try at the same moment.
+
 **Payments by EFT**
 
 When a buyer pays by EFT, they pay into your bank account using the details in your settings. Check that the money has arrived before marking the order **Paid**.

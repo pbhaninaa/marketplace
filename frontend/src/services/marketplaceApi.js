@@ -73,6 +73,10 @@ export const publicCatalogApi = {
   listings(params) {
     return api.get('/api/public/listings', { params });
   },
+  /** Upcoming taken time slots for a rental item: [{ start, end }] (end is exclusive). */
+  bookedSlots(listingId) {
+    return api.get(`/api/public/listings/${listingId}/booked`);
+  },
 };
 
 export const publicPeachApi = {

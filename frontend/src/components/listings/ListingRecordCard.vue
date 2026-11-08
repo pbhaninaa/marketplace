@@ -1,10 +1,17 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import ListingTypeBadge from './ListingTypeBadge.vue';
 import ListingPriceSummary from './ListingPriceSummary.vue';
 import TextWithTooltip from '../ui/TextWithTooltip.vue';
 import { isLargeLivestockCategoryName } from '../../constants/listingCategories';
-import { countInclusiveRentalDays, estimateRentalAmount } from '../../utils/rentalPricing';
+import {
+  countInclusiveRentalDays,
+  estimateRentalAmount,
+  findBookedOverlap,
+  formatRentalInclusiveRange,
+  todayDateInput,
+} from '../../utils/rentalPricing';
+import { publicCatalogApi } from '../../services/marketplaceApi';
 import { firstMediaUrl, parseMediaUrls } from '../../utils/mediaUrl';
 
 const props = defineProps({
@@ -18,6 +25,34 @@ const emit = defineEmits(['add-to-cart', 'reset-rent-dates', 'update:rentStart',
 
 const quantity = ref(1);
 const showLightbox = ref(false);
+
+/* ---------- Rentals: show taken dates and stop overlapping picks before "Add to cart" ---------- */
+const bookedSlots = ref([]);
+const today = todayDateInput();
+
+async function loadBookedSlots() {
+  if (props.listing.listingType !== 'RENT' || !props.listing.id) return;
+  try {
+    const { data } = await publicCatalogApi.bookedSlots(props.listing.id);
+    bookedSlots.value = Array.isArray(data) ? data : [];
+  } catch {
+    bookedSlots.value = []; // a convenience only; the server still refuses double bookings
+  }
+}
+onMounted(loadBookedSlots);
+watch(() => props.listing.id, loadBookedSlots);
+
+const bookedLabels = computed(() =>
+  bookedSlots.value.slice(0, 4).map((s) => formatRentalInclusiveRange(s.start, s.end)),
+);
+const rentClash = computed(() =>
+  props.listing.listingType === 'RENT' ? findBookedOverlap(props.rentStart, props.rentEnd, bookedSlots.value) : null,
+);
+const rentClashText = computed(() =>
+  rentClash.value
+    ? `Already booked ${formatRentalInclusiveRange(rentClash.value.start, rentClash.value.end)}. Choose other dates.`
+    : '',
+);
 const currentImageIndex = ref(0);
 
 watch(
@@ -170,6 +205,7 @@ const displayDescription = computed(() => {
           :id="'rent-start-' + listing.id"
           :value="rentStart"
           type="date"
+          :min="today"
           class="field field--date"
           @input="emit('update:rentStart', $event.target.value)"
         />
@@ -180,9 +216,20 @@ const displayDescription = computed(() => {
           :id="'rent-end-' + listing.id"
           :value="rentEnd"
           type="date"
+          :min="rentStart || today"
           class="field field--date"
           @input="emit('update:rentEnd', $event.target.value)"
         />
+      </div>
+      <p v-if="rentClashText" class="rent-clash" role="alert">{{ rentClashText }}</p>
+      <div v-else-if="bookedLabels.length" class="rent-booked">
+        <span class="tiny rent-booked__title">Already booked</span>
+        <ul>
+          <li v-for="(b, i) in bookedLabels" :key="i" class="tiny">{{ b }}</li>
+        </ul>
+        <span v-if="bookedSlots.length > bookedLabels.length" class="tiny muted">
+          and {{ bookedSlots.length - bookedLabels.length }} more
+        </span>
       </div>
       <p v-if="rentalDays >= 1 && rentalEstimate != null" class="muted tiny rent-estimate">
         {{ rentalDays }} calendar day<span v-if="rentalDays !== 1">s</span>
@@ -191,7 +238,12 @@ const displayDescription = computed(() => {
       <button type="button" class="linkish" @click="emit('reset-rent-dates')">Reset dates</button>
     </div>
 
-    <button type="button" class="btn btn-primary listing-card__cta" :disabled="isGreyed" @click="onAddToCart">
+    <button
+      type="button"
+      class="btn btn-primary listing-card__cta"
+      :disabled="isGreyed || !!rentClash"
+      @click="onAddToCart"
+    >
       Add to cart
     </button>
 
@@ -362,6 +414,34 @@ const displayDescription = computed(() => {
 .tiny {
   font-size: 0.75rem;
   margin: 0;
+}
+
+.rent-clash {
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.rent-booked {
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.rent-booked__title {
+  display: block;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+
+.rent-booked ul {
+  margin: 0.15rem 0 0;
+  padding-left: 1rem;
+  color: var(--color-text-secondary);
 }
 
 .rent-inputs {

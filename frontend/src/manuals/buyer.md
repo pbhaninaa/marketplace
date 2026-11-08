@@ -36,10 +36,12 @@ Some large livestock is sold one at a time, so the quantity stays at 1.
 
 **Items for rent**
 
-1. Choose the **start** and **end** date and time on the listing card.
+1. Choose the **start date** and **end date** on the listing card. Both days are included, and the rental can start today but not in the past.
 2. Press **Add to cart**. The price is worked out from the seller's hourly, daily or weekly rate for those dates.
 
-If the item is already booked for part of that time, you are told which dates are taken so you can pick others.
+Each rental item can only be booked **once for any day**. The listing card shows the dates that are **already booked**. If your dates overlap one of them, the card tells you and **Add to cart** stays off until you pick other dates. Booking right after someone else (starting the day after their rental ends) is fine.
+
+A rental is always **one item** for the dates you choose, so there is no quantity. To hire the same item for another period, add it again with the other dates.
 
 The **cart button** at the top right shows how many items you have. Press it at any time to open your cart.
 
@@ -52,7 +54,9 @@ Your cart shows **one card per seller**, each with:
 - a **Subtotal** for that seller
 - a **Checkout** button for that seller
 
-You can change a quantity with **−** and **+**, or remove an item with the bin icon. **Clear cart** removes everything.
+You can change the quantity of an item for sale with **−** and **+** (rentals show their dates instead), or remove an item with the bin icon. **Clear cart** removes everything.
+
+Dates in your cart are **not reserved until you check out**. If someone else books the same dates first, checkout tells you, and you can choose other dates.
 
 When your cart has more than one seller, the bottom of the page shows the **total for all sellers**. Delivery fees are added per seller at checkout.
 

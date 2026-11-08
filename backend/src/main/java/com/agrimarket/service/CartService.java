@@ -43,6 +43,7 @@ public class CartService {
     private final AppProperties appProperties;
     private final PeachPaymentService peachPaymentService;
     private final SubscriptionService subscriptionService;
+    private final RentalAvailability rentalAvailability;
 
     @Transactional
     public CartResponse addItem(String sessionKey, CartAddRequest req) {
@@ -66,22 +67,10 @@ public class CartService {
 
         // A cart can hold items from several sellers; each seller is checked out separately.
         if (listing.getListingType() == ListingType.RENT) {
-            if (req.rentalStart() == null || req.rentalEnd() == null) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "RENTAL_DATES_REQUIRED", "Rental start and end required");
-            }
-            var conflictingBookings = rentalBookingRepository.findOverlapping(
-                    listing.getId(),
-                    Set.of(BookingStatus.PENDING_PAYMENT, BookingStatus.PAID),
-                    req.rentalStart(),
-                    req.rentalEnd());
-            if (!conflictingBookings.isEmpty()) {
-                var firstConflict = conflictingBookings.get(0);
-                String conflictMessage = String.format(
-                        "This item is already booked from %s to %s. Please select different dates.",
-                        formatDate(firstConflict.getStartAt()),
-                        formatDate(firstConflict.getEndAt()));
-                throw new ApiException(HttpStatus.CONFLICT, "RENTAL_CONFLICT", conflictMessage);
-            }
+            // One item, one slot: not in the past, not already booked by anyone, not already in this cart.
+            rentalAvailability.validateWindow(req.rentalStart(), req.rentalEnd());
+            rentalAvailability.requireFree(listing, req.rentalStart(), req.rentalEnd());
+            rentalAvailability.requireNotInLines(listing, req.rentalStart(), req.rentalEnd(), cart.getLines(), null);
         } else {
             int avail = ListingStock.availableForSale(listing);
             if (avail != Integer.MAX_VALUE && avail < req.quantity()) {
@@ -112,7 +101,8 @@ public class CartService {
             CartLine line = new CartLine();
             line.setCartSession(cart);
             line.setListing(listing);
-            line.setQuantity(req.quantity());
+            // A rental books one item for a time slot; quantity only applies to items for sale.
+            line.setQuantity(listing.getListingType() == ListingType.RENT ? 1 : req.quantity());
             line.setRentalStart(req.rentalStart());
             line.setRentalEnd(req.rentalEnd());
             cart.getLines().add(line);
@@ -229,6 +219,13 @@ public class CartService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "ITEM_NOT_FOUND", "Item not found in cart"));
 
         Listing listing = line.getListing();
+
+        if (listing.getListingType() == ListingType.RENT) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "RENTAL_QUANTITY",
+                    "A rental books one item for the chosen time. To book it for another time, add it again with those dates.");
+        }
 
         // Validate stock for SALE items
         if (listing.getListingType() == ListingType.SALE) {

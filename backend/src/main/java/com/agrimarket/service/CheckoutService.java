@@ -52,6 +52,7 @@ public class CheckoutService {
     private final VerificationCodeService verificationCodeService;
     private final AppNotificationService appNotificationService;
     private final PeachPaymentService peachPaymentService;
+    private final RentalAvailability rentalAvailability;
 
     @Transactional
     public Map<String, Object> guestCheckout(String sessionKey, GuestCheckoutRequest req) {
@@ -172,20 +173,13 @@ public class CheckoutService {
                     .orElseThrow();
 
             if (listing.getListingType() == ListingType.RENT) {
-                var conflictingBookings = rentalBookingRepository.findOverlapping(
-                        listing.getId(),
-                        Set.of(BookingStatus.PENDING_PAYMENT),
-                        line.getRentalStart(),
-                        line.getRentalEnd());
-                if (!conflictingBookings.isEmpty()) {
-                    var firstConflict = conflictingBookings.get(0);
-                    String conflictMessage = String.format(
-                            "'%s' is already booked from %s to %s. Please select different dates.",
-                            listing.getTitle(),
-                            formatDate(firstConflict.getStartAt()),
-                            formatDate(firstConflict.getEndAt()));
-                    throw new ApiException(HttpStatus.CONFLICT, "RENTAL_CONFLICT", conflictMessage);
-                }
+                // Final check, with the listing row locked: no booking that is awaiting payment, paid or
+                // out on hire may overlap (previously only unpaid ones were checked here), and this
+                // checkout must not book the same item twice for overlapping times.
+                rentalAvailability.validateWindow(line.getRentalStart(), line.getRentalEnd());
+                rentalAvailability.requireFree(listing, line.getRentalStart(), line.getRentalEnd());
+                rentalAvailability.requireNotInLines(
+                        listing, line.getRentalStart(), line.getRentalEnd(), lines, line);
             } else {
                 // Validate stock for SALE listings (on-hand minus reservations)
                 if (listing.getStockQuantity() == null) {
