@@ -30,12 +30,12 @@ const to = computed({
   <div class="drf">
     <div class="drf__row">
       <label class="drf__label">Date range</label>
-      <select v-model="preset" class="drf__select">
+      <AppSelect v-model="preset" class="drf__select">
         <option value="TODAY">Today</option>
         <option value="LAST_7">Last 7 days</option>
         <option value="LAST_30">Last 30 days</option>
         <option value="CUSTOM">Custom</option>
-      </select>
+      </AppSelect>
     </div>
 
     <div v-if="preset === 'CUSTOM'" class="drf__row drf__row--custom">

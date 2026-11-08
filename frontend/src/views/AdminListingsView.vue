@@ -144,10 +144,10 @@ async function removeAll() {
                 </td>
                 <td>
                   <FormField label="">
-                    <select :value="l.active ? 'YES' : 'NO'" @change="setActive(l, $event.target.value === 'YES')">
+                    <AppSelect :value="l.active ? 'YES' : 'NO'" @change="setActive(l, $event.target.value === 'YES')">
                       <option value="YES">Yes</option>
                       <option value="NO">No</option>
-                    </select>
+                    </AppSelect>
                   </FormField>
                 </td>
                 <td class="cell-actions">

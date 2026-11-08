@@ -384,18 +384,12 @@ const displayDescription = computed(() => {
   width: 100%;
 }
 
+/* Layout only: the look comes from src/styles/forms.css like every other input. */
 .field {
   display: block;
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  padding: 0.5rem 0.65rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  font: inherit;
-  font-size: 0.88rem;
-  background: var(--color-surface);
-  box-sizing: border-box;
 }
 
 .field--date {
@@ -409,11 +403,6 @@ const displayDescription = computed(() => {
   text-align: left;
 }
 
-.field:focus {
-  outline: none;
-  border-color: var(--color-sage);
-  box-shadow: 0 0 0 3px rgba(61, 122, 102, 0.15);
-}
 
 .linkish {
   border: none;

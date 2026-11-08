@@ -38,49 +38,49 @@ const showCustom = computed(() => props.modelValue.preset === 'CUSTOM');
 
     <label v-if="tab === 'orders'" class="hfb__field">
       <span class="hfb__label">Order status</span>
-      <select :value="modelValue.status" @change="set('status', $event.target.value)">
+      <AppSelect :value="modelValue.status" @change="set('status', $event.target.value)">
         <option value="">All statuses</option>
         <option v-for="o in ORDER_STATUS_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
-      </select>
+      </AppSelect>
     </label>
 
     <label class="hfb__field">
       <span class="hfb__label">Payment</span>
-      <select :value="modelValue.paymentStatus" @change="set('paymentStatus', $event.target.value)">
+      <AppSelect :value="modelValue.paymentStatus" @change="set('paymentStatus', $event.target.value)">
         <option value="">Paid &amp; pending</option>
         <option v-for="o in PAYMENT_STATUS_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
-      </select>
+      </AppSelect>
     </label>
 
     <label class="hfb__field">
       <span class="hfb__label">Method</span>
-      <select :value="modelValue.method" @change="set('method', $event.target.value)">
+      <AppSelect :value="modelValue.method" @change="set('method', $event.target.value)">
         <option value="">All methods</option>
         <option v-for="o in PAYMENT_METHOD_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
-      </select>
+      </AppSelect>
     </label>
 
     <label v-if="tab === 'payments'" class="hfb__field">
       <span class="hfb__label">Type</span>
-      <select :value="modelValue.kind" @change="set('kind', $event.target.value)">
+      <AppSelect :value="modelValue.kind" @change="set('kind', $event.target.value)">
         <option value="">Purchases &amp; rentals</option>
         <option v-for="o in PAYMENT_KIND_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
-      </select>
+      </AppSelect>
     </label>
 
     <label v-if="providers" class="hfb__field">
       <span class="hfb__label">Provider</span>
-      <select :value="modelValue.providerId" @change="set('providerId', $event.target.value)">
+      <AppSelect :value="modelValue.providerId" @change="set('providerId', $event.target.value)">
         <option value="">All providers</option>
         <option v-for="p in providers" :key="p.id" :value="String(p.id)">{{ p.name }}</option>
-      </select>
+      </AppSelect>
     </label>
 
     <label class="hfb__field">
       <span class="hfb__label">Date</span>
-      <select :value="modelValue.preset" @change="set('preset', $event.target.value)">
+      <AppSelect :value="modelValue.preset" @change="set('preset', $event.target.value)">
         <option v-for="o in DATE_PRESETS" :key="o.value" :value="o.value">{{ o.label }}</option>
-      </select>
+      </AppSelect>
     </label>
 
     <template v-if="showCustom">

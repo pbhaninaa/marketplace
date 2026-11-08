@@ -515,19 +515,19 @@ async function deleteListing(id) {
  <p v-if="error" class="err-toast">{{ error }}</p>
           <div class="grid">
             <FormField label="Type">
-              <select v-model="form.listingType" :disabled="!canEdit">
+              <AppSelect v-model="form.listingType" :disabled="!canEdit">
                 <option value="SALE">For sale</option>
                 <option value="RENT">For rent</option>
-              </select>
+              </AppSelect>
             </FormField>
 
             <FormField label="Category">
-              <select v-model="form.categoryKey" required :disabled="!canEdit">
+              <AppSelect v-model="form.categoryKey" required :disabled="!canEdit">
                 <option value="" disabled>Select category</option>
                 <option v-for="opt in categoryOptions" :key="opt.value" :value="opt.value">
                   {{ opt.label }}
                 </option>
-              </select>
+              </AppSelect>
             </FormField>
           </div>
 
@@ -582,7 +582,7 @@ async function deleteListing(id) {
                <p class="muted small">
                 Choose which rates you offer. Hold <kbd>Ctrl</kbd> (Windows) or <kbd>⌘</kbd> (Mac) to select more
                 than one. Then enter the price for each selected type below.
-              </p> <select
+              </p> <AppSelect
                 v-model="form.rentRateModes"
                 multiple
                 class="rent-rate-select"
@@ -592,7 +592,7 @@ async function deleteListing(id) {
                 <option value="HOURLY">Hourly</option>
                 <option value="DAILY">Daily</option>
                 <option value="WEEKLY">Weekly</option>
-              </select>
+              </AppSelect>
             
             </FormField>
             <!-- <div class="rent-grid">

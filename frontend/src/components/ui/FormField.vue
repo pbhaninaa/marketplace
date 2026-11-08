@@ -100,7 +100,10 @@ const labelFor = ref(props.forId || '');
 function linkControl() {
   const root = controlRef.value;
   if (!root) return;
-  const el = root.querySelector('input:not([type="hidden"]), select, textarea');
+  // AppSelect's button comes before its hidden native <select>, so it wins in document order.
+  const el = root.querySelector(
+    'button[role="combobox"], input:not([type="hidden"]), select:not([aria-hidden="true"]), textarea',
+  );
   if (!el) return;
   if (!props.forId) {
     if (!el.id) el.id = autoId;

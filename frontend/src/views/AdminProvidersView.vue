@@ -104,9 +104,9 @@ async function updateStatus(p, status) {
             <td><TextWithTooltip class="cell-text" :text="p.location || 'Not shared'" :max-length="22" /></td>
             <td>
               <FormField label="">
-                <select :value="p.status" @change="updateStatus(p, $event.target.value)">
+                <AppSelect :value="p.status" @change="updateStatus(p, $event.target.value)">
                   <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
-                </select>
+                </AppSelect>
               </FormField>
             </td>
             <td class="cell-actions">

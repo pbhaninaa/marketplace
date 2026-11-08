@@ -287,12 +287,12 @@ const paymentLabel = (s) => (String(s || '').toUpperCase() === 'PAID' ? 'Paid' :
       <PaginationBar v-if="totalPages > 1" :page="page" :total-pages="totalPages" @prev="goTo(page - 1)" @next="goTo(page + 1)" />
       <label class="hist__size">
         <span class="muted small">Rows per page</span>
-        <select v-model.number="size">
+        <AppSelect v-model.number="size">
           <option :value="25">25</option>
           <option :value="50">50</option>
           <option :value="100">100</option>
           <option :value="200">200</option>
-        </select>
+        </AppSelect>
       </label>
       <span class="muted small">{{ result.totalElements }} record{{ result.totalElements === 1 ? '' : 's' }}</span>
     </div>

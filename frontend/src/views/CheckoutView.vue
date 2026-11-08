@@ -426,11 +426,11 @@ async function handleLimitWarning({ message, type }) {
 
           <!-- PAYMENT -->
           <FormField label="How will you pay?">
-            <select v-model="paymentMethod">
+            <AppSelect v-model="paymentMethod">
               <option v-for="m in acceptedPaymentMethods" :key="m" :value="m">
                 {{ paymentLabel(m) }}
               </option>
-            </select>
+            </AppSelect>
           </FormField>
           <p v-if="!acceptedPaymentMethods.length" class="muted small" style="margin-top: -0.5rem;">
             This provider has no payment method available right now. Please contact the provider.
