@@ -1,6 +1,8 @@
 package com.agrimarket.service;
 
 import com.agrimarket.api.dto.GuestCheckoutRequest;
+import com.agrimarket.api.dto.PayFastCheckoutResponse;
+import com.agrimarket.domain.PaymentGateway;
 import com.agrimarket.api.error.ApiException;
 import com.agrimarket.util.InputValidator;
 import com.agrimarket.domain.BookingStatus;
@@ -52,6 +54,8 @@ public class CheckoutService {
     private final VerificationCodeService verificationCodeService;
     private final AppNotificationService appNotificationService;
     private final PeachPaymentService peachPaymentService;
+    private final PayFastPaymentService payFastPaymentService;
+    private final OnlinePaymentGatewayResolver gatewayResolver;
     private final RentalAvailability rentalAvailability;
 
     @Transactional
@@ -132,12 +136,8 @@ public class CheckoutService {
                     "PEACH_PAYMENT_METHOD",
                     "Choose Card or Instant EFT.");
         }
-        if (chosen == PaymentMethod.PEACH && !peachPaymentService.isConfigured()) {
-            throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "PEACH_NOT_CONFIGURED",
-                    "Online payments are not available right now. Choose Cash or Manual EFT.");
-        }
+        // The online option goes through the gateway the admin picked (or PayFast, else Peach, on AUTO).
+        PaymentGateway onlineGateway = chosen == PaymentMethod.PEACH ? gatewayResolver.requireActiveGateway() : null;
 
         // Only this seller's lines; the rest of the cart is left untouched.
         List<CartLine> lines = cart.getLines().stream()
@@ -337,16 +337,20 @@ public class CheckoutService {
                 .distinct()
                 .count();
 
-        // Online checkout: create the Peach Hosted Checkout session covering all payment records
-        // from this cart before returning — the whole checkout rolls back if this fails.
+        // Online checkout: start the gateway checkout covering all payment records from this cart
+        // before returning; the whole checkout rolls back if this fails.
         String peachRedirectUrl = null;
         String peachCheckoutId = null;
         String peachMerchantRef = null;
-        if (chosen == PaymentMethod.PEACH) {
+        PayFastCheckoutResponse payFastCheckout = null;
+        if (onlineGateway == PaymentGateway.PEACH) {
             var checkout = peachPaymentService.initiateCartCheckout(createdPayments, peachMethod);
             peachRedirectUrl = checkout.redirectUrl();
             peachCheckoutId = checkout.checkoutId();
             peachMerchantRef = checkout.merchantTransactionId();
+        } else if (onlineGateway == PaymentGateway.PAYFAST) {
+            payFastCheckout = payFastPaymentService.initiateCartCheckout(
+                    createdPayments, peachMethod, guestName, guestEmail, seller.getName());
         }
 
         // Unified channels: in-app + email + SMS (Wheel Hub fan-out).
@@ -375,9 +379,19 @@ public class CheckoutService {
         // Other sellers still waiting in the cart (the page moves on to the next one).
         response.put("sellersRemaining", sellersLeft);
         if (peachRedirectUrl != null) {
+            response.put("gateway", PaymentGateway.PEACH.name());
             response.put("redirectUrl", peachRedirectUrl);
             response.put("peachCheckoutId", peachCheckoutId);
             response.put("peachRef", peachMerchantRef);
+            response.put("paymentRef", peachMerchantRef);
+        }
+        if (payFastCheckout != null) {
+            response.put("gateway", PaymentGateway.PAYFAST.name());
+            Map<String, Object> payfast = new LinkedHashMap<>();
+            payfast.put("processUrl", payFastCheckout.processUrl());
+            payfast.put("fields", payFastCheckout.fields());
+            response.put("payfast", payfast);
+            response.put("paymentRef", payFastCheckout.paymentRef());
         }
         return response;
     }

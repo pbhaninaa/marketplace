@@ -59,6 +59,8 @@ const router = createRouter({
     { path: '/my-orders', name: 'client-history', component: ClientHistoryView, meta: { title: 'My orders & payments' } },
     { path: '/order-invoice', name: 'order-invoice', component: OrderInvoiceLookupView, meta: { title: 'Order invoice' } },
     { path: '/checkout', name: 'checkout', component: CheckoutView },
+    // Return page for online payments (PayFast and Peach). /peach/return is kept for older links.
+    { path: '/payment/return', name: 'payment-return', component: PeachReturnView, meta: { title: 'Payment status' } },
     { path: '/peach/return', name: 'peach-return', component: PeachReturnView, meta: { title: 'Payment status' } },
     { path: '/setup', name: 'setup', component: SetupView, meta: { title: 'Setup' } },
     { path: '/login', name: 'login', component: LoginView, meta: { title: 'Login' } },
@@ -75,6 +77,7 @@ const router = createRouter({
     { path: '/admin/users', name: 'admin-users', component: AdminUsersView, meta: { requiresAdmin: true } },
     { path: '/admin/providers/:id', name: 'admin-provider-support', component: AdminProviderSupportView, meta: { requiresAdmin: true } },
     { path: '/admin/support-users', name: 'admin-support-users', component: AdminSupportUsersView, meta: { requiresAdmin: true } },
+    { path: '/admin/payouts', name: 'admin-payouts', component: () => import('./views/AdminPayoutsView.vue'), meta: { requiresAdmin: true, title: 'Seller payouts' } },
     { path: '/admin/referrals', name: 'admin-referrals', component: AdminReferralsView, meta: { requiresAdmin: true, title: 'Referrals' } },
     { path: '/admin/password', name: 'admin-password', component: AdminPasswordView, meta: { requiresAdmin: true } },
     { path: '/admin/maintenance', redirect: { name: 'admin-settings', hash: '#maintenance' } },
@@ -106,7 +109,8 @@ router.beforeEach(async (to) => {
   const setup = useSetupStore();
   auth.restoreFromStorage();
   // Remember an invite link's ?ref= code wherever it lands (sign-up form pre-fills from it).
-  if (to.query?.ref) captureInviteFromQuery(to.query);
+  // (Payment return pages also use ?ref= for the payment reference: that is not an invite code.)
+  if (to.query?.ref && to.name !== 'payment-return' && to.name !== 'peach-return') captureInviteFromQuery(to.query);
 
   if (to.meta.requiresAdmin && !auth.isPlatformAdmin) {
     return { path: '/login', query: { redirect: to.fullPath } };

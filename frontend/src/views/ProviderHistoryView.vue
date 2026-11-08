@@ -1,5 +1,6 @@
 <script setup>
 import OrderPaymentHistory from '../components/history/OrderPaymentHistory.vue';
+import ProviderPayoutsPanel from '../components/history/ProviderPayoutsPanel.vue';
 import { providerHistoryApi } from '../services/marketplaceApi';
 </script>
 
@@ -13,6 +14,7 @@ import { providerHistoryApi } from '../services/marketplaceApi';
         To confirm or fulfil an order, use <router-link to="/provider/orders">Orders</router-link>.
       </p>
     </header>
+    <ProviderPayoutsPanel />
     <OrderPaymentHistory :api="providerHistoryApi" audience="provider" can-export />
   </div>
 </template>

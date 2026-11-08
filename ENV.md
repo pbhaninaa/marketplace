@@ -120,6 +120,46 @@ In the Peach dashboard, allowlist the exact `PUBLIC_APP_BASE_URL` origin, regist
 webhook domain, and activate both Card and Pay by Bank/Instant EFT for the entity. These are
 account-side steps; no database SQL is required during deployment.
 
+### PayFast hosted checkout (optional, platform account only)
+PayFast serves the same single online option ("Card / Instant EFT", payment method `PEACH` in the
+database) as Peach. **Admin → Settings → Online payments** picks the gateway: `AUTO` (default:
+PayFast when configured, else Peach), `PAYFAST` or `PEACH` (strict: if the chosen gateway is not
+configured, buyers see no online option). PayFast is used for buyer orders/rentals and for provider
+subscriptions. Notifications are processed for every configured gateway, so switching gateway does not
+break payments already in flight.
+
+| Variable | Purpose |
+|----------|---------|
+| `PAYFAST_ENABLED` | `true` to use PayFast. Default `false` (UAT/PROD), `true` (local/SIT). |
+| `PAYFAST_SANDBOX` | `true` posts to `sandbox.payfast.co.za`, `false` to `www.payfast.co.za`. Forced `true` on local/SIT, default `false` on UAT/PROD. |
+| `PAYFAST_MERCHANT_ID` / `PAYFAST_MERCHANT_KEY` | Merchant credentials from the PayFast dashboard. |
+| `PAYFAST_PASSPHRASE` | Signature passphrase (set the same value in the PayFast dashboard). Required on UAT/PROD. |
+| `PAYFAST_PUBLIC_BASE_URL` | Public https URL of this **backend**; `notify_url` = `{base}/api/public/payfast/notify`. |
+| `PAYFAST_VALIDATE_WITH_SERVER` | Default `true`: every ITN is posted back to `/eng/query/validate` and must answer `VALID`. |
+
+Per environment:
+
+| Environment | PayFast mode | Merchant | Notes |
+|-------------|--------------|----------|-------|
+| local | sandbox, on by default | PayFast's public sandbox merchant `10000100` / `46f0cd694581a` / passphrase `jt7NOE43FZPn` (public test credentials, not secrets; override with `PAYFAST_*`) | PayFast cannot reach `http://localhost:8080`, so the ITN never arrives unless `PAYFAST_PUBLIC_BASE_URL` is a tunnel (e.g. `ngrok http 8080` https URL). Without it the return page keeps saying "waiting for confirmation" and the order is released after 60 minutes. |
+| SIT | sandbox, on by default | same public sandbox merchant (overridable) | Set `PAYFAST_PUBLIC_BASE_URL` to the SIT backend's public URL to receive ITNs. |
+| UAT | **live**, off unless `PAYFAST_ENABLED=true` | real merchant from env vars only | Startup fails if sandbox is on, the merchant id is `10000100`, a credential/passphrase is missing, or the base URL is not https. |
+| PROD (and aws/azure) | **live**, off unless `PAYFAST_ENABLED=true` | real merchant from env vars only | Same startup checks as UAT. |
+
+The same rule applies to Peach on UAT and PROD: `PEACH_ENABLED=true` with `PEACH_SANDBOX=true`
+refuses to start (UAT takes real payments through the real merchant accounts, like PROD).
+
+**ITN verification** (`POST /api/public/payfast/notify`, public, answers 200 with an empty body; 503
+only if PayFast's validate endpoint could not be reached, so PayFast retries): signature over all
+posted fields in the order received except `signature`, empty fields included, plus the passphrase;
+`merchant_id` must match; the payment is found by `m_payment_id` (row locked); `amount_gross` must
+equal the amount due to the cent; then server validation. `COMPLETE` marks the order/rental or
+subscription paid (repeat ITNs change nothing), `CANCELLED` releases unpaid rentals.
+
+**Seller settlement.** Every online order/rental payment (either gateway) records the platform fee
+(**Admin → Settings → Platform fee on online orders**, default 0%) and the amount owed to the seller.
+Admins pay sellers by bank transfer and record it on **Admin → Seller payouts**.
+
 ---
 
 ## Backend — PROD

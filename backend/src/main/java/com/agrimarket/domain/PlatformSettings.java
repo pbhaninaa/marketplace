@@ -69,7 +69,28 @@ public class PlatformSettings {
     @Column(name = "invoice_footer_note", length = 2000)
     private String invoiceFooterNote;
 
+    /** Which gateway serves the online "Card / Instant EFT" option. Null on older rows means AUTO. */
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
+    @Column(name = "online_payment_gateway", length = 16)
+    private OnlineGatewayPreference onlinePaymentGateway = OnlineGatewayPreference.AUTO;
+
+    /**
+     * Platform fee (percent) kept from each online order / rental payment before the seller is paid
+     * out. Separate from {@link #usageFeePercent}, which is billed on the provider's subscription.
+     */
+    @Column(name = "online_order_fee_percent", precision = 5, scale = 2)
+    private BigDecimal onlineOrderFeePercent = BigDecimal.ZERO;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
+
+    public OnlineGatewayPreference getOnlinePaymentGateway() {
+        return onlinePaymentGateway == null ? OnlineGatewayPreference.AUTO : onlinePaymentGateway;
+    }
+
+    public BigDecimal getOnlineOrderFeePercent() {
+        return onlineOrderFeePercent == null ? BigDecimal.ZERO : onlineOrderFeePercent;
+    }
 }
 

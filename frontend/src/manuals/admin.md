@@ -60,6 +60,18 @@ Open **Listings** to review everything on the platform:
 
 Open **Orders & payments** for every order and payment on the platform. Filter by status, payment status, method, provider, type and dates, and **Export** the result as **CSV** or **Excel**.
 
+## Seller payouts
+
+Orders and rentals paid online (**Card / Instant EFT**) are collected by the platform. Open **Seller payouts** to pay sellers their share:
+
+1. **Owed per seller** lists each seller with payments **awaiting payout**, the amount buyers paid, the platform fee, the amount owed and the seller's bank details.
+2. Pay the seller by bank transfer outside the platform.
+3. Type the **bank transfer reference** at the top of the page, then press **Mark all paid out** for that seller, or filter **Payments** by seller, tick the payments you paid and press **Mark selected paid out**. The payments move to **Paid out** with the date, your email and the reference; the seller sees this in their history.
+
+Filter **Payments** by status, seller and paid dates to look back at earlier payouts.
+
+**Refund due to buyer.** If a buyer's online payment is confirmed after the order or booking was already cancelled (for example it was released for non-payment), or a seller cancels a paid online booking, the payment shows as **Refund due to buyer** and is not paid to the seller. Refund the buyer the full amount from the payment gateway's dashboard (PayFast or Peach), then choose status **Refund due to buyer**, tick the payments, enter the refund reference and press **Mark selected refunded**.
+
 ## Referrals
 
 Open **Referrals** to see every referral with filters for referrer, referred business, status and dates, plus totals.
@@ -72,6 +84,7 @@ Open **Settings** to manage:
 
 - **Platform**: name and general settings
 - **Subscription pricing (monthly)**: the Basic and Premium prices
+- **Online payments**: the **payment gateway** behind the Card / Instant EFT option (**Automatic** uses PayFast when it is set up, otherwise Peach Payments; choosing one gateway turns online payments off if that gateway is not set up on the server) and the **platform fee on online orders** (percent kept from each online order or rental before the seller is paid out; default 0%). A new fee applies to payments confirmed after you save.
 - **Referral programme**: the **commission %** and the **claim window** (days)
 - **Order invoice (admin)**: look up any order's invoice
 - **Maintenance**: housekeeping tools. Read the description of each one before running it.
@@ -89,7 +102,7 @@ Open **Settings** to manage:
 Check the provider's status and subscription panel. If the trial ended and they have no plan, ask them to choose a plan, or (owner only) extend their trial.
 
 **A provider paid but still shows "no active plan".**
-Check **Orders & payments** for the payment. If Peach confirmed it, the plan activates automatically within a minute. If needed, the platform owner can set the plan manually with a reason.
+Check **Orders & payments** for the payment. If the payment gateway (PayFast or Peach) confirmed it, the plan activates automatically within a minute. If needed, the platform owner can set the plan manually with a reason.
 
 **How do I see who changed a provider's plan?**
 The provider's Subscription panel shows the override history: who, when and why.

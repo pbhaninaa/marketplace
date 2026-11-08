@@ -39,6 +39,29 @@ const form = ref({
   basicMonthly: 199,
   premiumMonthly: 499,
   usageFeePercent: 0,
+  onlinePaymentGateway: 'AUTO',
+  onlineOrderFeePercent: 0,
+});
+
+const GATEWAY_OPTIONS = [
+  { value: 'AUTO', label: 'Automatic (PayFast if set up, otherwise Peach)' },
+  { value: 'PAYFAST', label: 'PayFast' },
+  { value: 'PEACH', label: 'Peach Payments' },
+];
+const GATEWAY_NAMES = { PAYFAST: 'PayFast', PEACH: 'Peach Payments' };
+const gatewayInfo = ref({ payfastConfigured: false, peachConfigured: false, activeOnlineGateway: null });
+const activeGatewayText = computed(() =>
+  GATEWAY_NAMES[gatewayInfo.value.activeOnlineGateway] || 'none (online payments are off)',
+);
+const gatewayWarning = computed(() => {
+  const g = form.value.onlinePaymentGateway;
+  if (g === 'PAYFAST' && !gatewayInfo.value.payfastConfigured) {
+    return 'PayFast is not set up on the server, so buyers will not see the online option.';
+  }
+  if (g === 'PEACH' && !gatewayInfo.value.peachConfigured) {
+    return 'Peach Payments is not set up on the server, so buyers will not see the online option.';
+  }
+  return '';
 });
 
 // Referral programme settings (separate endpoint, separate save).
@@ -109,6 +132,13 @@ async function load() {
       basicMonthly: data?.basicMonthly ?? 199,
       premiumMonthly: data?.premiumMonthly ?? 499,
       usageFeePercent: data?.usageFeePercent ?? 0,
+      onlinePaymentGateway: data?.onlinePaymentGateway || 'AUTO',
+      onlineOrderFeePercent: data?.onlineOrderFeePercent ?? 0,
+    };
+    gatewayInfo.value = {
+      payfastConfigured: !!data?.payfastConfigured,
+      peachConfigured: !!data?.peachConfigured,
+      activeOnlineGateway: data?.activeOnlineGateway || null,
     };
   } catch (e) {
     error.value = e.response?.data?.message || e.message || 'Failed to load settings.';
@@ -126,6 +156,12 @@ const fieldErrors = computed(() => {
     basicMonthly: fee(f.basicMonthly, 'Basic price'),
     premiumMonthly: fee(f.premiumMonthly, 'Premium price'),
     usageFeePercent: numberError(f.usageFeePercent, { required: true, label: 'Usage fee', min: 0, max: 100 }),
+    onlineOrderFeePercent: numberError(f.onlineOrderFeePercent, {
+      required: true,
+      label: 'Platform fee',
+      min: 0,
+      max: 100,
+    }),
   };
 });
 
@@ -139,7 +175,7 @@ async function save() {
   }
   saving.value = true;
   try {
-    await adminSettingsApi.update({
+    const { data } = await adminSettingsApi.update({
       ...form.value,
       // Backend still supports these fields; we keep branding simple and provider-driven.
       invoiceLegalName: null,
@@ -147,6 +183,13 @@ async function save() {
       invoiceVatNumber: null,
       invoiceFooterNote: null,
     });
+    if (data) {
+      gatewayInfo.value = {
+        payfastConfigured: !!data.payfastConfigured,
+        peachConfigured: !!data.peachConfigured,
+        activeOnlineGateway: data.activeOnlineGateway || null,
+      };
+    }
     message.value = 'Settings saved.';
   } catch (e) {
     error.value = e.response?.data?.message || e.message || 'Failed to save settings.';
@@ -194,7 +237,7 @@ async function downloadStaffInvoice() {
       <p class="page-hero__eyebrow">Admin</p>
       <h1 class="page-hero__title">Settings</h1>
       <p class="page-hero__lead">
-        Platform name, subscription pricing, usage fee, invoices, order tools, and maintenance.
+        Platform name, subscription pricing, usage fee, online payments, invoices, order tools, and maintenance.
       </p>
     </header>
 
@@ -225,6 +268,35 @@ async function downloadStaffInvoice() {
             (order total × this percent ÷ 100) for paid orders in the billing window.
           </p>
         </FormField>
+      </div>
+
+      <div id="online-payments">
+        <h2 class="mt">Online payments</h2>
+        <p class="muted small">
+          Buyers and providers see one online option, Card / Instant EFT. Choose which payment gateway handles it.
+          Automatic uses PayFast when it is set up, otherwise Peach Payments.
+        </p>
+        <div class="grid grid--2">
+          <FormField label="Payment gateway">
+            <AppSelect v-model="form.onlinePaymentGateway">
+              <option v-for="g in GATEWAY_OPTIONS" :key="g.value" :value="g.value">{{ g.label }}</option>
+            </AppSelect>
+            <p class="muted small">
+              PayFast: {{ gatewayInfo.payfastConfigured ? 'set up' : 'not set up' }}.
+              Peach Payments: {{ gatewayInfo.peachConfigured ? 'set up' : 'not set up' }}.
+              In use now: <strong>{{ activeGatewayText }}</strong>.
+            </p>
+            <p v-if="gatewayWarning" class="err-toast">{{ gatewayWarning }}</p>
+          </FormField>
+          <FormField label="Platform fee on online orders (%)" :error="fieldErrors.onlineOrderFeePercent">
+            <input v-model.number="form.onlineOrderFeePercent" type="number" step="0.01" min="0" max="100" />
+            <p class="muted small">
+              Kept from each order or rental paid online before the seller is paid out (see
+              <router-link to="/admin/payouts">Seller payouts</router-link>). Cash and manual EFT are paid to the seller
+              directly and carry no fee. Separate from the usage fee above, which is billed on subscriptions.
+            </p>
+          </FormField>
+        </div>
       </div>
 
       <div id="referrals" class="referral-block">

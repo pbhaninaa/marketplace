@@ -23,4 +23,8 @@ public record PlatformSettingsUpdateRequest(
         @Size(max = 200) @BusinessName String invoiceLegalName,
         @Size(max = 2000) String invoiceAddress,
         @Size(max = 80) String invoiceVatNumber,
-        @Size(max = 2000) String invoiceFooterNote) {}
+        @Size(max = 2000) String invoiceFooterNote,
+        /** AUTO, PAYFAST or PEACH. Null keeps the current choice (older clients). */
+        com.agrimarket.domain.OnlineGatewayPreference onlinePaymentGateway,
+        /** Platform fee percent on online order / rental payments. Null keeps the current value. */
+        @DecimalMin("0.00") @DecimalMax("100.00") BigDecimal onlineOrderFeePercent) {}

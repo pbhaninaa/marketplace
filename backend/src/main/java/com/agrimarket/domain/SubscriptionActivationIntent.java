@@ -79,6 +79,12 @@ public class SubscriptionActivationIntent {
     @Column(name = "gateway_result_code", length = 32)
     private String gatewayResultCode;
 
+    /** Gateway used to pay this quote (null until an online checkout is started). */
+    @jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.VARCHAR)
+    @Column(name = "gateway", length = 16)
+    private PaymentGateway gateway;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt = Instant.now();
 }

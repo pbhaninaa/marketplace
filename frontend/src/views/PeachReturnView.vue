@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { publicPeachApi } from '../services/marketplaceApi';
+import { publicPaymentsApi } from '../services/marketplaceApi';
 import { useCartStore } from '../stores/cart';
 
 const route = useRoute();
@@ -15,9 +15,13 @@ const polling = ref(false);
 const error = ref('');
 let pollTimer = null;
 
+// PayFast sends the buyer back with ?cancelled=1 when they press cancel on its page.
+const leftWithoutPaying = computed(() => String(route.query.cancelled || '') === '1');
+
 const statusLabel = computed(() => {
   if (status.value === 'PAID') return 'successful';
   if (status.value === 'CANCELLED') return 'cancelled';
+  if (status.value === 'PENDING_PAYMENT' && leftWithoutPaying.value) return 'not completed';
   if (status.value === 'PENDING_PAYMENT') return 'processing';
   return 'unknown';
 });
@@ -33,10 +37,10 @@ function stopPolling() {
 async function fetchStatus() {
   if (!ref_.value) return;
   try {
-    const { data } = await publicPeachApi.status(ref_.value);
+    const { data } = await publicPaymentsApi.status(ref_.value);
     status.value = data?.status || '';
     verificationCodes.value = data?.verificationCodes || [];
-    if (status.value === 'PAID' || status.value === 'CANCELLED') {
+    if (status.value === 'PAID' || status.value === 'CANCELLED' || leftWithoutPaying.value) {
       stopPolling();
       await cart.refresh();
     }
@@ -94,11 +98,22 @@ onBeforeUnmount(() => {
       </p>
 
       <p v-else-if="status === 'CANCELLED'" class="toast error">
-        The Peach payment was cancelled. Your order has not been marked as paid.
+        The online payment was cancelled. Your order has not been marked as paid.
+      </p>
+
+      <p v-else-if="status === 'PENDING_PAYMENT' && leftWithoutPaying" class="toast error">
+        You left the payment page without paying. Your order is not paid and will be released
+        automatically if it stays unpaid.
+      </p>
+
+      <p v-else-if="status === 'PENDING_PAYMENT' && !polling" class="muted">
+        Still waiting for the payment provider to confirm. If you completed the payment, confirmation can take a few
+        minutes. Your order stays reserved while we wait.
+        <button type="button" class="btn btn-ghost" @click="startPolling">Check again</button>
       </p>
 
       <p v-else-if="status === 'PENDING_PAYMENT'" class="muted">
-        We are waiting for confirmation from Peach. This usually takes a few seconds.
+        We are waiting for the payment provider to confirm. This usually takes a few seconds.
       </p>
 
       <p v-else class="muted">

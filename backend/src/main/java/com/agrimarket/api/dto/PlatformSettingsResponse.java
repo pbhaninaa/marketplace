@@ -17,5 +17,11 @@ public record PlatformSettingsResponse(
         String invoiceAddress,
         String invoiceVatNumber,
         String invoiceFooterNote,
-        Instant updatedAt) {}
+        Instant updatedAt,
+        String onlinePaymentGateway,
+        BigDecimal onlineOrderFeePercent,
+        /** Gateway new online payments go through right now (null: online payments unavailable). */
+        String activeOnlineGateway,
+        boolean payfastConfigured,
+        boolean peachConfigured) {}
 
