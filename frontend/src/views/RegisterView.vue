@@ -116,9 +116,16 @@ async function sendCode() {
   }
   codeSending.value = true;
   try {
-    await publicAccountApi.requestSignupEmailCode({ email });
+    const res = await publicAccountApi.requestSignupEmailCode({ email });
     codeSentTo.value = email.toLowerCase();
-    codeInfo.value = `We sent a 6-digit code to ${email}. It expires in 10 minutes. Check your spam folder if it doesn't arrive.`;
+    const testCode = res?.data?.testCode;
+    if (testCode) {
+      // SIT/local only: no real email is sent, the server hands back a test code.
+      emailCode.value = testCode;
+      codeInfo.value = 'Test environment: no email is sent. The code has been filled in for you.';
+    } else {
+      codeInfo.value = `We sent a 6-digit code to ${email}. It expires in 10 minutes. Check your spam folder if it doesn't arrive.`;
+    }
     startResendCountdown(60);
   } catch (e) {
     error.value = apiErrorMessage(e, 'Could not send the code. Please try again.');

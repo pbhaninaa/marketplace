@@ -55,6 +55,7 @@ If `SPRING_DATASOURCE_*` is unset, UAT/PROD fall back to **`MYSQLHOST`**, **`MYS
 | `FORGOT_PASSWORD_EMAILS_PER_HOUR` / `OTP_SENDS_PER_15_MIN` | `3` / `3` | Per email address; over the cap nothing is sent but the response is unchanged |
 | `LOGIN_MAX_FAILURES` / `LOGIN_LOCK_MINUTES` | `5` / `15` | Wrong passwords in a row before the account is locked, and for how long. A password reset unlocks it. |
 | `SIGNUP_REQUIRE_EMAIL_VERIFICATION` | `true` | Provider sign-up confirms the owner email with an emailed 6-digit code. Needs email sending on UAT/PROD. |
+| `SIGNUP_EXPOSE_TEST_CODE` | `true` on SIT/local, `false` elsewhere | SIT/local only: no sign-up email is sent; the code is returned and auto-filled on the sign-up form. UAT/PROD refuse to start if this is `true`, so real codes are always emailed there. |
 
 Rate-limit counters are in memory per API instance; account lockout is stored in the `users` table (`failed_login_attempts`, `locked_until`, added automatically by Hibernate). Password reset tokens are stored as SHA-256 hashes. New passwords must be 8–64 characters, not a common password, and must not contain the email name.
 

@@ -92,4 +92,17 @@ class SignupEmailVerificationTest {
         controller(true).requestSignupEmailCode(new com.agrimarket.api.dto.SignupEmailCodeRequest("me@farm.test"));
         verify(otp).requestSignupCode("me@farm.test");
     }
+
+    @Test
+    void emailCodeEndpointReturnsTheTestCodeOnlyWhenTheServiceExposesIt() {
+        when(otp.requestSignupCode("sit@farm.test")).thenReturn(java.util.Optional.of("123456"));
+        var sit = controller(true).requestSignupEmailCode(new com.agrimarket.api.dto.SignupEmailCodeRequest("sit@farm.test"));
+        assertThat(sit.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(sit.getBody()).containsEntry("testCode", "123456");
+
+        when(otp.requestSignupCode("prod@farm.test")).thenReturn(java.util.Optional.empty());
+        var prod = controller(true).requestSignupEmailCode(new com.agrimarket.api.dto.SignupEmailCodeRequest("prod@farm.test"));
+        assertThat(prod.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        assertThat(prod.getBody()).isNull();
+    }
 }

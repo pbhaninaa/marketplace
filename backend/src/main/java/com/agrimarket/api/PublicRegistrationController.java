@@ -10,8 +10,10 @@ import com.agrimarket.service.ClientOtpService;
 import com.agrimarket.service.PasswordResetService;
 import com.agrimarket.service.ProviderRegistrationService;
 import jakarta.validation.Valid;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -49,9 +51,13 @@ public class PublicRegistrationController {
      * address already has an account, so this cannot be used to discover registered emails.
      */
     @PostMapping("/provider/register/email-code")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void requestSignupEmailCode(@Valid @RequestBody SignupEmailCodeRequest req) {
-        clientOtpService.requestSignupCode(req.email());
+    public ResponseEntity<Map<String, String>> requestSignupEmailCode(@Valid @RequestBody SignupEmailCodeRequest req) {
+        // SIT/local only: hand the code back so the form can fill it in (no real email is sent there).
+        // UAT/PROD: never present, the code only goes out by email.
+        return clientOtpService
+                .requestSignupCode(req.email())
+                .map(code -> ResponseEntity.ok(Map.of("testCode", code)))
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     /**
