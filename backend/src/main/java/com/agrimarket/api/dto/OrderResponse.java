@@ -29,7 +29,10 @@ public record OrderResponse(
         Instant verifiedAt,
         Instant createdAt,
         boolean inventoryFinalized,
-        List<OrderLineItem> items) {
+        List<OrderLineItem> items,
+        String deliveryAddress,
+        Double deliveryLatitude,
+        Double deliveryLongitude) {
 
     /**
      * Creates an OrderResponse from an Order entity.
@@ -56,7 +59,10 @@ public record OrderResponse(
                 order.getVerifiedAt(),
                 order.getCreatedAt(),
                 order.isInventoryFinalized(),
-                items);
+                items,
+                order.getDeliveryAddress(),
+                order.getDeliveryLatitude(),
+                order.getDeliveryLongitude());
     }
 
     /**

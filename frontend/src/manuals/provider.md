@@ -151,7 +151,7 @@ Open **Staff payments** to see what each team member has earned from the orders 
 Open **Settings** to update:
 
 - your **location** and **description**
-- **Delivery**: whether you deliver, and your **price per km**
+- **Delivery**: whether you deliver, your **price per km**, and your **pickup location** on the map (where deliveries start). Delivery is only offered to buyers once all three are set. The fee is worked out automatically from your pickup point to the buyer's pin (straight line × 1.3 for roads); buyers can't change it. Delivery orders show the buyer's address and a **Get directions** link to their pin.
 - the **payment methods** you accept: Cash, EFT (bank transfer) and Card / Instant EFT
 - your **bank details** for EFT payments (bank, account name, account number, 6-digit branch code, reference)
 

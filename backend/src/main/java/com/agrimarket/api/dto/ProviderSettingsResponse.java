@@ -15,5 +15,7 @@ public record ProviderSettingsResponse(
         String bankReference,
         Set<PaymentMethod> acceptedPaymentMethods,
         boolean deliveryAvailable,
-        BigDecimal deliveryPricePerKm) {}
+        BigDecimal deliveryPricePerKm,
+        Double pickupLatitude,
+        Double pickupLongitude) {}
 

@@ -21,6 +21,7 @@ import {
 import { getCurrentLocation } from "../utils/getCurrentLocation";
 import FormField from '../components/ui/FormField.vue';
 import CartLinesSection from '../components/cart/CartLinesSection.vue';
+import MapPinPicker from '../components/ui/MapPinPicker.vue';
 import {
   ONLINE_PAYMENT_LABEL,
   PEACH_PAYMENT_METHODS,
@@ -152,17 +153,22 @@ const activeBank = computed(() => activeSeller.value?.bank || null);
 const deliveryAvailable = computed(() =>
   !!activeSeller.value?.deliverySettings?.deliveryAvailable
 );
-/*=================== Get Current Location ================= */
-const locationName = ref('');
-const coords = ref({ latitude: null, longitude: null });
+/*=================== Delivery location (map pin) =================
+ * The buyer's pin starts at their device location and can be dragged to the exact spot. The server
+ * works out the distance and fee from the seller's pickup pin; nothing typed by the buyer sets it. */
+const deliveryPin = ref(null);
+const deliveryAddressText = ref('');
 async function loadLocation() {
   try {
     const loc = await getCurrentLocation();
-    locationName.value = loc.locationName;
-    coords.value = loc.coords;
-
-  } catch (err) {
-    console.error("Failed to get location:", err.message);
+    if (!deliveryPin.value && loc?.coords?.latitude != null) {
+      deliveryPin.value = { lat: Number(loc.coords.latitude), lng: Number(loc.coords.longitude) };
+    }
+    if (!deliveryAddressText.value && loc?.locationName) {
+      deliveryAddressText.value = String(loc.locationName).slice(0, LIMITS.deliveryAddress);
+    }
+  } catch {
+    // No device location: the buyer drops the pin on the map instead.
   }
 }
 
@@ -175,37 +181,46 @@ watch(
   (available) => {
     if (!available) {
       deliveryMode.value = 'PICKUP';
-      deliveryDistanceKm.value = '';
     }
   },
   { immediate: true }
 );
 
-watch(deliveryMode, (mode) => {
-  if (mode !== 'DELIVERY') {
-    deliveryDistanceKm.value = '';
+/* Server quote for this seller and pin: { distanceKm, fee }. */
+const deliveryQuote = ref(null);
+const deliveryQuoteError = ref('');
+const quoting = ref(false);
+let quoteSeq = 0;
+async function refreshDeliveryQuote() {
+  deliveryQuote.value = null;
+  deliveryQuoteError.value = '';
+  const seller = activeSeller.value;
+  if (deliveryMode.value !== 'DELIVERY' || !seller || !deliveryPin.value) return;
+  const seq = ++quoteSeq;
+  quoting.value = true;
+  try {
+    const { data } = await publicCartApi.deliveryQuote(seller.providerId, deliveryPin.value.lat, deliveryPin.value.lng);
+    if (seq === quoteSeq) deliveryQuote.value = { distanceKm: Number(data.distanceKm), fee: Number(data.fee) };
+  } catch (e) {
+    if (seq === quoteSeq) deliveryQuoteError.value = e.response?.data?.message || 'Couldn’t work out the delivery fee. Try again or choose pickup.';
+  } finally {
+    if (seq === quoteSeq) quoting.value = false;
   }
-});
+}
+watch(
+  () => [deliveryMode.value, deliveryPin.value?.lat, deliveryPin.value?.lng, activeSeller.value?.providerId],
+  refreshDeliveryQuote,
+);
 
-const calculatedDeliveryFee = computed(() => {
-  if (deliveryMode.value !== 'DELIVERY' || !deliveryAvailable.value) return 0;
-  const km = Number(deliveryDistanceKm.value);
-  if (!Number.isFinite(km) || km <= 0) return 0;
-  const rate = deliveryRate.value;
-  if (!rate || rate <= 0) return 0;
-  return roundMoney(km * rate);
-});
+const calculatedDeliveryFee = computed(() =>
+  deliveryMode.value === 'DELIVERY' && deliveryAvailable.value && deliveryQuote.value ? deliveryQuote.value.fee : 0,
+);
 
 /* ================= VALIDATION ================= */
 // Same rules as the API (utils/validation.js mirrors backend InputValidator).
 const guestNameError = computed(() => (touched.value.guestName ? personNameError(guestName.value) : ''));
 const guestEmailError = computed(() => (touched.value.guestEmail ? emailError(guestEmail.value) : ''));
 const guestPhoneError = computed(() => (touched.value.guestPhone ? phoneError(guestPhone.value) : ''));
-const deliveryDistanceError = computed(() =>
-  deliveryMode.value === 'DELIVERY' && deliveryDistanceKm.value !== ''
-    ? numberError(deliveryDistanceKm.value, { label: 'Distance', min: 0, exclusiveMin: true, max: LIMITS.maxDeliveryKm })
-    : ''
-);
 
 const isNameValid = computed(() => !personNameError(guestName.value));
 const isEmailValid = computed(() => !emailError(guestEmail.value));
@@ -217,8 +232,7 @@ const isDeliveryChoiceComplete = computed(() => {
   }
   if (!deliveryMode.value) return false;
   if (deliveryMode.value === 'PICKUP') return true;
-  if (!deliveryRate.value || deliveryRate.value <= 0) return false;
-  return isPositiveNumber(deliveryDistanceKm.value) && !deliveryDistanceError.value && calculatedDeliveryFee.value > 0;
+  return !!deliveryPin.value && !!deliveryQuote.value && !deliveryQuoteError.value && !quoting.value;
 });
 
 const canCheckout = computed(() =>
@@ -265,17 +279,14 @@ async function submitCheckout() {
     return warning('Please choose delivery or pickup.', 'Missing option');
   }
   if (deliveryMode.value === 'DELIVERY') {
-    if (!deliveryRate.value || deliveryRate.value <= 0) {
-      return warning('This provider has not set a delivery price per km yet.', 'Delivery unavailable');
+    if (!deliveryPin.value) {
+      return warning('Choose your delivery location on the map, or use your current location.', 'Delivery location needed');
     }
-    if (!isPositiveNumber(deliveryDistanceKm.value)) {
-      return warning('Please enter how far delivery is in km (greater than zero).', 'Invalid distance');
+    if (deliveryQuoteError.value) {
+      return warning(deliveryQuoteError.value, 'Delivery unavailable');
     }
-    if (deliveryDistanceError.value) {
-      return warning(deliveryDistanceError.value, 'Invalid distance');
-    }
-    if (calculatedDeliveryFee.value <= 0) {
-      return warning('Please enter a valid delivery distance to calculate the fee.', 'Invalid distance');
+    if (!deliveryQuote.value) {
+      return warning('Still working out the delivery fee. Try again in a moment.', 'Please wait');
     }
   }
 
@@ -291,14 +302,13 @@ async function submitCheckout() {
       deliveryOrPickup: deliveryMode.value,
       paymentMethod: paymentMethod.value,
       ...peachPaymentPayload(paymentMethod.value, peachPaymentMethod.value),
-      deliveryDistanceKm:deliveryMode.value === 'DELIVERY' ? Number(deliveryDistanceKm.value): null,
-      // Reverse-geocoded names can be long; the API keeps up to 255 characters.
+      // The server prices delivery from the pin; no distance is sent.
       deliveryAddress:
-        deliveryMode.value === 'DELIVERY' && locationName.value
-          ? String(locationName.value).slice(0, LIMITS.deliveryAddress)
+        deliveryMode.value === 'DELIVERY' && deliveryAddressText.value.trim()
+          ? deliveryAddressText.value.trim().slice(0, LIMITS.deliveryAddress)
           : null,
-      latitude: deliveryMode.value === 'DELIVERY' ? coords.value.latitude : null,
-      longitude: deliveryMode.value === 'DELIVERY' ? coords.value.longitude : null,
+      latitude: deliveryMode.value === 'DELIVERY' && deliveryPin.value ? String(deliveryPin.value.lat) : null,
+      longitude: deliveryMode.value === 'DELIVERY' && deliveryPin.value ? String(deliveryPin.value.lng) : null,
     });
 
     // Online checkout: leave for the secure payment page straight away (Peach redirect or PayFast
@@ -315,7 +325,6 @@ async function submitCheckout() {
 
     // Delivery and payment are per seller; name, email and phone are kept for the next seller.
     deliveryMode.value = '';
-    deliveryDistanceKm.value = '';
     peachPaymentMethod.value = '';
 
     await cart.refresh();
@@ -510,8 +519,7 @@ async function handleLimitWarning({ message, type }) {
               <div class="radio-group">
                 <label class="radio-card">
                   <input type="radio" v-model="deliveryMode" value="DELIVERY" />
-                  <span>🚚 Delivery <small>To your address. Fee = distance × R{{ deliveryRate.toFixed(2)
-                  }}/km</small></span>
+                  <span>🚚 Delivery <small>To your pin on the map. R{{ deliveryRate.toFixed(2) }} per km</small></span>
                 </label>
                 <label class="radio-card">
                   <input type="radio" v-model="deliveryMode" value="PICKUP" />
@@ -520,17 +528,31 @@ async function handleLimitWarning({ message, type }) {
               </div>
             </FormField>
 
-            <div v-if="deliveryMode === 'DELIVERY'">
-              <FormField label="Delivery distance (km)" :error="deliveryDistanceError">
-                <input v-model="deliveryDistanceKm" type="number" min="0" :max="LIMITS.maxDeliveryKm" step="0.1" placeholder="e.g. 12.5" />
+            <div v-if="deliveryMode === 'DELIVERY'" class="delivery-location">
+              <span class="ctl-label">Where should we deliver?</span>
+              <MapPinPicker
+                v-model="deliveryPin"
+                height="240px"
+                hint="We used your current location. Drag the pin to your exact gate or door if needed."
+              />
+              <FormField label="Address or directions for the driver (optional)">
+                <input
+                  v-model="deliveryAddressText"
+                  type="text"
+                  :maxlength="LIMITS.deliveryAddress"
+                  placeholder="e.g. 12 Church Street, blue gate"
+                  autocomplete="street-address"
+                />
               </FormField>
-              <p v-if="deliveryRate > 0 && calculatedDeliveryFee > 0" class="muted mt-3" style="margin: 0.5rem 0 1rem;">
-                Delivery fee: <strong>R{{ calculatedDeliveryFee.toFixed(2) }}</strong>
-                ({{ Number(deliveryDistanceKm) || 0 }} km × R{{ deliveryRate.toFixed(2) }}/km)
+              <p v-if="quoting" class="muted small" role="status">Working out the delivery fee…</p>
+              <p v-else-if="deliveryQuoteError" class="delivery-error" role="alert">{{ deliveryQuoteError }}</p>
+              <p v-else-if="deliveryQuote" class="delivery-quote" role="status">
+                Delivery fee: <strong>R{{ deliveryQuote.fee.toFixed(2) }}</strong>
+                <span class="muted small">
+                  ({{ deliveryQuote.distanceKm }} km by road, estimated, × R{{ deliveryRate.toFixed(2) }}/km)
+                </span>
               </p>
-              <p v-else-if="deliveryMode === 'DELIVERY' && deliveryRate <= 0" class="muted small">
-                This provider has delivery enabled but no rate per km yet. Contact them or choose pickup.
-              </p>
+              <p v-else class="muted small">Choose your location on the map to see the delivery fee.</p>
             </div>
           </template>
           <p v-else class="muted" style="margin: 0.5rem 0 1rem;">
@@ -638,6 +660,29 @@ async function handleLimitWarning({ message, type }) {
   width: 100%;
   max-width: 720px;
   min-width: 0;
+}
+
+/* DELIVERY LOCATION */
+.delivery-location {
+  display: grid;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.delivery-quote {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-sage-soft);
+}
+
+.delivery-error {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-danger-bg);
+  color: var(--color-danger-text);
+  font-size: 0.9rem;
 }
 
 /* MULTI-SELLER CART */

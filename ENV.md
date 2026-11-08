@@ -56,6 +56,7 @@ If `SPRING_DATASOURCE_*` is unset, UAT/PROD fall back to **`MYSQLHOST`**, **`MYS
 | `LOGIN_MAX_FAILURES` / `LOGIN_LOCK_MINUTES` | `5` / `15` | Wrong passwords in a row before the account is locked, and for how long. A password reset unlocks it. |
 | `SIGNUP_REQUIRE_EMAIL_VERIFICATION` | `true` | Provider sign-up confirms the owner email with an emailed 6-digit code. Needs email sending on UAT/PROD. |
 | `UNPAID_EXPIRY_CARD_MINUTES` / `UNPAID_EXPIRY_EFT_HOURS` / `UNPAID_EXPIRY_CASH_DAYS` | `60` / `72` / `14` | Unpaid orders and rentals are cancelled automatically after this long (by payment method), returning stock and freeing rental dates. `0` turns a rule off; `UNPAID_EXPIRY_ENABLED=false` turns the job off. |
+| `DELIVERY_ROAD_FACTOR` / `DELIVERY_MAX_KM` | `1.3` / `1000` | Delivery is priced from the seller's pickup pin to the buyer's pin: straight-line distance × road factor × the seller's rate per km. Longer than max km is refused. |
 | `SIGNUP_EXPOSE_TEST_CODE` | `true` on SIT/local, `false` elsewhere | SIT/local only: no email or SMS is sent for provider sign-up codes or guest sign-in codes; the code is returned and auto-filled on the form. UAT/PROD refuse to start if this is `true`, so real codes are always sent there. |
 
 Rate-limit counters are in memory per API instance; account lockout is stored in the `users` table (`failed_login_attempts`, `locked_until`, added automatically by Hibernate). Password reset tokens are stored as SHA-256 hashes. New passwords must be 8–64 characters, not a common password, and must not contain the email name.

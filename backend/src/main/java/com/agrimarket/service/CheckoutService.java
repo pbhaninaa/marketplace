@@ -57,6 +57,7 @@ public class CheckoutService {
     private final PayFastPaymentService payFastPaymentService;
     private final OnlinePaymentGatewayResolver gatewayResolver;
     private final RentalAvailability rentalAvailability;
+    private final DeliveryPricing deliveryPricing;
 
     @Transactional
     public Map<String, Object> guestCheckout(String sessionKey, GuestCheckoutRequest req) {
@@ -219,31 +220,24 @@ public class CheckoutService {
 
         // Verification codes must be unique per record (DB constraint). We keep purchase + rentals linked via sessionKey.
 
-        boolean distanceProvided = req.deliveryDistanceKm() != null
-                && req.deliveryDistanceKm().compareTo(BigDecimal.ZERO) > 0;
-        if (distanceProvided) {
-            if (!seller.isDeliveryAvailable()) {
-                throw new ApiException(
-                        HttpStatus.BAD_REQUEST,
-                        "DELIVERY_UNAVAILABLE",
-                        "This provider does not offer delivery.");
-            }
-            if (seller.getDeliveryPricePerKm() == null
-                    || seller.getDeliveryPricePerKm().compareTo(BigDecimal.ZERO) <= 0) {
-                throw new ApiException(
-                        HttpStatus.BAD_REQUEST,
-                        "DELIVERY_MISCONFIGURED",
-                        "Delivery pricing is not configured for this provider.");
-            }
-        }
-
-        // Calculate delivery fee if applicable (server is source of truth)
+        // Delivery is priced on the server from the seller's pickup pin and the buyer's map pin.
+        // Any distance the client sends is ignored, so the fee can't be lowered by typing a shorter one.
+        boolean delivery = "DELIVERY".equalsIgnoreCase(req.deliveryOrPickup() == null ? "" : req.deliveryOrPickup().trim());
         BigDecimal deliveryFee = BigDecimal.ZERO;
-        if (distanceProvided) {
-            deliveryFee = seller
-                    .getDeliveryPricePerKm()
-                    .multiply(req.deliveryDistanceKm())
-                    .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal deliveryKm = null;
+        Double buyerLat = parseCoordinate(req.latitude());
+        Double buyerLng = parseCoordinate(req.longitude());
+        String deliveryAddress = null;
+        if (delivery) {
+            DeliveryPricing.Quote quote = deliveryPricing.quote(seller, buyerLat, buyerLng);
+            deliveryFee = quote.fee();
+            deliveryKm = quote.distanceKm();
+            deliveryAddress = req.deliveryAddress() == null || req.deliveryAddress().isBlank()
+                    ? null
+                    : req.deliveryAddress().trim();
+        } else {
+            buyerLat = null;
+            buyerLng = null;
         }
 
         // One reference for everything this checkout creates (this seller, this payment).
@@ -251,6 +245,9 @@ public class CheckoutService {
         List<Order> createdOrders = new ArrayList<>();
         List<RentalBooking> createdRentals = new ArrayList<>();
         List<PaymentRecord> createdPayments = new ArrayList<>();
+        // One seller, one trip: the delivery fee is charged once per checkout (on the purchase order if
+        // there is one, otherwise on the first rental), not on every order and rental.
+        BigDecimal deliveryFeeLeft = deliveryFee;
 
         if (!saleLines.isEmpty()) {
             Order order = new Order();
@@ -259,9 +256,13 @@ public class CheckoutService {
             order.setGuestEmail(guestEmail);
             order.setGuestPhone(guestPhone);
             order.setDeliveryOrPickup(req.deliveryOrPickup());
-            order.setDeliveryDistanceKm(req.deliveryDistanceKm());
-            order.setDeliveryFee(deliveryFee);
-            order.setTotalAmount(saleTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
+            order.setDeliveryDistanceKm(deliveryKm);
+            order.setDeliveryAddress(deliveryAddress);
+            order.setDeliveryLatitude(buyerLat);
+            order.setDeliveryLongitude(buyerLng);
+            order.setDeliveryFee(deliveryFeeLeft);
+            order.setTotalAmount(saleTotal.add(deliveryFeeLeft).setScale(2, RoundingMode.HALF_UP));
+            deliveryFeeLeft = BigDecimal.ZERO;
             order.setSessionKey(sessionKey);
             order.setCheckoutRef(checkoutRef);
             order.setStatus(OrderStatus.PENDING_PAYMENT);
@@ -303,11 +304,15 @@ public class CheckoutService {
             b.setGuestEmail(guestEmail);
             b.setGuestPhone(guestPhone);
             b.setDeliveryOrPickup(req.deliveryOrPickup());
-            b.setDeliveryDistanceKm(req.deliveryDistanceKm());
-            b.setDeliveryFee(deliveryFee);
+            b.setDeliveryDistanceKm(deliveryKm);
+            b.setDeliveryAddress(deliveryAddress);
+            b.setLatitude(buyerLat == null ? null : String.valueOf(buyerLat));
+            b.setLongitude(buyerLng == null ? null : String.valueOf(buyerLng));
+            b.setDeliveryFee(deliveryFeeLeft);
             b.setStartAt(line.getRentalStart());
             b.setEndAt(line.getRentalEnd());
-            b.setTotalAmount(rentTotal.add(deliveryFee).setScale(2, RoundingMode.HALF_UP));
+            b.setTotalAmount(rentTotal.add(deliveryFeeLeft).setScale(2, RoundingMode.HALF_UP));
+            deliveryFeeLeft = BigDecimal.ZERO;
             b.setSessionKey(sessionKey);
             b.setCheckoutRef(checkoutRef);
             b.setStatus(BookingStatus.PENDING_PAYMENT);
@@ -394,6 +399,16 @@ public class CheckoutService {
             response.put("paymentRef", payFastCheckout.paymentRef());
         }
         return response;
+    }
+
+    /** Parses a map coordinate sent by the browser (validated by the request pattern); null when blank. */
+    static Double parseCoordinate(String raw) {
+        if (raw == null || raw.isBlank()) return null;
+        try {
+            return Double.valueOf(raw.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     /**

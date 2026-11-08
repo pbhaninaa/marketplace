@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,6 +28,8 @@ public class PublicCartController {
 
     private final CartService cartService;
     private final CheckoutService checkoutService;
+    private final com.agrimarket.repo.ProviderRepository providerRepository;
+    private final com.agrimarket.service.DeliveryPricing deliveryPricing;
 
     private static final String SESSION_HEADER = "X-Session-Id";
 
@@ -35,6 +38,23 @@ public class PublicCartController {
         // simple session id: caller can also provide their own, but frontend expects this.
         String sessionId = "sess-" + java.util.UUID.randomUUID();
         return Map.of("sessionId", sessionId);
+    }
+
+    /**
+     * Delivery distance and fee for a seller to the buyer's map pin, shown at checkout before ordering.
+     * Uses the same server-side pricing as checkout. Never returns the seller's coordinates.
+     */
+    @GetMapping("/delivery-quote")
+    public Map<String, Object> deliveryQuote(
+            @RequestParam("providerId") Long providerId,
+            @RequestParam("lat") Double lat,
+            @RequestParam("lng") Double lng) {
+        var seller = providerRepository
+                .findById(providerId)
+                .orElseThrow(() -> new com.agrimarket.api.error.ApiException(
+                        HttpStatus.NOT_FOUND, "PROVIDER", "Seller not found"));
+        var q = deliveryPricing.quote(seller, lat, lng);
+        return Map.of("distanceKm", q.distanceKm(), "fee", q.fee(), "ratePerKm", q.ratePerKm());
     }
 
     @GetMapping

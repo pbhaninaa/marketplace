@@ -38,7 +38,9 @@ public class ProviderSettingsService {
                 p.getBankReference(),
                 accepted,
                 p.isDeliveryAvailable(),
-                p.getDeliveryPricePerKm());
+                p.getDeliveryPricePerKm(),
+                p.getPickupLatitude(),
+                p.getPickupLongitude());
     }
 
     @Transactional
@@ -53,6 +55,13 @@ public class ProviderSettingsService {
         p.setBankAccountNumber(InputValidator.normalizeDigits(req.bankAccountNumber()));
         p.setBankBranchCode(InputValidator.normalizeDigits(req.bankBranchCode()));
         p.setBankReference(blankToNull(req.bankReference()));
+
+        // Both coordinates or neither (clearing the pin turns delivery pricing off).
+        if ((req.pickupLatitude() == null) != (req.pickupLongitude() == null)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "PICKUP_LOCATION", "Set your pickup location on the map.");
+        }
+        p.setPickupLatitude(req.pickupLatitude());
+        p.setPickupLongitude(req.pickupLongitude());
 
         p.setDeliveryAvailable(req.deliveryAvailable());
         if (req.deliveryAvailable()) {

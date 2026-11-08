@@ -20,4 +20,7 @@ public record ProviderSettingsUpdateRequest(
         @Size(max = 140) String bankReference,
         Set<PaymentMethod> acceptedPaymentMethods,
         boolean deliveryAvailable,
-        @DecimalMin(value = "0.0", inclusive = false) @DecimalMax("10000") BigDecimal deliveryPricePerKm) {}
+        @DecimalMin(value = "0.0", inclusive = false) @DecimalMax("10000") BigDecimal deliveryPricePerKm,
+        /** Pickup point on the map (where deliveries start). Required for delivery to be offered. */
+        @DecimalMin("-90") @DecimalMax("90") Double pickupLatitude,
+        @DecimalMin("-180") @DecimalMax("180") Double pickupLongitude) {}

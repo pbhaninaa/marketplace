@@ -102,6 +102,10 @@ export const publicPeachApi = {
 };
 
 export const publicCartApi = {
+  /** Server-side delivery distance and fee from a seller to the buyer's map pin. */
+  deliveryQuote(providerId, lat, lng) {
+    return api.get('/api/public/cart/delivery-quote', { params: { providerId, lat, lng } });
+  },
   getCart(sessionId) {
     return api.get('/api/public/cart', withSession(sessionId));
   },
