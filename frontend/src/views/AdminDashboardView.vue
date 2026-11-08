@@ -8,19 +8,14 @@ import { useLiveRefresh } from '../composables/useLiveRefresh';
 import LiveStatus from '../components/LiveStatus.vue';
 import DateRangeFilter from '../components/ui/DateRangeFilter.vue';
 import TimeChart from '../components/charts/TimeChart.vue';
-import RankedBars from '../components/charts/RankedBars.vue';
 import SegmentedBar from '../components/charts/SegmentedBar.vue';
 import { dateRangeQuery } from '../utils/dateRangeQuery';
 import {
   labelsOf,
-  orderStatusParts,
-  paymentMethodItems,
   perBucket,
   providerStateParts,
   revenueSeries,
-  signupSeries,
-  topItems,
-  volumeSeries,
+  revenueTotalOf,
 } from '../components/charts/dashboardSeries';
 
 const router = useRouter();
@@ -90,13 +85,8 @@ watch(
 // Live: reload on server pushes (orders, payments, subscriptions), tab re-focus, and every 60s.
 const { refreshNow, lastUpdated, refreshing } = useLiveRefresh(() => load({ quiet: true }));
 
-const activityScore = computed(() => {
-  // Field names match AdminDashboardStatsResponse (note the capital "O" in OrdersCount).
-  const orderCount = Number(stats.value?.OrdersCount ?? 0);
-  const rentalCount = Number(stats.value?.rentalBookingsCount ?? 0);
-  const n = orderCount + rentalCount;
-  return Math.max(0, Math.min(100, Math.round((Math.log10(n + 1) / Math.log10(200 + 1)) * 100)));
-});
+/** Same figure the Revenue chart plots (cancelled excluded), so the tile and chart always agree. */
+const revenueTotal = computed(() => revenueTotalOf(trends.value));
 </script>
 
 <template>
@@ -104,7 +94,7 @@ const activityScore = computed(() => {
     <header class="page-hero">
       <p class="page-hero__eyebrow">Platform</p>
       <h1 class="page-hero__title">Administration</h1>
-      <p class="page-hero__lead">Progress overview and quick links to admin tools.</p>
+      <p class="page-hero__lead">How the platform is doing at a glance. Details live in the menu.</p>
     </header>
 
     <section class="surface-panel admin-panel admin-panel--wide">
@@ -121,42 +111,32 @@ const activityScore = computed(() => {
 
       <div class="kpi-grid">
         <div class="kpi">
-          <span class="kpi__label">Users created</span>
-          <strong class="kpi__value">{{ kpi(stats?.usersCreated) }}</strong>
-          <span class="kpi__hint">In date range</span>
+          <span class="kpi__label">Revenue</span>
+          <strong class="kpi__value">{{ trends ? formatMoney(revenueTotal) : kpi() }}</strong>
+          <span class="kpi__hint">Sales and rentals, cancelled excluded</span>
         </div>
         <div class="kpi">
-          <span class="kpi__label">Providers created</span>
+          <span class="kpi__label">Orders and bookings</span>
+          <strong class="kpi__value">{{ stats ? formatCount(Number(stats.OrdersCount) + Number(stats.rentalBookingsCount)) : kpi() }}</strong>
+          <span class="kpi__hint">{{ stats ? `${formatCount(stats.OrdersCount)} orders, ${formatCount(stats.rentalBookingsCount)} rentals` : 'In this period' }}</span>
+        </div>
+        <div class="kpi">
+          <span class="kpi__label">New providers</span>
           <strong class="kpi__value">{{ kpi(stats?.providersCreated) }}</strong>
-          <span class="kpi__hint">Onboarding</span>
+          <span class="kpi__hint">{{ stats ? `${formatCount(stats.usersCreated)} new users` : 'In this period' }}</span>
         </div>
         <div class="kpi">
-          <span class="kpi__label">Listings created</span>
-          <strong class="kpi__value">{{ kpi(stats?.listingsCreated) }}</strong>
-          <span class="kpi__hint">{{ stats ? `${formatCount(stats.activeListings)} active now` : 'Supply growth' }}</span>
-        </div>
-        <div class="kpi">
-          <span class="kpi__label">Orders</span>
-          <strong class="kpi__value">{{ kpi(stats?.OrdersCount) }}</strong>
-          <span class="kpi__hint">{{ stats ? formatMoney(stats.OrdersTotal) : 'Purchases' }}</span>
-        </div>
-        <div class="kpi">
-          <span class="kpi__label">Rental bookings</span>
-          <strong class="kpi__value">{{ kpi(stats?.rentalBookingsCount) }}</strong>
-          <span class="kpi__hint">{{ stats ? formatMoney(stats.rentalBookingsTotal) : 'Rentals' }}</span>
-        </div>
-        <div class="kpi">
-          <span class="kpi__label">Activity health</span>
-          <strong class="kpi__value">{{ stats ? `${activityScore}%` : kpi() }}</strong>
-          <span class="kpi__hint">Signal from order volume</span>
+          <span class="kpi__label">Live listings</span>
+          <strong class="kpi__value">{{ kpi(stats?.activeListings) }}</strong>
+          <span class="kpi__hint">{{ stats ? `${formatCount(stats.listingsCreated)} added this period` : 'Right now' }}</span>
         </div>
       </div>
 
-      <div v-if="trends" class="dash-charts" aria-label="Platform charts">
+      <div v-if="trends" class="dash-charts" aria-label="Platform overview charts">
         <TimeChart
-          class="dash-charts__wide"
+          class="dash-charts__main"
           title="Revenue"
-          :subtitle="`All providers, sales orders and rentals ${per}, cancelled excluded`"
+          :subtitle="`Sales orders and rentals ${per}`"
           :labels="chartLabels"
           :granularity="trends.granularity"
           :series="revenueSeries(trends)"
@@ -164,92 +144,21 @@ const activityScore = computed(() => {
           :busy="loading"
           empty-text="No revenue in this period yet."
         />
-        <TimeChart
-          title="Orders and bookings"
-          :subtitle="`Number placed ${per}`"
-          kind="columns"
-          :labels="chartLabels"
-          :granularity="trends.granularity"
-          :series="volumeSeries(trends)"
-          :busy="loading"
-          empty-text="No orders or bookings in this period yet."
-        />
-        <TimeChart
-          title="Sign-ups"
-          subtitle="Running total of new users and providers this period"
-          :labels="chartLabels"
-          :granularity="trends.granularity"
-          :series="signupSeries(trends)"
-          :busy="loading"
-          empty-text="No sign-ups in this period yet."
-        />
         <SegmentedBar
           title="Providers who can take orders"
-          subtitle="Every provider right now, by subscription state"
+          subtitle="All providers right now"
           :parts="providerStateParts(trends)"
           unit="providers"
           :busy="loading"
           empty-text="No providers yet."
         />
-        <SegmentedBar
-          title="Order status"
-          subtitle="Where this period's orders and bookings are now"
-          :parts="orderStatusParts(trends)"
-          unit="orders"
-          :busy="loading"
-          empty-text="No orders or bookings in this period yet."
-        />
-        <RankedBars
-          title="Top providers"
-          subtitle="Revenue in this period, top 5"
-          :items="topItems(trends, { money: true })"
-          money
-          :busy="loading"
-          empty-text="No provider revenue in this period yet."
-        />
-        <RankedBars
-          title="Payment methods"
-          subtitle="Amount by how buyers paid"
-          :items="paymentMethodItems(trends)"
-          money
-          :busy="loading"
-          empty-text="No payments in this period yet."
-        />
       </div>
-    </section>
 
-    <section class="surface-panel admin-panel admin-panel--wide">
-      <h2>Admin tools</h2>
-      <div class="tools-grid">
-        <router-link to="/admin/history" class="tool-card">
-          <strong>Orders &amp; payments</strong>
-          <span class="muted small">Filter every order and payment, export CSV / Excel</span>
-        </router-link>
-        <router-link to="/admin/settings" class="tool-card">
-          <strong>Settings</strong>
-          <span class="muted small">Name, pricing, and usage fees</span>
-        </router-link>
-        <router-link to="/admin/providers" class="tool-card">
-          <strong>Providers</strong>
-          <span class="muted small">Approve & support providers</span>
-        </router-link>
-        <router-link to="/admin/listings" class="tool-card">
-          <strong>Listings</strong>
-          <span class="muted small">Publish/unpublish & cleanup</span>
-        </router-link>
-        <router-link to="/admin/users" class="tool-card">
-          <strong>Users</strong>
-          <span class="muted small">Search and disable accounts</span>
-        </router-link>
-        <router-link to="/admin/support-users" class="tool-card">
-          <strong>Support users</strong>
-          <span class="muted small">Create and manage support accounts</span>
-        </router-link>
-        <router-link to="/admin/password" class="tool-card">
-          <strong>Password</strong>
-          <span class="muted small">Change your admin password</span>
-        </router-link>
-      </div>
+      <p class="dash-more">
+        <router-link to="/admin/history">See every order and payment</router-link>
+        <span aria-hidden="true">·</span>
+        <router-link to="/admin/providers">Manage providers</router-link>
+      </p>
     </section>
   </div>
 </template>
@@ -300,19 +209,30 @@ const activityScore = computed(() => {
 
 .dash-charts {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Overview: the revenue trend leads, the provider mix sits beside it. */
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 1rem;
   margin-top: 1.25rem;
+  align-items: start;
 }
 
-.dash-charts__wide {
-  grid-column: 1 / -1;
-}
-
-@media (max-width: 820px) {
+@media (max-width: 900px) {
   .dash-charts {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+.dash-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  font-size: 0.88rem;
+  color: var(--color-muted);
+}
+
+.dash-more a {
+  font-weight: 600;
 }
 
 .kpi-grid {
@@ -349,42 +269,9 @@ const activityScore = computed(() => {
   color: var(--color-muted);
 }
 
-.tools-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-4);
-  margin-top: var(--space-3);
-}
-
-.tool-card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
-  background: var(--color-surface-elevated);
-  box-shadow: var(--shadow-sm);
-  text-decoration: none;
-  color: var(--color-canopy);
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.tool-card:hover {
-  border-color: rgba(61, 122, 102, 0.28);
-  box-shadow: var(--shadow-md);
-}
-
-.tool-card--danger {
-  border-color: rgba(180, 40, 40, 0.22);
-  background: rgba(252, 239, 234, 0.6);
-}
-
 @media (max-width: 980px) {
   .kpi-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .tools-grid {
-    grid-template-columns: 1fr;
   }
 }
 </style>

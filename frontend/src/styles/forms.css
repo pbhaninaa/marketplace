@@ -1,0 +1,198 @@
+/*
+ * One look for every form control in the app: text-like inputs, selects and textareas.
+ * Components and pages should NOT restyle colours, borders, radius or focus; they may only set
+ * layout (width, flex, max-width). Rules use :where() so their specificity is zero and layout
+ * tweaks elsewhere still win without !important.
+ */
+
+:root {
+  --ctl-height: 2.75rem; /* 44px: comfortable to tap */
+  --ctl-radius: var(--radius-md, 12px);
+  --ctl-pad-x: 0.875rem;
+  --ctl-font-size: 0.95rem;
+  --ctl-bg: var(--color-surface-elevated, #fff);
+  --ctl-bg-disabled: var(--color-bg, #f6f3ec);
+  --ctl-border: var(--color-border-strong, #c4bcb0);
+  --ctl-border-hover: #a39a8c;
+  --ctl-border-focus: var(--color-sage, #3d7a66);
+  --ctl-ring: rgba(61, 122, 102, 0.2);
+  --ctl-danger: var(--color-danger-text, #8b2c1f);
+  --ctl-danger-ring: rgba(139, 44, 31, 0.16);
+  --ctl-shadow: 0 1px 2px rgba(28, 36, 24, 0.05);
+  --ctl-placeholder: var(--color-muted, #6b7568);
+  --ctl-label: var(--color-text, #1c2418);
+}
+
+:root[data-theme='dark'] {
+  --ctl-bg: rgba(255, 255, 255, 0.04);
+  --ctl-bg-disabled: rgba(255, 255, 255, 0.02);
+  --ctl-border-hover: rgba(255, 255, 255, 0.3);
+  --ctl-ring: rgba(99, 183, 156, 0.25);
+  --ctl-danger-ring: rgba(252, 165, 165, 0.2);
+  --ctl-shadow: none;
+}
+
+:where(
+    input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']):not([type='color']):not(
+        [type='hidden']
+      ):not([type='submit']):not([type='button']):not([type='reset']):not([type='image']),
+    select,
+    textarea
+  ) {
+  box-sizing: border-box;
+  min-height: var(--ctl-height);
+  padding: 0.55rem var(--ctl-pad-x);
+  font: inherit;
+  font-family: var(--font-ui, inherit);
+  font-size: var(--ctl-font-size);
+  line-height: 1.4;
+  color: var(--color-text);
+  background-color: var(--ctl-bg);
+  border: 1px solid var(--ctl-border);
+  border-radius: var(--ctl-radius);
+  box-shadow: var(--ctl-shadow);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+:where(input, select, textarea):where(:hover):not(:disabled):not(:focus):not([readonly]) {
+  border-color: var(--ctl-border-hover);
+}
+
+:where(
+    input:not([type='checkbox']):not([type='radio']):not([type='range']),
+    select,
+    textarea
+  ):focus {
+  outline: none;
+}
+
+:where(
+    input:not([type='checkbox']):not([type='radio']):not([type='range']),
+    select,
+    textarea
+  ):focus-visible,
+:where(input, select, textarea):where(:not([type='checkbox']):not([type='radio'])):focus {
+  border-color: var(--ctl-border-focus);
+  box-shadow: 0 0 0 3px var(--ctl-ring);
+}
+
+:where(input, select, textarea)::placeholder {
+  color: var(--ctl-placeholder);
+  opacity: 1;
+}
+
+:where(input, select, textarea):disabled {
+  background-color: var(--ctl-bg-disabled);
+  color: var(--color-muted);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+:where(input, textarea)[readonly] {
+  background-color: var(--ctl-bg-disabled);
+  cursor: default;
+}
+
+/* Error: FormField / Base* components set aria-invalid; pages may also add .is-invalid. */
+:where(input, select, textarea):where([aria-invalid='true'], .is-invalid),
+:where(.form-field--has-error) :where(input, select, textarea) {
+  border-color: var(--ctl-danger);
+}
+
+:where(input, select, textarea):where([aria-invalid='true'], .is-invalid):focus,
+:where(.form-field--has-error) :where(input, select, textarea):focus {
+  border-color: var(--ctl-danger);
+  box-shadow: 0 0 0 3px var(--ctl-danger-ring);
+}
+
+:where(textarea) {
+  min-height: 6rem;
+  resize: vertical;
+}
+
+/* Selects: custom chevron drawn with currentColor gradients, so it follows the theme. */
+:where(select:not([multiple]):not([size])) {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2.5rem;
+  cursor: pointer;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position:
+    calc(100% - 1.15rem) 52%,
+    calc(100% - 0.8rem) 52%;
+  background-size:
+    0.35rem 0.35rem,
+    0.35rem 0.35rem;
+  background-repeat: no-repeat;
+}
+
+:where(select[multiple], select[size]) {
+  padding: 0.35rem;
+}
+
+:where(select option) {
+  background: var(--color-surface-elevated);
+  color: var(--color-text);
+}
+
+/* Native date/time pickers match the theme (calendar icon, popup colours). */
+:where(input[type='date'], input[type='time'], input[type='datetime-local'], input[type='month']) {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] :where(input[type='date'], input[type='time'], input[type='datetime-local'], input[type='month']) {
+  color-scheme: dark;
+}
+
+:where(input[type='checkbox'], input[type='radio'], input[type='range']) {
+  accent-color: var(--color-sage);
+}
+
+/* Shared label + help/error text, used by FormField and the Base* components. */
+.ctl-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ctl-label);
+  line-height: 1.3;
+}
+
+.ctl-required {
+  color: var(--ctl-danger);
+  margin-left: 0.2rem;
+}
+
+.ctl-error {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ctl-danger);
+}
+
+/* Compact size for dense filter bars and tables. */
+:where(.ctl-sm, .base-input--sm, .base-select--sm) {
+  --ctl-height: 2.25rem;
+  --ctl-font-size: 0.85rem;
+  --ctl-pad-x: 0.7rem;
+}
+
+:where(.base-input--lg, .base-select--lg) {
+  --ctl-height: 3.1rem;
+  --ctl-font-size: 1.05rem;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --ctl-font-size: 16px; /* stops iOS zooming into focused fields */
+  }
+}
+
+@media (forced-colors: active) {
+  :where(input, select, textarea):focus-visible {
+    outline: 2px solid CanvasText;
+  }
+}

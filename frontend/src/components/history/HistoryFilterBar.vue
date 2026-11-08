@@ -125,14 +125,14 @@ const showCustom = computed(() => props.modelValue.preset === 'CUSTOM');
 .hfb__field--search {
   flex: 1 1 220px;
 }
+/* Same label as every other form (.ctl-label in src/styles/forms.css); controls use the shared style. */
 .hfb__label {
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  color: var(--color-muted);
+  color: var(--color-text);
 }
 .hfb select,
 .hfb input {
-  min-height: 38px;
   width: 100%;
 }
 .hfb__actions {

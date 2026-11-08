@@ -77,13 +77,11 @@ const to = computed({
   align-items: center;
   gap: 0.5rem;
 }
+/* Same label as every other form; the select and date inputs use the shared control style. */
 .drf__label {
   font-size: 0.85rem;
-  color: var(--color-muted);
-}
-.drf__select,
-.drf__input {
-  min-height: 38px;
+  font-weight: 600;
+  color: var(--color-text);
 }
 </style>
 

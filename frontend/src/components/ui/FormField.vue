@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUpdated, onUnmounted, nextTick, watch } from 'vue';
+import { ref, onMounted, onUpdated, onUnmounted, nextTick, watch, useId } from 'vue';
 
 const props = defineProps({
   label: { type: String, default: '' },
@@ -89,9 +89,39 @@ function bindCapitalize() {
   };
 }
 
-function scheduleBind() {
-  nextTick(() => bindCapitalize());
+const autoId = `ff-${useId()}`;
+const errorId = `${autoId}-error`;
+const labelFor = ref(props.forId || '');
+
+/**
+ * Connect the label to the first control (so clicking the label focuses it and screen readers announce
+ * it) and expose the error state, which also drives the shared invalid styling in forms.css.
+ */
+function linkControl() {
+  const root = controlRef.value;
+  if (!root) return;
+  const el = root.querySelector('input:not([type="hidden"]), select, textarea');
+  if (!el) return;
+  if (!props.forId) {
+    if (!el.id) el.id = autoId;
+    labelFor.value = el.id;
+  }
+  if (props.error) {
+    el.setAttribute('aria-invalid', 'true');
+    el.setAttribute('aria-describedby', errorId);
+  } else {
+    el.removeAttribute('aria-invalid');
+    if (el.getAttribute('aria-describedby') === errorId) el.removeAttribute('aria-describedby');
+  }
 }
+
+function scheduleBind() {
+  nextTick(() => {
+    bindCapitalize();
+    linkControl();
+  });
+}
+watch(() => props.error, scheduleBind);
 
 onMounted(scheduleBind);
 onUpdated(scheduleBind);
@@ -104,83 +134,26 @@ onUnmounted(() => detach?.());
 
 <template>
   <div class="form-field" :class="{ 'form-field--has-error': error }">
-    <label v-if="label" :for="forId || undefined" class="form-field__label">{{ label }}</label>
+    <label v-if="label" :for="forId || labelFor || undefined" class="form-field__label ctl-label">{{ label }}</label>
     <div ref="controlRef" class="form-field__control">
       <slot />
     </div>
-    <p v-if="error" class="form-field__error">{{ error }}</p>
+    <p v-if="error" :id="errorId" class="form-field__error ctl-error" role="alert">{{ error }}</p>
   </div>
 </template>
 
 <style scoped>
+/* Visuals for the control itself live in src/styles/forms.css (shared by every form). */
 .form-field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.4rem;
+  min-width: 0;
+  /* Same rhythm in every form: clearly more space between fields than between a label and its field. */
+  margin-bottom: 0.75rem;
 }
 
-.form-field__label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-secondary);
-}
-
-.form-field__control :deep(input),
-.form-field__control :deep(select),
-.form-field__control :deep(textarea) {
+.form-field__control :deep(:where(input:not([type='checkbox']):not([type='radio']), select, textarea)) {
   width: 100%;
-  padding: 0.55rem 0.75rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  font: inherit;
-  font-size: 0.95rem;
-  color: var(--color-text);
-  background: var(--color-surface-elevated);
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-.form-field__control :deep(input:hover),
-.form-field__control :deep(select:hover),
-.form-field__control :deep(textarea:hover) {
-  border-color: var(--color-border-strong);
-}
-
-.form-field__control :deep(input:focus),
-.form-field__control :deep(select:focus),
-.form-field__control :deep(textarea:focus) {
-  outline: none;
-  border-color: var(--color-sage);
-  box-shadow: 0 0 0 3px rgba(61, 122, 102, 0.18);
-}
-
-.form-field__control :deep(textarea) {
-  resize: vertical;
-  min-height: 5rem;
-}
-
-/* Error state */
-.form-field--has-error .form-field__control :deep(input),
-.form-field--has-error .form-field__control :deep(select),
-.form-field--has-error .form-field__control :deep(textarea) {
-  border-color: var(--color-danger, #dc2626);
-  background: rgba(220, 38, 38, 0.05);
-}
-
-.form-field--has-error .form-field__control :deep(input:focus),
-.form-field--has-error .form-field__control :deep(select:focus),
-.form-field--has-error .form-field__control :deep(textarea:focus) {
-  border-color: var(--color-danger, #dc2626);
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
-}
-
-.form-field__error {
-  font-size: 0.80rem;
-  color: var(--color-danger, #dc2626);
-  font-weight: 500;
-  margin: 0;
 }
 </style>

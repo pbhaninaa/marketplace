@@ -47,11 +47,10 @@ const hasError = computed(() => !!props.error);
 </script>
 
 <template>
-  <div class="base-input-wrapper">
-    <label v-if="label" class="base-input__label">
-      {{ label }}
-      <span v-if="required" class="base-input__required">*</span>
-    </label>
+  <label class="base-input-wrapper">
+    <span v-if="label" class="base-input__label ctl-label">
+      {{ label }}<span v-if="required" class="ctl-required" aria-hidden="true">*</span>
+    </span>
     <input
       :value="modelValue"
       :type="type"
@@ -59,94 +58,27 @@ const hasError = computed(() => !!props.error);
       :disabled="disabled"
       :readonly="readonly"
       :required="required"
-      :class="[
-        'base-input',
-        `base-input--${size}`,
-        {
-          'base-input--error': hasError,
-          'base-input--disabled': disabled,
-        },
-      ]"
+      :aria-invalid="hasError ? 'true' : undefined"
+      :class="['base-input', `base-input--${size}`]"
       @input="emit('update:modelValue', $event.target.value)"
       @blur="emit('blur')"
       @focus="emit('focus')"
       @change="emit('change')"
     />
-    <span v-if="error" class="base-input__error">{{ error }}</span>
-  </div>
+    <span v-if="error" class="base-input__error ctl-error" role="alert">{{ error }}</span>
+  </label>
 </template>
 
 <style scoped>
+/* Control visuals (border, radius, focus, error, sizes) come from src/styles/forms.css. */
 .base-input-wrapper {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
-}
-
-.base-input__label {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-text);
-}
-
-.base-input__required {
-  color: var(--color-danger-text);
-  margin-left: 0.2rem;
+  min-width: 0;
 }
 
 .base-input {
-  padding: 0.6rem 0.8rem;
-  font-size: 0.95rem;
-  font-family: var(--font-ui);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface-elevated);
-  color: var(--color-text);
-  transition: all var(--transition-fast);
-}
-
-/* ==================== SIZES ==================== */
-.base-input--sm {
-  padding: 0.4rem 0.6rem;
-  font-size: 0.85rem;
-}
-
-.base-input--lg {
-  padding: 0.8rem 1rem;
-  font-size: 1.05rem;
-}
-
-/* ==================== STATES ==================== */
-.base-input:focus {
-  outline: none;
-  border-color: var(--color-canopy);
-  box-shadow: 0 0 0 3px rgba(26, 60, 52, 0.1);
-  background: var(--color-surface-elevated);
-}
-
-.base-input--error {
-  border-color: var(--color-danger-text);
-}
-
-.base-input--error:focus {
-  box-shadow: 0 0 0 3px rgba(139, 44, 31, 0.1);
-}
-
-.base-input:disabled,
-.base-input--disabled {
-  background: var(--color-bg);
-  color: var(--color-muted);
-  cursor: not-allowed;
-}
-
-.base-input__error {
-  font-size: 0.8rem;
-  color: var(--color-danger-text);
-  font-weight: 500;
-}
-
-/* Placeholder styles */
-.base-input::placeholder {
-  color: var(--color-muted);
+  width: 100%;
 }
 </style>

@@ -38,6 +38,11 @@ export function revenueSeries(trends) {
   ];
 }
 
+/** Total revenue for the period (sales + rentals, cancelled excluded), matching the Revenue chart. */
+export function revenueTotalOf(trends) {
+  return buckets(trends).reduce((sum, x) => sum + num(x.ordersRevenue) + num(x.rentalsRevenue), 0);
+}
+
 export function volumeSeries(trends) {
   const b = buckets(trends);
   return [

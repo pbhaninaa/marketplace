@@ -4,26 +4,21 @@ import { useRouter } from 'vue-router';
 import { providerDashboardApi, providerSubscriptionApi } from '../services/marketplaceApi';
 import { useAuthStore } from '../stores/auth';
 import DateRangeFilter from '../components/ui/DateRangeFilter.vue';
-import { formatCount, formatDateRange, formatEnum, formatMoney } from '../utils/display';
+import { formatCount, formatDate, formatEnum, formatMoney } from '../utils/display';
 import LiveStatus from '../components/LiveStatus.vue';
 import { useLiveRefresh } from '../composables/useLiveRefresh';
 import TimeChart from '../components/charts/TimeChart.vue';
-import RankedBars from '../components/charts/RankedBars.vue';
 import SegmentedBar from '../components/charts/SegmentedBar.vue';
 import {
   labelsOf,
   orderStatusParts,
-  paymentMethodItems,
   perBucket,
   revenueSeries,
-  topItems,
-  volumeSeries,
+  revenueTotalOf,
 } from '../components/charts/dashboardSeries';
 
 const router = useRouter();
 const auth = useAuthStore();
-
-const canManage = computed(() => auth.role === 'PROVIDER_OWNER' || auth.role === 'PROVIDER_ADMIN');
 
 const loading = ref(false);
 const error = ref('');
@@ -31,9 +26,6 @@ const stats = ref(null);
 const range = ref({ preset: 'LAST_7', from: '', to: '' });
 const subLoading = ref(false);
 const subscription = ref(null);
-const canManagePremium = computed(
-  () => canManage.value && String(subscription.value?.plan || '').toUpperCase() === 'PREMIUM',
-);
 
 onMounted(() => {
   auth.restoreFromStorage();
@@ -126,10 +118,28 @@ const { refreshNow, lastUpdated, refreshing } = useLiveRefresh(() =>
   Promise.all([loadStats({ quiet: true }), loadSubscription({ quiet: true })]),
 );
 
-const subProgress = computed(() => {
-  if (subscription.value?.valid === true) return 100;
-  if (subscription.value?.plan) return 55;
-  return 15;
+/** Same figure the Revenue chart plots (cancelled excluded), so the tile and chart always agree. */
+const revenueTotal = computed(() => revenueTotalOf(trends.value));
+
+/** One-line subscription status: what plan, and how long it lasts. */
+const subscriptionHeadline = computed(() => {
+  const s = subscription.value;
+  if (!s) return '';
+  if (s.onTrial) return 'Free trial';
+  if (s.valid) return `${formatEnum(s.plan, 'Paid')} plan active`;
+  return 'Not taking orders: no active plan';
+});
+
+const subscriptionDetail = computed(() => {
+  const s = subscription.value;
+  if (!s) return '';
+  if (s.onTrial) {
+    const d = Number(s.trialDaysRemaining) || 0;
+    return d > 0 ? `${d} day${d === 1 ? '' : 's'} left` : 'ends today';
+  }
+  if (s.valid && s.expiresAt) return `renews or ends ${formatDate(s.expiresAt)}`;
+  if (!s.valid) return 'your listings are hidden until you choose a plan';
+  return '';
 });
 
 watch(
@@ -148,12 +158,11 @@ watch(
     <header class="page-hero">
       <p class="page-hero__eyebrow">Provider</p>
       <h1 class="page-hero__title">Dashboard</h1>
-      <p class="page-hero__lead">Insights, subscription status, and quick access to your provider tools.</p>
+      <p class="page-hero__lead">How your business is doing at a glance. Details live in the menu.</p>
     </header>
 
     <div class="dash-live">
       <LiveStatus :updated-at="lastUpdated" :refreshing="refreshing || loading" @refresh="refreshNow" />
-      <router-link to="/provider/history" class="btn btn-ghost btn-xs">Order &amp; payment history</router-link>
     </div>
 
     <p v-if="error" class="err-toast">{{ error }}</p>
@@ -162,29 +171,39 @@ watch(
       <DateRangeFilter v-model="range" />
       <div class="kpis">
         <div class="kpi">
+          <span class="kpi__label">Revenue</span>
+          <strong class="kpi__value">{{ trends ? formatMoney(revenueTotal) : kpi() }}</strong>
+          <span class="kpi__hint">Sales and rentals, cancelled excluded</span>
+        </div>
+        <div class="kpi">
           <span class="kpi__label">Purchase orders</span>
           <!-- Field names match ProviderDashboardStatsResponse (capital "O" in OrdersCount). -->
           <strong class="kpi__value">{{ kpi(formatCount(stats?.OrdersCount)) }}</strong>
-          <span class="kpi__hint">Total: {{ kpi(formatMoney(stats?.OrdersTotal)) }}</span>
+          <span class="kpi__hint">In this period</span>
         </div>
         <div class="kpi">
           <span class="kpi__label">Rental bookings</span>
           <strong class="kpi__value">{{ kpi(formatCount(stats?.rentalBookingsCount)) }}</strong>
-          <span class="kpi__hint">Total: {{ kpi(formatMoney(stats?.rentalBookingsTotal)) }}</span>
-        </div>
-        <div class="kpi">
-          <span class="kpi__label">Range</span>
-          <strong class="kpi__value">{{ kpi(formatDateRange(stats?.from, stats?.to)) }}</strong>
-          <span class="kpi__hint">{{ loading ? 'Loading…' : 'Updated' }}</span>
+          <span class="kpi__hint">In this period</span>
         </div>
       </div>
     </section>
 
-    <section v-if="trends" class="dash-charts" aria-label="Sales charts">
+    <div v-if="subscription" class="sub-strip" :class="{ 'sub-strip--warn': !subscription.valid }" role="status">
+      <span class="material-icons" aria-hidden="true">{{ subscription.valid ? 'verified' : 'error_outline' }}</span>
+      <span class="sub-strip__text">
+        <strong>{{ subscriptionHeadline }}</strong>
+        <span v-if="subscriptionDetail" class="muted"> · {{ subscriptionDetail }}</span>
+      </span>
+      <router-link to="/provider/subscription" class="btn btn-ghost btn-xs">
+        {{ subscription.valid ? 'Manage' : 'Choose a plan' }}
+      </router-link>
+    </div>
+
+    <section v-if="trends" class="dash-charts" aria-label="Sales overview charts">
       <TimeChart
-        class="dash-charts__wide"
         title="Revenue"
-        :subtitle="`Sales orders and rentals ${per}, cancelled excluded`"
+        :subtitle="`Sales orders and rentals ${per}`"
         :labels="chartLabels"
         :granularity="trends.granularity"
         :series="revenueSeries(trends)"
@@ -192,118 +211,23 @@ watch(
         :busy="loading"
         empty-text="No revenue in this period yet."
       />
-      <TimeChart
-        title="Orders and bookings"
-        :subtitle="`Number placed ${per}`"
-        kind="columns"
-        :labels="chartLabels"
-        :granularity="trends.granularity"
-        :series="volumeSeries(trends)"
-        :busy="loading"
-        empty-text="No orders or bookings in this period yet."
-      />
       <SegmentedBar
         title="Order status"
-        subtitle="Where this period's orders and bookings are now"
+        subtitle="Orders and bookings from this period"
         :parts="orderStatusParts(trends)"
         unit="orders"
         :busy="loading"
         empty-text="No orders or bookings in this period yet."
       />
-      <RankedBars
-        title="Top listings"
-        subtitle="Units sold plus rental bookings, top 5"
-        :items="topItems(trends)"
-        unit="ordered"
-        :busy="loading"
-        empty-text="No listings ordered in this period yet."
-      />
-      <RankedBars
-        title="Payment methods"
-        subtitle="Amount by how buyers paid"
-        :items="paymentMethodItems(trends)"
-        money
-        :busy="loading"
-        empty-text="No payments in this period yet."
-      />
     </section>
 
-    <section class="surface-panel dash-panel dash-panel--status">
-      <div class="status-head">
-        <div>
-          <h2>Progress</h2>
-          <p class="muted small">Keep your subscription active to unlock all provider tools.</p>
-        </div>
-        <button type="button" class="btn btn-ghost" :disabled="subLoading" @click="loadSubscription">
-          {{ subLoading ? 'Refreshing…' : 'Refresh' }}
-        </button>
-      </div>
-      <div class="status-grid">
-        <div class="status-card">
-          <div class="status-card__top">
-            <strong>Subscription</strong>
-            <span class="muted small">{{ subscription?.valid ? 'Active' : 'Not active' }}</span>
-          </div>
-          <div class="bar">
-            <div class="bar__fill" :style="{ width: `${subProgress}%` }" />
-          </div>
-          <p class="muted small">
-            Plan: <strong>{{ formatEnum(subscription?.plan, 'No plan yet') }}</strong> ·
-            Cycle: <strong>{{ formatEnum(subscription?.billingCycle, subscription?.onTrial ? 'Free trial' : 'Not set') }}</strong>
-          </p>
-          <router-link to="/provider/subscription" class="btn btn-primary btn-xs">Manage subscription</router-link>
-        </div>
-        <div class="status-card">
-          <div class="status-card__top">
-            <strong>Next best action</strong>
-            <span class="muted small">Suggested</span>
-          </div>
-          <ul class="checklist">
-            <li>
-              <span class="dot" />
-              Review today’s orders in <router-link to="/provider/orders">Orders</router-link>
-            </li>
-            <li>
-              <span class="dot" />
-              Keep listings updated in <router-link to="/provider/listings">Listings</router-link>
-            </li>
-            <li v-if="canManage">
-              <span class="dot" />
-              Audit permissions in <router-link to="/provider/team">Team management</router-link>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <section class="surface-panel dash-panel">
-      <div class="dash-grid">
-        <router-link to="/provider/orders" class="dash-card">
-          <strong>Orders</strong>
-          <span class="muted small">Purchases & rentals</span>
-        </router-link>
-        <router-link to="/provider/listings" class="dash-card">
-          <strong>Listings</strong>
-          <span class="muted small">Create and manage items/services</span>
-        </router-link>
-        <router-link to="/provider/subscription" class="dash-card">
-          <strong>Subscription</strong>
-          <span class="muted small">{{ subscription?.valid ? 'Active plan' : 'Activate to unlock full access' }}</span>
-        </router-link>
-        <router-link to="/provider/settings" class="dash-card">
-          <strong>Profile & settings</strong>
-          <span class="muted small">Location, banking, payment methods</span>
-        </router-link>
-        <router-link v-if="canManagePremium" to="/provider/team" class="dash-card">
-          <strong>Team management</strong>
-          <span class="muted small">Enrol staff, permissions, targets</span>
-        </router-link>
-        <router-link v-if="canManagePremium" to="/provider/staff-payments" class="dash-card">
-          <strong>Staff payments</strong>
-          <span class="muted small">Payouts per order, or pay everyone at once</span>
-        </router-link>
-      </div>
-    </section>
+    <p class="dash-more">
+      <router-link to="/provider/orders">Open orders</router-link>
+      <span aria-hidden="true">·</span>
+      <router-link to="/provider/history">See every order and payment</router-link>
+      <span aria-hidden="true">·</span>
+      <router-link to="/provider/listings">Manage listings</router-link>
+    </p>
   </div>
 </template>
 
@@ -312,27 +236,9 @@ watch(
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.5rem;
   margin-bottom: 0.85rem;
-}
-
-
-.dash-charts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.dash-charts__wide {
-  grid-column: 1 / -1;
-}
-
-@media (max-width: 820px) {
-  .dash-charts {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 .dash-top {
@@ -342,142 +248,104 @@ watch(
   grid-template-columns: 1fr;
   gap: 0.85rem;
 }
+
+/* KPI tiles: same look as the admin dashboard. */
 .kpis {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.85rem;
 }
+
 .kpi {
   border: 1px solid var(--color-border);
-  border-radius: 18px;
+  border-radius: var(--radius-lg);
   padding: 0.85rem 0.95rem;
   background: var(--color-surface-elevated);
-  border-left: 3px solid var(--color-sage);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.2rem;
 }
+
 .kpi__label {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
   color: var(--color-muted);
 }
+
 .kpi__value {
   font-family: var(--font-display);
   font-size: 1.2rem;
 }
+
 .kpi__hint {
   font-size: 0.82rem;
   color: var(--color-muted);
 }
-.dash-panel {
-  width: 100%;
-  margin: 0;
-}
 
-.dash-panel--status {
+/* One-line subscription status instead of a whole section. */
+.sub-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.85rem;
   margin-bottom: 1rem;
-}
-
-.status-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-.status-grid {
-  display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 0.85rem;
-}
-
-.status-card {
-  border: 1px solid rgba(26, 60, 52, 0.14);
-  background: rgba(61, 122, 102, 0.05);
-  border-radius: var(--radius-lg);
-  padding: 0.95rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.status-card__top {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-}
-
-.bar {
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(26, 60, 52, 0.1);
-  overflow: hidden;
-  border: 1px solid rgba(26, 60, 52, 0.12);
-}
-
-.bar__fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--color-sage) 0%, var(--color-canopy-mid) 100%);
-  transition: width 0.25s var(--ease-out);
-}
-
-.checklist {
-  padding-left: 0;
-  margin: 0.25rem 0 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-}
-.checklist li {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  font-size: 0.92rem;
-}
-.dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: rgba(26, 60, 52, 0.25);
-  margin-top: 0.35rem;
-  flex: 0 0 auto;
-}
-.dash-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-.dash-card {
   border: 1px solid var(--color-border);
-  border-radius: 18px;
-  padding: 1rem 1.05rem;
-  background: var(--color-surface-elevated);
-  border-left: 3px solid var(--color-sage);
-  text-decoration: none;
-  color: var(--color-canopy);
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-.dash-card:hover {
+  border-radius: var(--radius-lg);
   background: var(--color-sage-soft);
-  border-color: rgba(61, 122, 102, 0.35);
-  text-decoration: none;
-  color: var(--color-canopy);
+  color: var(--color-text);
+  font-size: 0.9rem;
 }
+
+.sub-strip .material-icons {
+  font-size: 1.2rem;
+  color: var(--color-sage);
+}
+
+.sub-strip__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.sub-strip .btn {
+  margin-left: auto;
+}
+
+.sub-strip--warn {
+  background: var(--color-danger-bg);
+}
+
+.sub-strip--warn .material-icons {
+  color: var(--color-danger-text);
+}
+
+/* Overview: the revenue trend leads, order status sits beside it. */
+.dash-charts {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.dash-more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0 0;
+  font-size: 0.88rem;
+  color: var(--color-muted);
+}
+
+.dash-more a {
+  font-weight: 600;
+}
+
 @media (max-width: 900px) {
   .kpis {
     grid-template-columns: 1fr;
   }
-  .status-grid {
-    grid-template-columns: 1fr;
-  }
-  .dash-grid {
-    grid-template-columns: 1fr;
+  .dash-charts {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>
