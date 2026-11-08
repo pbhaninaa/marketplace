@@ -203,10 +203,10 @@ async function submit() {
         <input v-model="location" type="text" required :maxlength="LIMITS.location" autocomplete="street-address" />
       </FormField>
       <FormField label="Provider type">
-        <select v-model="subtype" required>
+        <AppSelect v-model="subtype" required>
           <option value="RESELLER">Reseller</option>
           <option value="RENTING_OWNER">Renting owner</option>
-        </select>
+        </AppSelect>
       </FormField>
       <FormField label="Owner email" :error="shownError('ownerEmail')">
         <input v-model="ownerEmail" type="email" required :maxlength="LIMITS.email" autocomplete="email" />

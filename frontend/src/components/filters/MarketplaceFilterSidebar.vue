@@ -27,25 +27,25 @@ function patch(field, raw) {
     </div>
 
     <FormField label="Category">
-      <select :value="String(modelValue.categoryId ?? '')" @change="patch('categoryId', $event.target.value)">
+      <AppSelect :value="String(modelValue.categoryId ?? '')" @change="patch('categoryId', $event.target.value)">
         <option value="">All categories</option>
         <option v-for="c in categories" :key="c.id" :value="String(c.id)">{{ c.name }}</option>
-      </select>
+      </AppSelect>
     </FormField>
 
     <FormField label="Provider">
-      <select :value="String(modelValue.providerId ?? '')" @change="patch('providerId', $event.target.value)">
+      <AppSelect :value="String(modelValue.providerId ?? '')" @change="patch('providerId', $event.target.value)">
         <option value="">All providers</option>
         <option v-for="p in providers" :key="p.id" :value="String(p.id)">{{ p.name }}</option>
-      </select>
+      </AppSelect>
     </FormField>
 
     <FormField v-if="!hideListingType" label="Listing type">
-      <select :value="modelValue.listingType ?? ''" @change="patch('listingType', $event.target.value)">
+      <AppSelect :value="modelValue.listingType ?? ''" @change="patch('listingType', $event.target.value)">
         <option value="">Sale & rent</option>
         <option value="SALE">For sale</option>
         <option value="RENT">For rent</option>
-      </select>
+      </AppSelect>
     </FormField>
 
     <FormField :label="forRent ? 'Min rate (R)' : 'Min price (R)'">

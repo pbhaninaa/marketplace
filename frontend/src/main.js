@@ -1,5 +1,6 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
+import AppSelect from './components/ui/AppSelect.vue';
 import App from './App.vue';
 import router from './router';
 import './styles.css';
@@ -11,6 +12,8 @@ import { useDisplayStyleStore } from './stores/displayStyle';
 import { installGlassTilt } from './composables/useGlassTilt';
 
 const app = createApp(App);
+// Every dropdown in the app: styled like the other inputs (see components/ui/AppSelect.vue).
+app.component('AppSelect', AppSelect);
 const pinia = createPinia();
 app.use(pinia);
 // Apply the signed-in user's saved display style before first paint; follows sign-in/out.

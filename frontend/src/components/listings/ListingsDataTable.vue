@@ -115,21 +115,13 @@ const emit = defineEmits(['add-to-cart', 'reset-rent-dates', 'update-rent-defaul
   min-width: 200px;
 }
 
+/* Compact size of the shared input style (src/styles/forms.css) for table rows. */
 .field-inline {
   width: 100%;
   max-width: 220px;
-  padding: 0.4rem 0.55rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border);
-  font: inherit;
-  font-size: 0.82rem;
-  background: var(--color-surface);
-}
-
-.field-inline:focus {
-  outline: none;
-  border-color: var(--color-sage);
-  box-shadow: 0 0 0 2px rgba(61, 122, 102, 0.12);
+  --ctl-height: 2.25rem;
+  --ctl-font-size: 0.85rem;
+  --ctl-pad-x: 0.7rem;
 }
 
 .linkish {

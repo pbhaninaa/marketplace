@@ -105,12 +105,12 @@ onMounted(() => load(0));
           <input v-model="filters.referee" type="text" />
         </FormField>
         <FormField label="Status">
-          <select v-model="filters.status">
+          <AppSelect v-model="filters.status">
             <option value="">Any</option>
             <option value="PENDING">Waiting for first payment</option>
             <option value="EARNED">Earned (unpaid)</option>
             <option value="PAID">Paid out</option>
-          </select>
+          </AppSelect>
         </FormField>
         <FormField label="Referred from">
           <input v-model="filters.from" type="date" />

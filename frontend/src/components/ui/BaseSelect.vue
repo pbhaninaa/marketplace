@@ -44,7 +44,7 @@ const hasError = computed(() => !!props.error);
     <span v-if="label" class="base-select__label ctl-label">
       {{ label }}<span v-if="required" class="ctl-required" aria-hidden="true">*</span>
     </span>
-    <select
+    <AppSelect
       :value="modelValue"
       :disabled="disabled"
       :required="required"
@@ -56,7 +56,7 @@ const hasError = computed(() => !!props.error);
       <option v-for="opt in options" :key="opt.value" :value="opt.value">
         {{ opt.label }}
       </option>
-    </select>
+    </AppSelect>
     <span v-if="error" class="base-select__error ctl-error" role="alert">{{ error }}</span>
   </label>
 </template>

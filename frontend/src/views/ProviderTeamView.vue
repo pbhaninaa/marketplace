@@ -432,24 +432,24 @@ function money(v) {
           <FormField label="Last name" :error="createErrors.lastName"><input v-model="createForm.lastName" type="text" :maxlength="LIMITS.personName" /></FormField>
           <FormField label="Phone" :error="createErrors.phoneNumber"><input v-model="createForm.phoneNumber" type="tel" placeholder="+27 82 123 4567" /></FormField>
           <FormField label="Role">
-            <select v-model="createForm.role">
+            <AppSelect v-model="createForm.role">
               <option v-for="r in ROLE_OPTIONS" :key="r.value" :value="r.value">{{ r.label }}</option>
-            </select>
+            </AppSelect>
           </FormField>
           <FormField label="Pay method (payroll rate)">
-            <select v-model="createForm.rateUnit">
+            <AppSelect v-model="createForm.rateUnit">
               <option v-for="p in PAY_METHODS" :key="p.value" :value="p.value">{{ p.label }}</option>
-            </select>
+            </AppSelect>
           </FormField>
           <FormField label="Pay rate (ZAR)" :error="createErrors.rateAmount">
             <input v-model="createForm.rateAmount" type="number" min="0" step="0.01" required />
           </FormField>
           <FormField label="Target period">
-            <select v-model="createForm.targetPeriod">
+            <AppSelect v-model="createForm.targetPeriod">
               <option value="DAILY">Daily</option>
               <option value="WEEKLY">Weekly</option>
               <option value="MONTHLY">Monthly</option>
-            </select>
+            </AppSelect>
           </FormField>
           <FormField label="Target value" :error="createErrors.targetValue">
             <input v-model="createForm.targetValue" type="number" min="0" step="0.01" />
@@ -495,24 +495,24 @@ function money(v) {
           <FormField label="Last name" :error="editErrors.lastName"><input v-model="editForm.lastName" type="text" :maxlength="LIMITS.personName" /></FormField>
           <FormField label="Phone" :error="editErrors.phoneNumber"><input v-model="editForm.phoneNumber" type="tel" placeholder="+27 82 123 4567" /></FormField>
           <FormField label="Role">
-            <select v-model="editForm.role">
+            <AppSelect v-model="editForm.role">
               <option v-for="r in ROLE_OPTIONS" :key="r.value" :value="r.value">{{ r.label }}</option>
-            </select>
+            </AppSelect>
           </FormField>
           <FormField label="Pay method (payroll rate)">
-            <select v-model="editForm.rateUnit">
+            <AppSelect v-model="editForm.rateUnit">
               <option v-for="p in PAY_METHODS" :key="p.value" :value="p.value">{{ p.label }}</option>
-            </select>
+            </AppSelect>
           </FormField>
           <FormField label="Pay rate (ZAR)" :error="editErrors.rateAmount">
             <input v-model="editForm.rateAmount" type="number" min="0" step="0.01" required />
           </FormField>
           <FormField label="Target period">
-            <select v-model="editForm.targetPeriod">
+            <AppSelect v-model="editForm.targetPeriod">
               <option value="DAILY">Daily</option>
               <option value="WEEKLY">Weekly</option>
               <option value="MONTHLY">Monthly</option>
-            </select>
+            </AppSelect>
           </FormField>
           <FormField label="Target value" :error="editErrors.targetValue">
             <input v-model="editForm.targetValue" type="number" min="0" step="0.01" />
@@ -521,10 +521,10 @@ function money(v) {
             <input v-model="editForm.bonusPercentage" type="number" min="0" max="100" step="0.1" />
           </FormField>
           <FormField label="Status">
-            <select v-model="editForm.enabled">
+            <AppSelect v-model="editForm.enabled">
               <option :value="true">Active</option>
               <option :value="false">Disabled</option>
-            </select>
+            </AppSelect>
           </FormField>
         </div>
         <div class="perm-block">
@@ -635,12 +635,9 @@ function money(v) {
   align-items: center;
 }
 
+/* Look comes from src/styles/forms.css; only the size is set here. */
 .team-search {
   min-width: 14rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
 }
 
 .chip {
