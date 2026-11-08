@@ -1,5 +1,6 @@
 package com.agrimarket.api;
 
+import com.agrimarket.service.dashboard.DashboardTrendsService;
 import com.agrimarket.api.dto.AdminDashboardStatsResponse;
 import com.agrimarket.repo.ListingRepository;
 import com.agrimarket.repo.OrderRepository;
@@ -26,6 +27,15 @@ public class AdminDashboardController {
     private final ListingRepository listingRepository;
     private final OrderRepository orderRepository;
     private final RentalBookingRepository rentalBookingRepository;
+    private final DashboardTrendsService dashboardTrendsService;
+
+    /** Chart data: revenue/orders/sign-ups over time plus status, payment, top-provider and plan breakdowns. */
+    @GetMapping("/trends")
+    public DashboardTrendsService.Trends trends(
+            @RequestParam(name = "from", required = false) LocalDate from,
+            @RequestParam(name = "to", required = false) LocalDate to) {
+        return dashboardTrendsService.forPlatform(from, to);
+    }
 
     @GetMapping("/stats")
     public AdminDashboardStatsResponse stats(

@@ -1,5 +1,6 @@
 package com.agrimarket.api;
 
+import com.agrimarket.service.dashboard.DashboardTrendsService;
 import com.agrimarket.api.dto.ProviderDashboardStatsResponse;
 import com.agrimarket.repo.OrderRepository;
 import com.agrimarket.repo.RentalBookingRepository;
@@ -24,6 +25,17 @@ public class ProviderDashboardController {
     private final OrderRepository orderRepository;
     private final RentalBookingRepository rentalBookingRepository;
     private final AccessGuard accessGuard;
+    private final DashboardTrendsService dashboardTrendsService;
+
+    /** Chart data for the caller's own provider only (orders read permission required). */
+    @GetMapping("/trends")
+    public DashboardTrendsService.Trends trends(
+            @AuthenticationPrincipal MarketUserPrincipal actor,
+            @RequestParam(name = "from", required = false) LocalDate from,
+            @RequestParam(name = "to", required = false) LocalDate to) {
+        accessGuard.requireOrderRead(actor);
+        return dashboardTrendsService.forProvider(actor.getProviderId(), from, to);
+    }
 
     @GetMapping("/stats")
     public ProviderDashboardStatsResponse stats(
