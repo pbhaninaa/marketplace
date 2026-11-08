@@ -46,11 +46,11 @@ const rentalLabel = computed(() =>
   <article class="cart-line-card">
     <div class="cart-line-card__head">
       <TextWithTooltip :text="line.title" tag="strong" class="cart-line-card__title" />
-      <span class="badge-type">{{ line.listingType }}</span>
+      <span class="badge-type">{{ line.listingType === 'RENT' ? 'Rental' : 'For sale' }}</span>
     </div>
 
-    <!-- Quantity controls -->
-    <div class="qty-controls">
+    <!-- Quantity controls (items for sale only; a rental books one item for a time slot) -->
+    <div v-if="line.listingType !== 'RENT'" class="qty-controls">
       <span class="meta-label">Quantity:</span>
       <div class="qty-box">
         <button

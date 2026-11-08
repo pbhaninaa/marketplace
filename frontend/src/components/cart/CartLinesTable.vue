@@ -1,10 +1,14 @@
 <script setup>
+import { computed } from 'vue';
 import DataTableShell from '../ui/DataTableShell.vue';
 import { formatRentalInclusiveRange } from '../../utils/rentalPricing';
 
-defineProps({
+const props = defineProps({
   lines: { type: Array, default: () => [] },
 });
+
+/** The Qty column only appears when there is at least one item for sale. */
+const hasSaleLines = computed(() => props.lines.some((l) => l.listingType !== 'RENT'));
 
 /* events for parent */
 const emit = defineEmits(['update-quantity', 'remove-line', 'show-limit-warning']);
@@ -47,8 +51,9 @@ function handleIncrement(line) {
       <tr>
         <th>Item</th>
         <th>Type</th>
-        <th>Qty</th>
-        <th>Stock Availability</th>
+        <!-- Quantity only applies to items for sale; a rental books one item for a time slot. -->
+        <th v-if="hasSaleLines">Qty</th>
+        <th>Details</th>
         <th class="col-num">Line total</th>
         <th></th>
       </tr>
@@ -61,11 +66,11 @@ function handleIncrement(line) {
         <td><strong>{{ line.title }}</strong></td>
 
         <!-- TYPE -->
-        <td>{{ line.listingType }}</td>
+        <td>{{ line.listingType === 'RENT' ? 'Rental' : 'For sale' }}</td>
 
-        <!-- QUANTITY WITH ICONS -->
-        <td>
-          <div class="qty-box">
+        <!-- QUANTITY WITH ICONS (items for sale only) -->
+        <td v-if="hasSaleLines">
+          <div v-if="line.listingType !== 'RENT'" class="qty-box">
 
             <!-- minus -->
             <button

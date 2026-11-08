@@ -11,6 +11,8 @@ import com.agrimarket.repo.ProviderRepository;
 import com.agrimarket.service.ListingMapper;
 import com.agrimarket.service.ListingSpecifications;
 import com.agrimarket.service.SubscriptionService;
+import com.agrimarket.service.RentalAvailability;
+import com.agrimarket.repo.RentalBookingRepository;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -19,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -32,6 +35,7 @@ public class PublicMarketplaceController {
     private final CategoryRepository categoryRepository;
     private final ProviderRepository providerRepository;
     private final SubscriptionService subscriptionService;
+    private final RentalBookingRepository rentalBookingRepository;
     private final Clock clock;
 
     @GetMapping("/categories")
@@ -55,6 +59,24 @@ public class PublicMarketplaceController {
         return providerRepository.findAll(Sort.by("name").ascending()).stream()
                 .filter(subscriptionService::canAcceptOrders)
                 .map(p -> new ProviderOptionResponse(p.getId(), p.getName()))
+                .toList();
+    }
+
+    /** A time range in which a rental item is already taken (no buyer details). */
+    public record BookedSlot(Instant start, Instant end) {}
+
+    /**
+     * Upcoming taken slots for a rental item, so buyers can pick a free time before adding to cart.
+     * Uses the same rule as booking: anything not cancelled holds its slot.
+     */
+    @GetMapping("/listings/{id}/booked")
+    public java.util.List<BookedSlot> bookedSlots(@PathVariable("id") Long id) {
+        Instant now = Instant.now(clock);
+        return rentalBookingRepository
+                .findOverlapping(id, RentalAvailability.BLOCKING, now, now.plus(java.time.Duration.ofDays(366)))
+                .stream()
+                .limit(100)
+                .map(b -> new BookedSlot(b.getStartAt(), b.getEndAt()))
                 .toList();
     }
 

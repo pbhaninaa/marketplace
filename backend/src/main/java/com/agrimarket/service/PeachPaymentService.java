@@ -268,6 +268,14 @@ public class PeachPaymentService {
         if (allPaid) {
             return;
         }
+        if (isCancelledResultCode(resultCode)) {
+            // The buyer cancelled on the Peach page: release the rental slots this checkout was holding,
+            // so other buyers can book those times. (Cash/EFT bookings are untouched.)
+            for (PaymentRecord payment : payments) {
+                releaseUnpaidRental(payment.getRentalBooking());
+            }
+            return;
+        }
         if (!isSuccessfulNotification(params)) {
             return;
         }
@@ -357,6 +365,19 @@ public class PeachPaymentService {
             appNotificationService.notifyOrderStatus(order);
         } catch (Exception ignored) {
             // Never fail payment confirmation due to notifications.
+        }
+    }
+
+    /** Cancel a rental that was never paid, freeing its time slot. No-op for paid/collected/cancelled. */
+    private void releaseUnpaidRental(RentalBooking rental) {
+        if (rental == null || rental.getStatus() != BookingStatus.PENDING_PAYMENT) {
+            return;
+        }
+        rental.setStatus(BookingStatus.CANCELLED);
+        try {
+            appNotificationService.notifyRentalStatus(rental);
+        } catch (Exception ignored) {
+            // Never fail webhook handling due to notifications.
         }
     }
 
