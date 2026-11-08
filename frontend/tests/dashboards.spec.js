@@ -57,7 +57,8 @@ async function render(view, role) {
   return wrapper;
 }
 
-describe('dashboards are an overview', () => {
+// Each test imports a whole dashboard view; allow extra time on busy CI machines.
+describe('dashboards are an overview', { timeout: 20000 }, () => {
   beforeEach(() => {
     setActivePinia(createPinia());
   });

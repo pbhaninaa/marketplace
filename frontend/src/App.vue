@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useSessionStore } from './stores/session';
 import { useSetupStore } from './stores/setup';
 import { useAuthStore } from './stores/auth';
@@ -14,6 +14,14 @@ import { refreshProviderSubscription } from './utils/providerSubscriptionGate';
 import { createLiveStream } from './services/liveStream';
 
 const route = useRoute();
+const router = useRouter();
+
+/** End a support "shadow provider" session and go back to the support dashboard. */
+function endShadow() {
+  auth.endShadow();
+  closeMenu();
+  router.push('/support');
+}
 const session = useSessionStore();
 const setup = useSetupStore();
 const auth = useAuthStore();
@@ -197,6 +205,7 @@ onMounted(async () => {
           <router-link to="/settings">Settings</router-link>
           <router-link v-if="setup.needsFirstAdmin === true" to="/setup">Setup</router-link>
           <router-link to="/help/client" class="side-nav__link--help">Help</router-link>
+          <router-link to="/manuals">User manuals</router-link>
         </template>
 
         <template v-else-if="auth.isProviderUser">
@@ -226,6 +235,7 @@ onMounted(async () => {
           </template>
           <router-link to="/profile">Profile</router-link>
           <router-link to="/provider/help" class="side-nav__link--help">Help</router-link>
+          <router-link to="/manuals/providers">User manual</router-link>
         </template>
 
         <template v-else-if="auth.isClientUser">
@@ -236,6 +246,7 @@ onMounted(async () => {
           <router-link to="/profile">Profile</router-link>
           <router-link to="/settings">Settings</router-link>
           <router-link to="/help/client" class="side-nav__link--help">Help</router-link>
+          <router-link to="/manuals/buyers">User manual</router-link>
         </template>
 
         <template v-else-if="auth.isSupport && !auth.isPlatformAdmin">
@@ -246,6 +257,8 @@ onMounted(async () => {
           <router-link to="/support/otp">Client OTP</router-link>
           <router-link to="/support/order-invoice">Order invoice</router-link>
           <router-link to="/profile">Profile</router-link>
+          <router-link to="/manuals/support" class="side-nav__link--help">User manual</router-link>
+          <router-link to="/manuals">All user manuals</router-link>
         </template>
 
         <template v-else-if="auth.isPlatformAdmin">
@@ -260,6 +273,8 @@ onMounted(async () => {
           <router-link to="/support">Support</router-link>
           <router-link to="/admin/settings">Settings</router-link>
           <router-link to="/profile">Profile</router-link>
+          <router-link to="/manuals/admin" class="side-nav__link--help">User manual</router-link>
+          <router-link to="/manuals">All user manuals</router-link>
         </template>
       </nav>
 
@@ -299,6 +314,11 @@ onMounted(async () => {
             </span>
           </router-link>
           <DisplayStyleToggle variant="compact" />
+          <!-- Support staff viewing the app as a provider: way back to their own account. -->
+          <button v-if="auth.isShadowing" type="button" class="side-nav__signout" @click="endShadow">
+            <span class="material-icons" aria-hidden="true">undo</span>
+            Return to my support account
+          </button>
           <button type="button" class="side-nav__signout" @click="auth.logout()">
             <span class="material-icons" aria-hidden="true">logout</span>
             Sign out

@@ -16,6 +16,10 @@ const isLoggedInClient = computed(() => auth.isAuthenticated && auth.isClientUse
       <p class="page-hero__lead">
         Simple guides for browsing, checkout, and getting invoices.
       </p>
+      <router-link to="/manuals/buyers" class="manual-callout">
+        <span class="material-icons" aria-hidden="true">menu_book</span>
+        Read the full buyer guide
+      </router-link>
     </header>
 
     <section class="surface-panel help-panel">

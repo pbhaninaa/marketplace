@@ -1,5 +1,10 @@
 # Agricultural Marketplace - User Manual
 
+> **Looking for the user guides?** The plain-language manuals for buyers, providers, administrators and
+> support staff live in `frontend/src/manuals/` and are readable in the web app at **/manuals** (with print /
+> save as PDF). This file is the technical reference: API endpoints, error codes and implementation notes.
+
+
 ## Table of Contents
 1. [Introduction](#introduction)
 2. [System Overview](#system-overview)

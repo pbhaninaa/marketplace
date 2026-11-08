@@ -181,9 +181,13 @@ async function submit() {
       <p class="page-hero__eyebrow">New provider</p>
       <h1 class="page-hero__title">Sign up</h1>
       <p class="page-hero__lead">
-        Create your business profile and owner account. After you sign in, choose a subscription plan first.
-        Monthly access runs for 30 days from approval. Then you can manage listings and your team.
+        Create your business profile and owner account. You start with a 14-day free trial, so you can list
+        items and take orders straight away. Choose a monthly plan before the trial ends to keep selling.
       </p>
+      <router-link to="/manuals/providers" class="manual-callout">
+        <span class="material-icons" aria-hidden="true">menu_book</span>
+        New here? Read the provider guide
+      </router-link>
     </header>
 
     <form class="surface-panel register-form" @submit.prevent="submit">
